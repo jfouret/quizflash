@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}Study · QuizDeck{% endblock %}
+{% block content %}
+<h1>Study</h1>
+<label for="deck-select">Deck</label>
+<select id="deck-select">
+  <option value="">All decks</option>
+  {% for deck in decks %}<option value="{{ deck.id }}" {% if deck_id == deck.id %}selected{% endif %}>{{ deck.name }}</option>{% endfor %}
+</select>
+<p id="status" role="status" aria-live="polite"></p>
+<section id="empty" class="card" hidden><h2>Queue empty</h2><p>No cards are due under current limits.</p></section>
+<section id="study-card" class="card" hidden>
+  <p id="card-state" class="muted"></p>
+  <h2 id="question" class="pre"></h2>
+  <label for="answer-input">Your answer</label>
+  <textarea id="answer-input" autofocus></textarea>
+  <div class="row">
+    <button id="record" type="button">Record voice</button>
+    <button id="text-mode" type="button">Use text input</button>
+    <button id="submit" type="button">Submit answer</button>
+  </div>
+</section>
+<section id="result" class="card" hidden>
+  <p id="feedback" class="pre"></p>
+  <p id="judge-info" class="muted"></p>
+  <h3>Expected answer</h3><p id="expected-answer" class="pre"></p>
+  <div id="details-wrap" hidden><h3>Going further</h3><p id="details" class="pre"></p></div>
+  <div id="rating-controls" hidden>
+    <label for="rating">Rating</label>
+    <select id="rating">
+      <option value="1">1 · Again</option><option value="2">2 · Hard</option>
+      <option value="3">3 · Good</option><option value="4">4 · Easy</option>
+    </select>
+    <label for="correct">Correctness</label>
+    <select id="correct"><option value="true">Correct</option><option value="false">Incorrect</option></select>
+  </div>
+  <p id="final-rating"></p>
+  <button id="confirm" type="button" hidden>Confirm review</button>
+  <button id="next" type="button" hidden>Next card</button>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+const deckSelect = document.getElementById('deck-select');
+const statusEl = document.getElementById('status');
+const emptyEl = document.getElementById('empty');
+const studyEl = document.getElementById('study-card');
+const questionEl = document.getElementById('question');
+const cardStateEl = document.getElementById('card-state');
+const answerInput = document.getElementById('answer-input');
+const recordButton = document.getElementById('record');
+const textModeButton = document.getElementById('text-mode');
+const submitButton = document.getElementById('submit');
+const resultEl = document.getElementById('result');
+const feedbackEl = document.getElementById('feedback');
+const judgeInfoEl = document.getElementById('judge-info');
+const expectedAnswerEl = document.getElementById('expected-answer');
+const detailsWrap = document.getElementById('details-wrap');
+const detailsEl = document.getElementById('details');
+const ratingControls = document.getElementById('rating-controls');
+const ratingInput = document.getElementById('rating');
+const correctInput = document.getElementById('correct');
+const finalRatingEl = document.getElementById('final-rating');
+const confirmButton = document.getElementById('confirm');
+const nextButton = document.getElementById('next');
+
+let current = null;
+let startedAt = 0;
+let inputMethod = 'text';
+let sttDuration = null;
+let audioDuration = null;
+let lastPayload = null;
+let pendingResult = null;
+let recorder = null;
+let chunks = [];
+
+function setStatus(message, isError = false) {
+  statusEl.textContent = message;
+  statusEl.className = isError ? 'error' : 'muted';
+}
+
+async function api(url, options = {}) {
+  const response = await fetch(url, options);
+  const data = await response.json();
+  if (!response.ok) {
+    const detail = typeof data.detail === 'string' ? data.detail : 'Request failed';
+    throw new Error(detail);
+  }
+  return data;
+}
+
+function setTextMode() {
+  inputMethod = 'text';
+  sttDuration = null;
+  audioDuration = null;
+  setStatus('Text answer mode.');
+}
+
+function resetPanels() {
+  studyEl.hidden = true;
+  emptyEl.hidden = true;
+  resultEl.hidden = true;
+  ratingControls.hidden = true;
+  confirmButton.hidden = true;
+  nextButton.hidden = true;
+  answerInput.disabled = false;
+  answerInput.value = '';
+  finalRatingEl.textContent = '';
+  pendingResult = null;
+  lastPayload = null;
+  setTextMode();
+}
+
+async function loadNext() {
+  resetPanels();
+  setStatus('Loading next card…');
+  const query = deckSelect.value ? '?deck_id=' + encodeURIComponent(deckSelect.value) : '';
+  try {
+    current = await api('/api/study/next' + query);
+    if (!current) {
+      emptyEl.hidden = false;
+      setStatus('Queue empty.');
+      return;
+    }
+    questionEl.textContent = current.card.question;
+    cardStateEl.textContent = current.is_new ? 'New card' : 'Review · due ' + current.due;
+    studyEl.hidden = false;
+    startedAt = Date.now();
+    answerInput.focus();
+    setStatus('Timer started.');
+  } catch (error) {
+    setStatus(error.message, true);
+  }
+}
+
+function makePayload() {
+  return {
+    card_id: current.card.id,
+    answer_text: answerInput.value,
+    input_method: inputMethod,
+    response_time_ms: Date.now() - startedAt,
+    stt_duration_ms: sttDuration,
+    audio_duration_ms: audioDuration
+  };
+}
+
+function showCardContext() {
+  expectedAnswerEl.textContent = current.card.answer;
+  detailsEl.textContent = current.card.details;
+  detailsWrap.hidden = !current.card.details;
+  resultEl.hidden = false;
+}
+
+function showAssessment(result, isFallback) {
+  pendingResult = result;
+  answerInput.disabled = true;
+  showCardContext();
+  feedbackEl.textContent = result.feedback;
+  judgeInfoEl.textContent = result.judge_model ? 'Judge: ' + result.judge_model : 'Manual fallback required';
+  ratingInput.value = result.rating || '3';
+  correctInput.value = String(result.is_correct === null ? true : result.is_correct);
+  ratingControls.hidden = false;
+  confirmButton.hidden = false;
+  confirmButton.textContent = isFallback ? 'Save manual review' : 'Confirm review';
+  confirmButton.onclick = () => confirmAssessment(isFallback);
+  nextButton.hidden = true;
+  finalRatingEl.textContent = '';
+  setStatus(isFallback ? 'Judge failed. Rate this answer manually.' : 'Confirm or override AI assessment.');
+}
+
+function showReviewed(result) {
+  answerInput.disabled = true;
+  showCardContext();
+  feedbackEl.textContent = result.feedback;
+  judgeInfoEl.textContent = result.mode === 'self_fallback' ? 'Self fallback (judge failed)' : 'Judge: ' + result.judge_model;
+  finalRatingEl.textContent = 'Saved rating ' + result.rating + ' · ' + (result.is_correct ? 'correct' : 'incorrect') + ' · next due ' + result.due;
+  ratingControls.hidden = true;
+  confirmButton.hidden = true;
+  nextButton.hidden = false;
+  setStatus('Review saved.', false);
+}
+
+async function submitAnswer() {
+  if (!current) return;
+  submitButton.disabled = true;
+  recordButton.disabled = true;
+  lastPayload = makePayload();
+  setStatus('Judging answer…');
+  try {
+    const result = await api('/api/study/answer', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(lastPayload)
+    });
+    if (result.status === 'fallback_required') showAssessment(result, true);
+    else if (result.status === 'pending') showAssessment(result, false);
+    else showReviewed(result);
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    submitButton.disabled = false;
+    recordButton.disabled = false;
+  }
+}
+
+async function confirmAssessment(isFallback) {
+  confirmButton.disabled = true;
+  const override = {
+    rating: Number(ratingInput.value),
+    is_correct: correctInput.value === 'true',
+    judge_feedback: pendingResult.feedback,
+    judge_model: pendingResult.judge_model || '',
+    fallback_token: pendingResult.fallback_token || null
+  };
+  const payload = Object.assign({}, lastPayload, override, isFallback ? {self_fallback: true} : {confirmed: true});
+  try {
+    const result = await api('/api/study/answer', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    showReviewed(result);
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    confirmButton.disabled = false;
+  }
+}
+
+async function transcribeAudio(blob) {
+  const form = new FormData();
+  form.append('audio', blob, 'answer.webm');
+  setStatus('Transcribing audio…');
+  try {
+    const result = await api('/api/study/transcribe', {method: 'POST', body: form});
+    answerInput.value = result.text;
+    inputMethod = 'voice';
+    sttDuration = result.stt_duration_ms;
+    audioDuration = result.audio_duration_ms;
+    setStatus('Transcript ready. Edit it if needed, then submit.');
+    answerInput.focus();
+  } catch (error) {
+    setTextMode();
+    setStatus(error.message + '. You can still answer with text.', true);
+  }
+}
+
+async function toggleRecording() {
+  if (recorder && recorder.state === 'recording') {
+    recorder.stop();
+    return;
+  }
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    setStatus('Voice recording is unsupported in this browser. Use text.', true);
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    chunks = [];
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+    recorder.onstop = () => {
+      stream.getTracks().forEach(track => track.stop());
+      recordButton.textContent = 'Record voice';
+      recordButton.disabled = false;
+      transcribeAudio(new Blob(chunks, {type: recorder.mimeType || 'audio/webm'}));
+    };
+    recorder.start();
+    recordButton.textContent = 'Stop recording';
+    setStatus('Recording…');
+  } catch (error) {
+    setStatus('Microphone unavailable: ' + error.message, true);
+  }
+}
+
+deckSelect.addEventListener('change', loadNext);
+submitButton.addEventListener('click', submitAnswer);
+recordButton.addEventListener('click', toggleRecording);
+textModeButton.addEventListener('click', setTextMode);
+nextButton.addEventListener('click', loadNext);
+loadNext();
+</script>
+{% endblock %}

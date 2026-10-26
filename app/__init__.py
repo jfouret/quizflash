@@ -1,0 +1,1 @@
+"""QuizDeck application package."""

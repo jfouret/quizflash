@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ deck.name }} · QuizDeck{% endblock %}
+{% block content %}
+<h1>{{ deck.name }}</h1>
+<p class="pre">{{ deck.description }}</p>
+<p>{{ deck.scheduler }} · <a href="/study?deck_id={{ deck.id }}">Study this deck</a></p>
+<h2>Cards ({{ cards|length }})</h2>
+{% for card in cards %}
+<article class="card">
+  <h3 class="pre">{{ card.question }}</h3>
+  <p class="pre"><strong>Answer:</strong> {{ card.answer }}</p>
+  {% if card.details %}<p class="pre">{{ card.details }}</p>{% endif %}
+  {% if card.expected_time_s %}<p>Expected time: {{ card.expected_time_s }} s</p>{% endif %}
+  {% for tag in card.tags %}<span class="tag">{{ tag.name }}</span>{% endfor %}
+  <form method="post" action="/cards/{{ card.id }}/delete">
+    <input type="hidden" name="deck_id" value="{{ deck.id }}">
+    <button class="danger" type="submit">Delete card</button>
+  </form>
+</article>
+{% else %}<p class="muted">No cards yet.</p>{% endfor %}
+<section class="card">
+  <h2>New card</h2>
+  <form method="post" action="/decks/{{ deck.id }}/cards">
+    <label for="question">Question</label><textarea id="question" name="question" required></textarea>
+    <label for="answer">Answer</label><textarea id="answer" name="answer" required></textarea>
+    <label for="details">Details / links for going further</label><textarea id="details" name="details"></textarea>
+    <label for="expected-time">Expected time (seconds, optional)</label>
+    <input id="expected-time" name="expected_time_s" type="number" min="1">
+    <label for="tags">Tags (comma-separated)</label><input id="tags" name="tags">
+    <button type="submit">Create card</button>
+  </form>
+</section>
+{% endblock %}

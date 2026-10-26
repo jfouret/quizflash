@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Settings · QuizDeck{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+<form method="post" action="/settings" class="card">
+  <label for="eval-mode">Evaluation mode</label>
+  <select id="eval-mode" name="eval_mode">
+    <option value="ai_preselect" {% if settings.eval_mode == 'ai_preselect' %}selected{% endif %}>AI proposes; I confirm</option>
+    <option value="ai_assess" {% if settings.eval_mode == 'ai_assess' %}selected{% endif %}>AI decides</option>
+  </select>
+  <label for="judge-language">Judge feedback language</label>
+  <input id="judge-language" name="judge_language" value="{{ settings.judge_language }}" required>
+  <label for="stt-language">STT language</label>
+  <input id="stt-language" name="stt_language" value="{{ settings.stt_language }}" required>
+  <label for="new-limit">Daily new-card limit (0 = unlimited)</label>
+  <input id="new-limit" name="daily_new_limit" type="number" min="0" value="{{ settings.daily_new_limit }}" required>
+  <label for="review-limit">Daily review limit (0 = unlimited)</label>
+  <input id="review-limit" name="daily_review_limit" type="number" min="0" value="{{ settings.daily_review_limit }}" required>
+  <button type="submit">Save settings</button>
+</form>
+<p class="muted">Judge and STT endpoints are configured through environment variables. No models run locally.</p>
+{% endblock %}

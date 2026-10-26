@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}QuizDeck{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { max-width: 960px; margin: 0 auto; padding: 1rem; line-height: 1.5; }
+    nav { display: flex; gap: 1rem; margin-bottom: 2rem; }
+    a { color: #2563eb; }
+    label { display: block; margin-top: .8rem; font-weight: 600; }
+    input, textarea, select, button { font: inherit; padding: .55rem; }
+    input, textarea, select { width: 100%; box-sizing: border-box; }
+    textarea { min-height: 6rem; resize: vertical; }
+    button { margin-top: .8rem; cursor: pointer; }
+    .card { border: 1px solid #8886; border-radius: .5rem; padding: 1rem; margin: 1rem 0; }
+    .row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    .row > * { flex: 1; }
+    .tag { border: 1px solid #8886; border-radius: 1rem; padding: .1rem .5rem; }
+    .muted { color: #777; }
+    .error { color: #dc2626; }
+    .success { color: #16a34a; }
+    .pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .danger { background: #dc2626; color: white; border: 0; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body hx-boost="true">
+  <nav><a href="/">Decks</a><a href="/study">Study</a><a href="/settings">Settings</a></nav>
+  <main>{% block content %}{% endblock %}</main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Decks · QuizDeck{% endblock %}
+{% block content %}
+<h1>Decks</h1>
+{% if not decks %}<p class="muted">No decks yet.</p>{% endif %}
+{% for deck in decks %}
+<section class="card">
+  <h2><a href="/decks/{{ deck.id }}">{{ deck.name }}</a></h2>
+  <p class="pre">{{ deck.description }}</p>
+  <p>{{ deck.scheduler }} · <a href="/study?deck_id={{ deck.id }}">Study this deck</a></p>
+  <form method="post" action="/decks/{{ deck.id }}/delete"
+        onsubmit="return confirm('Delete this deck and all its reviews?')">
+    <button class="danger" type="submit">Delete deck</button>
+  </form>
+</section>
+{% endfor %}
+<section class="card">
+  <h2>New deck</h2>
+  <form method="post" action="/decks">
+    <label for="name">Name</label><input id="name" name="name" required>
+    <label for="description">Description</label><textarea id="description" name="description"></textarea>
+    <label for="scheduler">Scheduler</label>
+    <select id="scheduler" name="scheduler"><option value="fsrs">FSRS</option><option value="sm2">SM-2</option></select>
+    <button type="submit">Create deck</button>
+  </form>
+</section>
+{% endblock %}
