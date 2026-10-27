@@ -25,7 +25,11 @@ Self-hosted, single-user spaced-repetition quiz application. Cards are fed by th
 
 No AI models run locally. The judge uses OpenRouter's dedicated `POST /api/alpha/decisions` endpoint, not chat completions. Decision models return typed correctness and rating decisions without prose feedback. The judge and STT are configured through environment variables.
 
+The app loads `.env` automatically ([python-dotenv](https://pypi.org/project/python-dotenv/)). Copy `.env.example` to `.env` and fill in your keys; `.env` is gitignored.
+
 ## Configuration
+
+Environment variables can come from the shell or a `.env` file (see `.env.example`).
 
 | Variable | Default | Description |
 |---|---|---|
