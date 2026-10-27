@@ -186,7 +186,7 @@ def get_settings(session: Session) -> Settings:
 def update_settings(session: Session, data: SettingsUpdate) -> Settings:
     settings = get_settings(session)
     values = data.model_dump(exclude_unset=True)
-    for field in ("eval_mode", "judge_language", "stt_language"):
+    for field in ("eval_mode", "judge_language", "stt_language", "voice_auto_judge"):
         if field in values and values[field] is None:
             raise ValueError(f"{field} cannot be null")
     for key, value in values.items():

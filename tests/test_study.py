@@ -111,6 +111,57 @@ def test_ai_assess_voice_metrics_and_judge_context(
     assert logs[0].response_time_ms == 1500
 
 
+def test_ai_assess_preview_can_be_corrected_before_saving(
+    client: TestClient,
+    db_session: Session,
+    card: dict[str, Any],
+    fake_judge: FakeJudge,
+) -> None:
+    enable_ai_assess(client)
+    first = response_dict(
+        client.post(
+            "/api/study/answer",
+            json=answer_payload(card["id"], answer_text="Pari", preview=True),
+        )
+    )
+    assert first["status"] == "pending"
+    assert first["mode"] == "ai_assess"
+    assert response_dict(
+        client.get("/api/stats", params={"scope": "card", "id": card["id"]})
+    )["total"] == 0
+
+    fake_judge.result = JudgeResult(rating=4, is_correct=True, feedback="")
+    corrected = response_dict(
+        client.post(
+            "/api/study/answer",
+            json=answer_payload(card["id"], answer_text="Paris", preview=True),
+        )
+    )
+    assert corrected["status"] == "pending"
+    assert corrected["rating"] == 4
+    assert len(fake_judge.calls) == 2
+
+    saved = response_dict(
+        client.post(
+            "/api/study/answer",
+            json=answer_payload(
+                card["id"],
+                answer_text="Paris",
+                confirmed=True,
+                rating=corrected["rating"],
+                is_correct=corrected["is_correct"],
+                judge_feedback=corrected["feedback"],
+                judge_model=corrected["judge_model"],
+            ),
+        )
+    )
+    assert saved["status"] == "reviewed"
+    assert saved["mode"] == "ai_assess"
+    log = db_session.exec(select(AnswerLog)).one()
+    assert log.answer_text == "Paris"
+    assert log.rating == 4
+
+
 def test_judge_failure_uses_flagged_self_fallback(
     client: TestClient,
     db_session: Session,

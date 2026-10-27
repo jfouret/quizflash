@@ -88,6 +88,7 @@ class SettingsRead(BaseModel):
     eval_mode: str
     judge_language: str
     stt_language: str
+    voice_auto_judge: bool
     daily_new_limit: int
     daily_review_limit: int
 
@@ -96,6 +97,7 @@ class SettingsUpdate(BaseModel):
     eval_mode: EvalMode | None = None
     judge_language: str | None = Field(default=None, min_length=1)
     stt_language: str | None = Field(default=None, min_length=1)
+    voice_auto_judge: bool | None = None
     daily_new_limit: int | None = Field(default=None, ge=0)
     daily_review_limit: int | None = Field(default=None, ge=0)
 
@@ -113,6 +115,7 @@ class AnswerRequest(BaseModel):
     response_time_ms: int = Field(ge=0)
     stt_duration_ms: int | None = Field(default=None, ge=0)
     audio_duration_ms: int | None = Field(default=None, ge=0)
+    preview: bool = False
     confirmed: bool = False
     self_fallback: bool = False
     fallback_token: str | None = None

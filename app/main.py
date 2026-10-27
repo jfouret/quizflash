@@ -7,7 +7,7 @@ from sqlmodel import Session
 
 from app.crud import NotFoundError
 from app.database import DATABASE_URL, create_db_engine, init_db
-from app.judge.openai_compat import OpenAICompatibleJudge
+from app.judge.openrouter import OpenRouterJudge
 from app.mcp_server import create_mcp
 from app.routes import cards, decks, pages, settings, stats, study, tags
 from app.stt.openai_compat import OpenAICompatibleSTT
@@ -32,7 +32,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.state.engine = engine
     app.state.mcp = mcp_server
     app.state.fallback_tokens = {}
-    app.state.judge = OpenAICompatibleJudge.from_env()
+    app.state.judge = OpenRouterJudge.from_env()
     app.state.stt = OpenAICompatibleSTT.from_env()
 
     app.include_router(decks.router)

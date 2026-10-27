@@ -2,7 +2,7 @@ import os
 from collections.abc import Generator
 
 from fastapi import Request
-from sqlalchemy import event
+from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
@@ -31,6 +31,15 @@ def create_db_engine(database_url: str = DATABASE_URL) -> Engine:
 
 def init_db(engine: Engine) -> None:
     SQLModel.metadata.create_all(engine)
+    with engine.begin() as connection:
+        columns = inspect(connection).get_columns("settings")
+        if "voice_auto_judge" not in {column["name"] for column in columns}:
+            connection.execute(
+                text(
+                    "ALTER TABLE settings ADD COLUMN voice_auto_judge "
+                    "BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
     with Session(engine) as session:
         if session.get(Settings, 1) is None:
             session.add(Settings())

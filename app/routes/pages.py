@@ -97,7 +97,11 @@ def study_page(
     return templates.TemplateResponse(
         request=request,
         name="study.html",
-        context={"decks": crud.list_decks(session), "deck_id": deck_id},
+        context={
+            "decks": crud.list_decks(session),
+            "deck_id": deck_id,
+            "settings": crud.get_settings(session),
+        },
     )
 
 
@@ -118,6 +122,7 @@ def update_settings_form(
     stt_language: Annotated[str, Form()],
     daily_new_limit: Annotated[int, Form()],
     daily_review_limit: Annotated[int, Form()],
+    voice_auto_judge: Annotated[bool, Form()] = False,
 ) -> RedirectResponse:
     crud.update_settings(
         session,
@@ -125,6 +130,7 @@ def update_settings_form(
             eval_mode=eval_mode,
             judge_language=judge_language,
             stt_language=stt_language,
+            voice_auto_judge=voice_auto_judge,
             daily_new_limit=daily_new_limit,
             daily_review_limit=daily_review_limit,
         ),

@@ -73,5 +73,6 @@ class Settings(SQLModel, table=True):
     eval_mode: str = "ai_preselect"
     judge_language: str = "auto"
     stt_language: str = "auto"
+    voice_auto_judge: bool = False
     daily_new_limit: int = 0
     daily_review_limit: int = 0

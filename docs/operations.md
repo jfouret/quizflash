@@ -45,7 +45,7 @@ A card carries `question`, `answer`, optional `details`, optional `expected_time
 
 `/api/study/answer` behavior by mode:
 
-- `ai_assess`: the judge result is persisted immediately.
+- `ai_assess`: the judge result is persisted immediately by default. With `preview: true`, it returns `status: "pending"` without persisting; a second call with `confirmed: true` and the final `rating`/`is_correct` persists it. The study UI uses this preview so the input can be corrected and judged again before saving.
 - `ai_preselect`: the first call returns `status: "pending"` with the AI proposal; a second call with `confirmed: true` and the final `rating`/`is_correct` persists it.
 - Judge failure: the first call returns `status: "fallback_required"` with a single-use `fallback_token`; a manual rating is then saved as mode `self_fallback`.
 
@@ -55,7 +55,7 @@ A card carries `question`, `answer`, optional `details`, optional `expected_time
 |---|---|---|
 | `GET` | `/api/stats?scope=deck|card|tag&id=` | Aggregates: total, correct, incorrect, correct rate, average response time, counts by mode |
 | `GET` | `/api/settings` | Global settings |
-| `PATCH` | `/api/settings` | Update evaluation mode, languages, and daily limits |
+| `PATCH` | `/api/settings` | Update evaluation mode, voice auto-judging, languages, and daily limits |
 
 ## MCP endpoint
 
@@ -72,12 +72,12 @@ Example client URL: `http://127.0.0.1:8000/mcp/`.
 ## Study flow (voice)
 
 1. `GET /api/study/next` returns the card and starts the browser timer.
-2. The browser records audio with `MediaRecorder`.
+2. If the Permissions API reports an authorized microphone, recording starts automatically; otherwise the Record voice button requests access. An elapsed-time counter is visible while recording.
 3. `POST /api/study/transcribe` measures audio duration from the uploaded container, calls the remote STT API, and returns `{text, stt_duration_ms, audio_duration_ms}`.
-4. The transcript stays editable in the browser.
-5. `POST /api/study/answer` sends the final answer text, `input_method: "voice"`, and all timing values.
-6. The judge maps the answer to `rating` (1=Again..4=Easy) and `is_correct` independently.
-7. The deck's scheduler reschedules the card and an `AnswerLog` row is persisted.
+4. The transcript stays editable. The `voice_auto_judge` setting chooses between immediate judging and waiting for transcript validation.
+5. `POST /api/study/answer` sends the final answer text, `input_method: "voice"`, all timing values, and `preview: true` from the study UI.
+6. The OpenRouter Decisions API (`POST /api/alpha/decisions`) maps the answer to `rating` (1=Again..4=Easy) and `is_correct` independently. It returns no prose feedback.
+7. The input can be corrected and judged again. In `ai_assess`, Next card saves the latest preview; in `ai_preselect`, Confirm review saves it. The deck's scheduler then reschedules the card and an `AnswerLog` row is persisted.
 
 If the STT call fails, the voice attempt is logged server-side and the user can still answer by text. If the judge fails or times out (5 s), manual self-assessment is offered through a single-use fallback token.
 

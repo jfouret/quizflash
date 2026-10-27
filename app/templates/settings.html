@@ -8,10 +8,15 @@
     <option value="ai_preselect" {% if settings.eval_mode == 'ai_preselect' %}selected{% endif %}>AI proposes; I confirm</option>
     <option value="ai_assess" {% if settings.eval_mode == 'ai_assess' %}selected{% endif %}>AI decides</option>
   </select>
-  <label for="judge-language">Judge feedback language</label>
+  <label for="judge-language">Judge language (or auto)</label>
   <input id="judge-language" name="judge_language" value="{{ settings.judge_language }}" required>
   <label for="stt-language">STT language</label>
   <input id="stt-language" name="stt_language" value="{{ settings.stt_language }}" required>
+  <label for="voice-auto-judge">
+    <input id="voice-auto-judge" name="voice_auto_judge" type="checkbox" value="true" {% if settings.voice_auto_judge %}checked{% endif %}>
+    Judge voice transcripts immediately
+  </label>
+  <p class="muted">When off, wait for transcript validation before judging.</p>
   <label for="new-limit">Daily new-card limit (0 = unlimited)</label>
   <input id="new-limit" name="daily_new_limit" type="number" min="0" value="{{ settings.daily_new_limit }}" required>
   <label for="review-limit">Daily review limit (0 = unlimited)</label>

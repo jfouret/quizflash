@@ -135,7 +135,7 @@ def answer(
         tokens.pop(token, None)
         return response
 
-    if mode == "ai_preselect" and payload.confirmed:
+    if payload.confirmed:
         if payload.rating is None or payload.is_correct is None:
             raise HTTPException(
                 status_code=400,
@@ -176,7 +176,7 @@ def answer(
             fallback_token=token,
         )
 
-    if mode == "ai_preselect":
+    if mode == "ai_preselect" or payload.preview:
         return AnswerResponse(
             status="pending",
             mode=mode,

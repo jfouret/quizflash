@@ -5,30 +5,33 @@ import httpx
 import pytest
 
 from app.judge.base import JudgeError, JudgeResult
-from app.judge.openai_compat import OpenAICompatibleJudge
+from app.judge.openrouter import OpenRouterJudge
 
 
-def _valid_content(rating: int = 4) -> str:
-    return json.dumps({"rating": rating, "is_correct": True, "feedback": "Bonne réponse."})
-
-
-def _judge_response(content: str) -> httpx.Response:
+def _judge_response(noul: Any = 0.96, choice: Any = "4") -> httpx.Response:
     return httpx.Response(
         200,
-        json={"choices": [{"message": {"content": content}}]},
+        json={
+            "model": "inception/mercury-decide",
+            "answers": {
+                "is_correct": {"type": "noul", "noul": noul},
+                "rating": {"type": "choice", "choice": choice},
+            },
+            "usage": {"input_tokens": 100, "output_tokens": 0},
+        },
     )
 
 
-def _make_judge(transport: httpx.MockTransport) -> OpenAICompatibleJudge:
-    return OpenAICompatibleJudge(
-        base_url="https://judge.test/v1",
-        model="judge-model",
+def _make_judge(transport: httpx.MockTransport) -> OpenRouterJudge:
+    return OpenRouterJudge(
+        base_url="https://openrouter.ai",
+        model="inception/mercury-decide",
         api_key="test-key",
         transport=transport,
     )
 
 
-def _evaluate(judge: OpenAICompatibleJudge) -> JudgeResult:
+def _evaluate(judge: OpenRouterJudge) -> JudgeResult:
     return judge.evaluate(
         question="Quelle est la capitale de la France ?",
         expected_answer="Paris",
@@ -39,75 +42,67 @@ def _evaluate(judge: OpenAICompatibleJudge) -> JudgeResult:
     )
 
 
-def test_valid_structured_output_and_request_context() -> None:
+def test_decisions_endpoint_and_request_context() -> None:
     request_bodies: list[dict[str, Any]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        request_bodies.append(json.loads(request.content))
+        assert request.url.path == "/api/alpha/decisions"
         assert request.headers["Authorization"] == "Bearer test-key"
-        return _judge_response(_valid_content())
+        request_bodies.append(json.loads(request.content))
+        return _judge_response()
 
-    judge = _make_judge(httpx.MockTransport(handler))
+    result = _evaluate(_make_judge(httpx.MockTransport(handler)))
 
-    result = _evaluate(judge)
-
-    assert result == JudgeResult(rating=4, is_correct=True, feedback="Bonne réponse.")
+    assert result == JudgeResult(rating=4, is_correct=True, feedback="")
     assert len(request_bodies) == 1
     body = request_bodies[0]
-    assert body["model"] == "judge-model"
-    assert body["response_format"]["type"] == "json_schema"
-    assert body["response_format"]["json_schema"]["strict"] is True
-    context: dict[str, Any] = json.loads(body["messages"][1]["content"])
-    assert context == {
+    assert body["model"] == "inception/mercury-decide"
+    assert body["state"] == {
         "question": "Quelle est la capitale de la France ?",
         "expected_answer": "Paris",
         "user_answer": "Paris",
         "expected_time_s": 15,
         "response_time_ms": 2345,
-        "feedback_language": "fr",
-        "language_instruction": "Write feedback in language code fr",
+        "language": "fr",
     }
+    assert body["questions"]["is_correct"]["type"] == "noul"
+    assert body["questions"]["rating"]["type"] == "choice"
+    assert set(body["questions"]["rating"]["criteria"]) == {"1", "2", "3", "4"}
+    assert "messages" not in body
 
 
-def test_parse_failure_retries_once_with_original_context() -> None:
-    request_bodies: list[dict[str, Any]] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        request_bodies.append(json.loads(request.content))
-        content = "not JSON" if len(request_bodies) == 1 else _valid_content()
-        return _judge_response(content)
+@pytest.mark.parametrize(
+    ("probability", "expected"),
+    [(0.49, False), (0.5, True), (1, True)],
+)
+def test_correctness_uses_noul_probability(probability: float, expected: bool) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return _judge_response(noul=probability)
 
     result = _evaluate(_make_judge(httpx.MockTransport(handler)))
 
-    assert result.rating == 4
-    assert len(request_bodies) == 2
-    first_messages = request_bodies[0]["messages"]
-    second_messages = request_bodies[1]["messages"]
-    assert second_messages[: len(first_messages)] == first_messages
-    assert len(second_messages) == len(first_messages) + 1
-    assert second_messages[-1]["role"] == "user"
-    assert "invalid" in second_messages[-1]["content"]
+    assert result.is_correct is expected
 
 
-def test_persistent_invalid_output_fails_after_two_attempts() -> None:
+def test_invalid_output_fails_without_retry() -> None:
     calls = 0
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(_: httpx.Request) -> httpx.Response:
         nonlocal calls
         calls += 1
-        return _judge_response('{"rating": 3}')
+        return httpx.Response(200, json={"answers": {}})
 
     judge = _make_judge(httpx.MockTransport(handler))
 
     with pytest.raises(JudgeError, match="invalid structured response"):
         _evaluate(judge)
-    assert calls == 2
+    assert calls == 1
 
 
 def test_http_error_is_wrapped_without_retry() -> None:
     calls = 0
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(_: httpx.Request) -> httpx.Response:
         nonlocal calls
         calls += 1
         return httpx.Response(503, json={"error": "unavailable"})
@@ -134,17 +129,23 @@ def test_timeout_is_wrapped_without_retry() -> None:
     assert calls == 1
 
 
-@pytest.mark.parametrize("rating", [0, 5])
-def test_out_of_range_rating_is_rejected(rating: int) -> None:
-    calls = 0
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        nonlocal calls
-        calls += 1
-        return _judge_response(_valid_content(rating))
+@pytest.mark.parametrize("choice", ["0", "5", 4, None])
+def test_invalid_rating_choice_is_rejected(choice: Any) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return _judge_response(choice=choice)
 
     judge = _make_judge(httpx.MockTransport(handler))
 
     with pytest.raises(JudgeError, match="invalid structured response"):
         _evaluate(judge)
-    assert calls == 2
+
+
+@pytest.mark.parametrize("probability", [-0.1, 1.1, True, "0.5"])
+def test_invalid_correctness_probability_is_rejected(probability: Any) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return _judge_response(noul=probability)
+
+    judge = _make_judge(httpx.MockTransport(handler))
+
+    with pytest.raises(JudgeError, match="invalid structured response"):
+        _evaluate(judge)

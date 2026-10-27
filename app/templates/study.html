@@ -18,6 +18,7 @@
     <button id="record" type="button">Record voice</button>
     <button id="text-mode" type="button">Use text input</button>
     <button id="submit" type="button">Submit answer</button>
+    <span id="recording-counter" class="muted" role="timer" aria-label="Recording duration" hidden>0:00</span>
   </div>
 </section>
 <section id="result" class="card" hidden>
@@ -49,6 +50,7 @@ const questionEl = document.getElementById('question');
 const cardStateEl = document.getElementById('card-state');
 const answerInput = document.getElementById('answer-input');
 const recordButton = document.getElementById('record');
+const recordingCounter = document.getElementById('recording-counter');
 const textModeButton = document.getElementById('text-mode');
 const submitButton = document.getElementById('submit');
 const resultEl = document.getElementById('result');
@@ -63,6 +65,7 @@ const correctInput = document.getElementById('correct');
 const finalRatingEl = document.getElementById('final-rating');
 const confirmButton = document.getElementById('confirm');
 const nextButton = document.getElementById('next');
+const voiceAutoJudge = {{ settings.voice_auto_judge | tojson }};
 
 let current = null;
 let startedAt = 0;
@@ -72,7 +75,13 @@ let audioDuration = null;
 let lastPayload = null;
 let pendingResult = null;
 let recorder = null;
+let recordingStream = null;
 let chunks = [];
+let recordingStartedAt = 0;
+let recordingTimer = null;
+let recordingRequest = 0;
+let startingRecording = false;
+let microphoneAuthorized = false;
 
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
@@ -96,19 +105,61 @@ function setTextMode() {
   setStatus('Text answer mode.');
 }
 
+function updateRecordingCounter() {
+  const seconds = Math.floor((Date.now() - recordingStartedAt) / 1000);
+  const minutes = Math.floor(seconds / 60);
+  recordingCounter.textContent = minutes + ':' + String(seconds % 60).padStart(2, '0');
+}
+
+function stopRecordingCounter() {
+  if (recordingTimer !== null) clearInterval(recordingTimer);
+  recordingTimer = null;
+  recordingCounter.hidden = true;
+  recordingCounter.textContent = '0:00';
+}
+
+function cancelRecording() {
+  recordingRequest += 1;
+  startingRecording = false;
+  if (recorder) {
+    recorder.ondataavailable = null;
+    recorder.onstop = null;
+    if (recorder.state !== 'inactive') recorder.stop();
+  }
+  if (recordingStream) recordingStream.getTracks().forEach(track => track.stop());
+  recorder = null;
+  recordingStream = null;
+  chunks = [];
+  stopRecordingCounter();
+  recordButton.textContent = 'Record voice';
+  recordButton.disabled = false;
+}
+
 function resetPanels() {
+  cancelRecording();
+  current = null;
   studyEl.hidden = true;
   emptyEl.hidden = true;
   resultEl.hidden = true;
   ratingControls.hidden = true;
   confirmButton.hidden = true;
+  confirmButton.disabled = false;
   nextButton.hidden = true;
+  nextButton.disabled = false;
   answerInput.disabled = false;
   answerInput.value = '';
+  submitButton.disabled = false;
+  submitButton.textContent = 'Submit answer';
   finalRatingEl.textContent = '';
   pendingResult = null;
   lastPayload = null;
   setTextMode();
+}
+
+function maybeAutoRecord() {
+  if (microphoneAuthorized && current && !studyEl.hidden && !pendingResult && !recorder) {
+    void startRecording();
+  }
 }
 
 async function loadNext() {
@@ -128,6 +179,7 @@ async function loadNext() {
     startedAt = Date.now();
     answerInput.focus();
     setStatus('Timer started.');
+    maybeAutoRecord();
   } catch (error) {
     setStatus(error.message, true);
   }
@@ -151,32 +203,67 @@ function showCardContext() {
   resultEl.hidden = false;
 }
 
+function showFeedback(result) {
+  feedbackEl.textContent = result.feedback;
+  feedbackEl.hidden = !result.feedback;
+}
+
+function invalidateAssessment() {
+  if (!pendingResult) return;
+  pendingResult = null;
+  resultEl.hidden = true;
+  ratingControls.hidden = true;
+  confirmButton.hidden = true;
+  nextButton.hidden = true;
+  finalRatingEl.textContent = '';
+  submitButton.textContent = 'Judge corrected answer';
+  setStatus('Answer changed. Judge again to continue.');
+}
+
 function showAssessment(result, isFallback) {
   pendingResult = result;
-  answerInput.disabled = true;
+  studyEl.hidden = false;
+  answerInput.disabled = false;
+  submitButton.textContent = 'Correct & judge again';
   showCardContext();
-  feedbackEl.textContent = result.feedback;
+  showFeedback(result);
   judgeInfoEl.textContent = result.judge_model ? 'Judge: ' + result.judge_model : 'Manual fallback required';
   ratingInput.value = result.rating || '3';
   correctInput.value = String(result.is_correct === null ? true : result.is_correct);
-  ratingControls.hidden = false;
-  confirmButton.hidden = false;
+  const automatic = result.mode === 'ai_assess' && !isFallback;
+  ratingControls.hidden = automatic;
+  confirmButton.hidden = automatic;
+  confirmButton.disabled = false;
+  nextButton.hidden = !automatic;
+  nextButton.disabled = false;
+  nextButton.textContent = 'Save & next card';
   confirmButton.textContent = isFallback ? 'Save manual review' : 'Confirm review';
   confirmButton.onclick = () => confirmAssessment(isFallback);
-  nextButton.hidden = true;
-  finalRatingEl.textContent = '';
-  setStatus(isFallback ? 'Judge failed. Rate this answer manually.' : 'Confirm or override AI assessment.');
+  finalRatingEl.textContent = automatic
+    ? 'AI rating ' + result.rating + ' · ' + (result.is_correct ? 'correct' : 'incorrect')
+    : '';
+  setStatus(
+    isFallback
+      ? 'Judge failed. Rate this answer manually.'
+      : automatic
+        ? 'AI assessed. Edit to correct, or save and continue.'
+        : 'Confirm, override, or correct the answer and judge again.'
+  );
 }
 
 function showReviewed(result) {
+  pendingResult = null;
+  studyEl.hidden = true;
   answerInput.disabled = true;
   showCardContext();
-  feedbackEl.textContent = result.feedback;
+  showFeedback(result);
   judgeInfoEl.textContent = result.mode === 'self_fallback' ? 'Self fallback (judge failed)' : 'Judge: ' + result.judge_model;
   finalRatingEl.textContent = 'Saved rating ' + result.rating + ' · ' + (result.is_correct ? 'correct' : 'incorrect') + ' · next due ' + result.due;
   ratingControls.hidden = true;
   confirmButton.hidden = true;
   nextButton.hidden = false;
+  nextButton.disabled = false;
+  nextButton.textContent = 'Next card';
   setStatus('Review saved.', false);
 }
 
@@ -184,7 +271,8 @@ async function submitAnswer() {
   if (!current) return;
   submitButton.disabled = true;
   recordButton.disabled = true;
-  lastPayload = makePayload();
+  nextButton.disabled = true;
+  lastPayload = Object.assign(makePayload(), {preview: true});
   setStatus('Judging answer…');
   try {
     const result = await api('/api/study/answer', {
@@ -200,17 +288,21 @@ async function submitAnswer() {
   } finally {
     submitButton.disabled = false;
     recordButton.disabled = false;
+    nextButton.disabled = false;
   }
 }
 
-async function confirmAssessment(isFallback) {
+async function confirmAssessment(isFallback, advance = false) {
+  if (!pendingResult || !lastPayload) return;
   confirmButton.disabled = true;
+  nextButton.disabled = true;
   const override = {
     rating: Number(ratingInput.value),
     is_correct: correctInput.value === 'true',
     judge_feedback: pendingResult.feedback,
     judge_model: pendingResult.judge_model || '',
-    fallback_token: pendingResult.fallback_token || null
+    fallback_token: pendingResult.fallback_token || null,
+    preview: false
   };
   const payload = Object.assign({}, lastPayload, override, isFallback ? {self_fallback: true} : {confirmed: true});
   try {
@@ -220,56 +312,124 @@ async function confirmAssessment(isFallback) {
       body: JSON.stringify(payload)
     });
     showReviewed(result);
+    if (advance) await loadNext();
   } catch (error) {
     setStatus(error.message, true);
   } finally {
     confirmButton.disabled = false;
+    nextButton.disabled = false;
+  }
+}
+
+async function nextCard() {
+  if (pendingResult && pendingResult.mode === 'ai_assess') {
+    await confirmAssessment(false, true);
+  } else {
+    await loadNext();
   }
 }
 
 async function transcribeAudio(blob) {
   const form = new FormData();
   form.append('audio', blob, 'answer.webm');
+  submitButton.disabled = true;
+  recordButton.disabled = true;
   setStatus('Transcribing audio…');
   try {
     const result = await api('/api/study/transcribe', {method: 'POST', body: form});
+    invalidateAssessment();
     answerInput.value = result.text;
     inputMethod = 'voice';
     sttDuration = result.stt_duration_ms;
     audioDuration = result.audio_duration_ms;
-    setStatus('Transcript ready. Edit it if needed, then submit.');
-    answerInput.focus();
+    if (voiceAutoJudge) {
+      await submitAnswer();
+    } else {
+      setStatus('Transcript ready. Edit it if needed, then submit.');
+      answerInput.focus();
+    }
   } catch (error) {
     setTextMode();
     setStatus(error.message + '. You can still answer with text.', true);
+  } finally {
+    submitButton.disabled = false;
+    recordButton.disabled = false;
   }
 }
 
-async function toggleRecording() {
-  if (recorder && recorder.state === 'recording') {
-    recorder.stop();
-    return;
-  }
+async function startRecording() {
+  if (startingRecording || recorder || !current || studyEl.hidden) return;
   if (!navigator.mediaDevices || !window.MediaRecorder) {
     setStatus('Voice recording is unsupported in this browser. Use text.', true);
     return;
   }
+  invalidateAssessment();
+  const requestId = ++recordingRequest;
+  startingRecording = true;
+  recordButton.disabled = true;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({audio: true});
-    chunks = [];
-    recorder = new MediaRecorder(stream);
-    recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
-    recorder.onstop = () => {
+    if (requestId !== recordingRequest || !current || studyEl.hidden) {
       stream.getTracks().forEach(track => track.stop());
+      return;
+    }
+    microphoneAuthorized = true;
+    chunks = [];
+    recordingStream = stream;
+    const activeRecorder = new MediaRecorder(stream);
+    recorder = activeRecorder;
+    activeRecorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+    activeRecorder.onstop = () => {
+      stream.getTracks().forEach(track => track.stop());
+      if (requestId !== recordingRequest) return;
+      const blob = new Blob(chunks, {type: activeRecorder.mimeType || 'audio/webm'});
+      recorder = null;
+      recordingStream = null;
+      chunks = [];
+      stopRecordingCounter();
       recordButton.textContent = 'Record voice';
-      recordButton.disabled = false;
-      transcribeAudio(new Blob(chunks, {type: recorder.mimeType || 'audio/webm'}));
+      void transcribeAudio(blob);
     };
-    recorder.start();
+    activeRecorder.start();
+    recordingStartedAt = Date.now();
+    updateRecordingCounter();
+    recordingCounter.hidden = false;
+    recordingTimer = setInterval(updateRecordingCounter, 1000);
     recordButton.textContent = 'Stop recording';
     setStatus('Recording…');
   } catch (error) {
+    if (requestId === recordingRequest) cancelRecording();
+    microphoneAuthorized = false;
     setStatus('Microphone unavailable: ' + error.message, true);
+  } finally {
+    if (requestId === recordingRequest) {
+      startingRecording = false;
+      recordButton.disabled = false;
+    }
+  }
+}
+
+function toggleRecording() {
+  if (recorder && recorder.state === 'recording') {
+    recordButton.disabled = true;
+    recorder.stop();
+    return;
+  }
+  void startRecording();
+}
+
+async function watchMicrophonePermission() {
+  if (!navigator.permissions || !navigator.mediaDevices) return;
+  try {
+    const permission = await navigator.permissions.query({name: 'microphone'});
+    microphoneAuthorized = permission.state === 'granted';
+    permission.onchange = () => {
+      microphoneAuthorized = permission.state === 'granted';
+      maybeAutoRecord();
+    };
+    maybeAutoRecord();
+  } catch {
+    // Permission queries are unsupported on some browsers; the record button still works.
   }
 }
 
@@ -277,7 +437,9 @@ deckSelect.addEventListener('change', loadNext);
 submitButton.addEventListener('click', submitAnswer);
 recordButton.addEventListener('click', toggleRecording);
 textModeButton.addEventListener('click', setTextMode);
-nextButton.addEventListener('click', loadNext);
-loadNext();
+nextButton.addEventListener('click', nextCard);
+answerInput.addEventListener('input', invalidateAssessment);
+void watchMicrophonePermission();
+void loadNext();
 </script>
 {% endblock %}
