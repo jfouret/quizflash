@@ -8,10 +8,11 @@ from httpx import Response
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
-from app.dependencies import get_judge, get_stt
+from app.dependencies import get_judge, get_stt, get_teacher
 from app.judge.base import JudgeError, JudgeResult
 from app.main import create_app
 from app.stt.base import STTError, STTResult
+from app.teacher.base import TeacherError, TeacherResult
 
 
 class FakeJudge:
@@ -39,6 +40,41 @@ class FakeJudge:
                 "user_answer": user_answer,
                 "expected_time_s": expected_time_s,
                 "response_time_ms": response_time_ms,
+                "language": language,
+            }
+        )
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
+class FakeTeacher:
+    model = "fake-teacher"
+
+    def __init__(self) -> None:
+        self.result = TeacherResult(explanation="Paris is the capital of France.")
+        self.error: TeacherError | None = None
+        self.calls: list[dict[str, Any]] = []
+
+    def explain(
+        self,
+        *,
+        deck_context: str,
+        card_context: str,
+        question: str,
+        expected_answer: str,
+        user_answer: str,
+        is_correct: bool | None,
+        language: str,
+    ) -> TeacherResult:
+        self.calls.append(
+            {
+                "deck_context": deck_context,
+                "card_context": card_context,
+                "question": question,
+                "expected_answer": expected_answer,
+                "user_answer": user_answer,
+                "is_correct": is_correct,
                 "language": language,
             }
         )
@@ -85,10 +121,16 @@ def fake_stt() -> FakeSTT:
 
 
 @pytest.fixture
-def app(fake_judge: FakeJudge, fake_stt: FakeSTT) -> FastAPI:
-    application = create_app("sqlite://")
+def fake_teacher() -> FakeTeacher:
+    return FakeTeacher()
+
+
+@pytest.fixture
+def app(fake_judge: FakeJudge, fake_stt: FakeSTT, fake_teacher: FakeTeacher) -> FastAPI:
+    application = create_app("sqlite://", teacher=fake_teacher)
     application.dependency_overrides[get_judge] = lambda: fake_judge
     application.dependency_overrides[get_stt] = lambda: fake_stt
+    application.dependency_overrides[get_teacher] = lambda: fake_teacher
     return application
 
 
@@ -113,6 +155,7 @@ def deck(client: TestClient) -> dict[str, Any]:
         json={
             "name": "Geography",
             "description": "World facts",
+            "context": "Upper-secondary geography course",
             "scheduler": "fsrs",
             "scheduler_params": {"desired_retention": 0.85},
         },
@@ -130,6 +173,7 @@ def card(client: TestClient, deck: dict[str, Any]) -> dict[str, Any]:
             "question": "Capital of France?",
             "answer": "Paris",
             "details": "https://en.wikipedia.org/wiki/Paris",
+            "context": "Capitals are seated in the city proper, not the metro area.",
             "expected_time_s": 20,
             "tags": ["geography", "europe"],
         },

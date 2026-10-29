@@ -29,6 +29,15 @@
   <p id="judge-info" class="muted"></p>
   <h3>Expected answer</h3><p id="expected-answer" class="pre"></p>
   <div id="details-wrap" hidden><h3>Going further</h3><p id="details" class="pre"></p></div>
+  <div id="teacher-wrap" hidden>
+    <h3>Teacher</h3>
+    <p id="teacher-explanation" class="pre"></p>
+    <p id="teacher-info" class="muted"></p>
+    <div class="row">
+      <button id="teacher-btn" type="button">Teacher</button>
+      <button id="teacher-regen" type="button">Regenerate</button>
+    </div>
+  </div>
   <div id="rating-controls" hidden>
     <label for="rating">Rating</label>
     <select id="rating">
@@ -66,6 +75,11 @@ const judgeInfoEl = document.getElementById('judge-info');
 const expectedAnswerEl = document.getElementById('expected-answer');
 const detailsWrap = document.getElementById('details-wrap');
 const detailsEl = document.getElementById('details');
+const teacherWrap = document.getElementById('teacher-wrap');
+const teacherExplanationEl = document.getElementById('teacher-explanation');
+const teacherInfoEl = document.getElementById('teacher-info');
+const teacherBtn = document.getElementById('teacher-btn');
+const teacherRegenBtn = document.getElementById('teacher-regen');
 const ratingControls = document.getElementById('rating-controls');
 const ratingInput = document.getElementById('rating');
 const correctInput = document.getElementById('correct');
@@ -74,6 +88,7 @@ const confirmButton = document.getElementById('confirm');
 const nextButton = document.getElementById('next');
 const voiceAutoJudge = {{ settings.voice_auto_judge | tojson }};
 const autoConfirm = {{ settings.auto_confirm | tojson }};
+const teacherEnabled = {{ settings.teacher_enabled | tojson }};
 
 let current = null;
 let startedAt = 0;
@@ -209,6 +224,11 @@ function resetPanels() {
   submitButton.disabled = false;
   submitButton.textContent = 'Submit answer';
   finalRatingEl.textContent = '';
+  teacherWrap.hidden = true;
+  teacherExplanationEl.textContent = '';
+  teacherInfoEl.textContent = '';
+  teacherBtn.disabled = false;
+  teacherRegenBtn.disabled = false;
   pendingResult = null;
   lastPayload = null;
   setTextMode();
@@ -266,6 +286,35 @@ function showFeedback(result) {
   feedbackEl.hidden = !result.feedback;
 }
 
+async function fetchExplanation() {
+  if (!current) return;
+  teacherBtn.disabled = true;
+  teacherRegenBtn.disabled = true;
+  setStatus('Teacher explaining…');
+  try {
+    const result = await api('/api/study/explain', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({card_id: current.card.id})
+    });
+    teacherExplanationEl.textContent = result.explanation;
+    teacherInfoEl.textContent = 'Teacher: ' + result.model;
+    setStatus('Teacher explanation ready.');
+  } catch (error) {
+    teacherExplanationEl.textContent = '';
+    teacherInfoEl.textContent = error.message;
+    setStatus(error.message, true);
+  } finally {
+    teacherBtn.disabled = false;
+    teacherRegenBtn.disabled = false;
+  }
+}
+
+function showTeacher() {
+  teacherWrap.hidden = false;
+  if (teacherEnabled) void fetchExplanation();
+}
+
 function invalidateAssessment() {
   if (!pendingResult) return;
   pendingResult = null;
@@ -286,6 +335,7 @@ function showAssessment(result, isFallback) {
   submitButton.textContent = 'Correct & judge again';
   showCardContext();
   showFeedback(result);
+  showTeacher();
   judgeInfoEl.textContent = result.judge_model ? 'Judge: ' + result.judge_model : 'Manual fallback required';
   ratingInput.value = result.rating || '3';
   correctInput.value = String(result.is_correct === null ? true : result.is_correct);
@@ -318,6 +368,7 @@ function showReviewed(result) {
   answerInput.disabled = true;
   showCardContext();
   showFeedback(result);
+  showTeacher();
   judgeInfoEl.textContent = result.mode === 'self_fallback' ? 'Self fallback (judge failed)' : 'Judge: ' + result.judge_model;
   finalRatingEl.textContent = 'Saved rating ' + result.rating + ' · ' + (result.is_correct ? 'correct' : 'incorrect') + ' · next due ' + result.due;
   ratingControls.hidden = true;
@@ -501,6 +552,8 @@ async function watchMicrophonePermission() {
 
 deckSelect.addEventListener('change', loadNext);
 submitButton.addEventListener('click', submitAnswer);
+teacherBtn.addEventListener('click', fetchExplanation);
+teacherRegenBtn.addEventListener('click', fetchExplanation);
 recordButton.addEventListener('click', toggleRecording);
 textModeButton.addEventListener('click', setTextMode);
 nextButton.addEventListener('click', nextCard);

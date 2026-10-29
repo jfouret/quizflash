@@ -32,6 +32,16 @@ def create_db_engine(database_url: str = DATABASE_URL) -> Engine:
 def init_db(engine: Engine) -> None:
     SQLModel.metadata.create_all(engine)
     with engine.begin() as connection:
+        deck_columns = {column["name"] for column in inspect(connection).get_columns("deck")}
+        if "context" not in deck_columns:
+            connection.execute(
+                text("ALTER TABLE deck ADD COLUMN context TEXT NOT NULL DEFAULT ''")
+            )
+        card_columns = {column["name"] for column in inspect(connection).get_columns("card")}
+        if "context" not in card_columns:
+            connection.execute(
+                text("ALTER TABLE card ADD COLUMN context TEXT NOT NULL DEFAULT ''")
+            )
         columns = inspect(connection).get_columns("settings")
         if "voice_auto_judge" not in {column["name"] for column in columns}:
             connection.execute(
@@ -45,6 +55,13 @@ def init_db(engine: Engine) -> None:
                 text(
                     "ALTER TABLE settings ADD COLUMN auto_confirm "
                     "BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+        if "teacher_enabled" not in {column["name"] for column in columns}:
+            connection.execute(
+                text(
+                    "ALTER TABLE settings ADD COLUMN teacher_enabled "
+                    "BOOLEAN NOT NULL DEFAULT TRUE"
                 )
             )
     with Session(engine) as session:

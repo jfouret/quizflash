@@ -6,16 +6,19 @@ from typing import Annotated
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
 from app import crud
-from app.dependencies import JudgeDep, SessionDep, STTDep
+from app.dependencies import JudgeDep, SessionDep, STTDep, TeacherDep
 from app.judge.base import JudgeError
 from app.schemas import (
     AnswerRequest,
     AnswerResponse,
     CardRead,
     DueCard,
+    ExplainRequest,
+    ExplainResponse,
     TranscribeResponse,
 )
 from app.stt.base import STTError
+from app.teacher.base import TeacherError
 
 router = APIRouter(prefix="/api/study", tags=["study"])
 logger = logging.getLogger(__name__)
@@ -59,6 +62,31 @@ async def transcribe(
         stt_duration_ms=result.stt_duration_ms,
         audio_duration_ms=result.audio_duration_ms,
     )
+
+
+@router.post("/explain", response_model=ExplainResponse)
+def explain(payload: ExplainRequest, session: SessionDep, teacher: TeacherDep) -> ExplainResponse:
+    card = crud.get_card(session, payload.card_id)
+    deck = crud.get_deck(session, card.deck_id)
+    settings = crud.get_settings(session)
+    log = crud.get_last_answer_log(session, payload.card_id)
+    try:
+        result = teacher.explain(
+            deck_context=deck.context,
+            card_context=card.context,
+            question=card.question,
+            expected_answer=card.answer,
+            user_answer=log.answer_text if log else "",
+            is_correct=log.is_correct if log else None,
+            language=settings.judge_language,
+        )
+    except TeacherError as exc:
+        logger.warning("Teacher explanation failed: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="Teacher explanation failed; try again",
+        ) from exc
+    return ExplainResponse(explanation=result.explanation, model=teacher.model)
 
 
 def _record_answer(

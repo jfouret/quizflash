@@ -14,6 +14,7 @@ class Deck(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
     description: str = ""
+    context: str = ""
     scheduler: str = "fsrs"
     scheduler_params: dict[str, Any] = Field(
         default_factory=dict, sa_column=Column(JSON)
@@ -38,6 +39,7 @@ class Card(SQLModel, table=True):
     question: str
     answer: str
     details: str = ""
+    context: str = ""
     expected_time_s: int | None = None
     created_at: datetime = Field(default_factory=utc_now)
     tags: list[Tag] = Relationship(link_model=CardTag)
@@ -75,5 +77,6 @@ class Settings(SQLModel, table=True):
     stt_language: str = "auto"
     voice_auto_judge: bool = False
     auto_confirm: bool = False
+    teacher_enabled: bool = True
     daily_new_limit: int = 0
     daily_review_limit: int = 0

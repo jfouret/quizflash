@@ -19,9 +19,10 @@ from app.schemas import (
     TagRead,
 )
 from app.stats import get_stats as calculate_stats
+from app.teacher.base import Teacher
 
 
-def create_mcp(session_factory: Callable[[], Session]) -> FastMCP:
+def create_mcp(session_factory: Callable[[], Session], teacher: Teacher) -> FastMCP:
     mcp = FastMCP("QuizDeck")
 
     @mcp.tool
@@ -45,14 +46,16 @@ def create_mcp(session_factory: Callable[[], Session]) -> FastMCP:
     def create_deck(
         name: str,
         description: str = "",
+        context: str = "",
         scheduler: SchedulerName = "fsrs",
         scheduler_params: dict[str, Any] | None = None,
         eval_mode: EvalMode | None = None,
     ) -> dict[str, Any]:
-        """Create a deck with optional scheduler and evaluation settings."""
+        """Create a deck with optional context, scheduler, and evaluation settings."""
         data = DeckCreate(
             name=name,
             description=description,
+            context=context,
             scheduler=scheduler,
             scheduler_params=scheduler_params or {},
             eval_mode=eval_mode,
@@ -101,6 +104,7 @@ def create_mcp(session_factory: Callable[[], Session]) -> FastMCP:
         question: str,
         answer: str,
         details: str = "",
+        context: str = "",
         expected_time_s: int | None = None,
         tags: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -110,6 +114,7 @@ def create_mcp(session_factory: Callable[[], Session]) -> FastMCP:
             question=question,
             answer=answer,
             details=details,
+            context=context,
             expected_time_s=expected_time_s,
             tags=tags or [],
         )
@@ -159,5 +164,24 @@ def create_mcp(session_factory: Callable[[], Session]) -> FastMCP:
         """Aggregate answer logs for a deck/card ID or tag name."""
         with session_factory() as session:
             return calculate_stats(session, scope, target).model_dump(mode="json")
+
+    @mcp.tool
+    def explain_card(card_id: int) -> dict[str, Any]:
+        """Ask the LLM teacher to explain a card using its deck and card context."""
+        with session_factory() as session:
+            card = crud.get_card(session, card_id)
+            deck = crud.get_deck(session, card.deck_id)
+            settings = crud.get_settings(session)
+            log = crud.get_last_answer_log(session, card_id)
+            result = teacher.explain(
+                deck_context=deck.context,
+                card_context=card.context,
+                question=card.question,
+                expected_answer=card.answer,
+                user_answer=log.answer_text if log else "",
+                is_correct=log.is_correct if log else None,
+                language=settings.judge_language,
+            )
+            return {"explanation": result.explanation, "model": teacher.model}
 
     return mcp

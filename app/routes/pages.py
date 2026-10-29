@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from app import crud
 from app.dependencies import SessionDep
-from app.schemas import CardCreate, DeckCreate, SettingsUpdate
+from app.schemas import CardCreate, DeckCreate, DeckUpdate, SettingsUpdate
 
 router = APIRouter(include_in_schema=False)
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -29,11 +29,12 @@ def create_deck_form(
     session: SessionDep,
     name: Annotated[str, Form()],
     description: Annotated[str, Form()] = "",
+    context: Annotated[str, Form()] = "",
     scheduler: Annotated[SchedulerForm, Form()] = "fsrs",
 ) -> RedirectResponse:
     crud.create_deck(
         session,
-        DeckCreate(name=name, description=description, scheduler=scheduler),
+        DeckCreate(name=name, description=description, context=context, scheduler=scheduler),
     )
     return RedirectResponse("/", status_code=303)
 
@@ -50,6 +51,21 @@ def deck_detail(request: Request, deck_id: int, session: SessionDep) -> Response
     )
 
 
+@router.post("/decks/{deck_id}/update")
+def update_deck_form(
+    deck_id: int,
+    session: SessionDep,
+    description: Annotated[str, Form()] = "",
+    context: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    crud.update_deck(
+        session,
+        deck_id,
+        DeckUpdate(description=description, context=context),
+    )
+    return RedirectResponse(f"/decks/{deck_id}", status_code=303)
+
+
 @router.post("/decks/{deck_id}/delete")
 def delete_deck_form(deck_id: int, session: SessionDep) -> RedirectResponse:
     crud.delete_deck(session, deck_id)
@@ -63,6 +79,7 @@ def create_card_form(
     question: Annotated[str, Form()],
     answer: Annotated[str, Form()],
     details: Annotated[str, Form()] = "",
+    context: Annotated[str, Form()] = "",
     expected_time_s: Annotated[str, Form()] = "",
     tags: Annotated[str, Form()] = "",
 ) -> RedirectResponse:
@@ -73,6 +90,7 @@ def create_card_form(
             question=question,
             answer=answer,
             details=details,
+            context=context,
             expected_time_s=int(expected_time_s) if expected_time_s.strip() else None,
             tags=[tag.strip() for tag in tags.split(",") if tag.strip()],
         ),
@@ -125,6 +143,7 @@ def update_settings_form(
     daily_review_limit: Annotated[int, Form()],
     voice_auto_judge: Annotated[bool, Form()] = False,
     auto_confirm: Annotated[bool, Form()] = False,
+    teacher_enabled: Annotated[bool, Form()] = False,
 ) -> RedirectResponse:
     crud.update_settings(
         session,
@@ -134,6 +153,7 @@ def update_settings_form(
             stt_language=stt_language,
             voice_auto_judge=voice_auto_judge,
             auto_confirm=auto_confirm,
+            teacher_enabled=teacher_enabled,
             daily_new_limit=daily_new_limit,
             daily_review_limit=daily_review_limit,
         ),

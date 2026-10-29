@@ -13,11 +13,14 @@ from app.judge.openrouter import OpenRouterJudge
 from app.mcp_server import create_mcp
 from app.routes import cards, decks, pages, settings, stats, study, tags
 from app.stt.openai_compat import OpenAICompatibleSTT
+from app.teacher.base import Teacher
+from app.teacher.openrouter import OpenRouterTeacher
 
 
-def create_app(database_url: str | None = None) -> FastAPI:
+def create_app(database_url: str | None = None, teacher: Teacher | None = None) -> FastAPI:
     engine = create_db_engine(database_url or DATABASE_URL)
-    mcp_server = create_mcp(lambda: Session(engine))
+    teacher_instance = teacher or OpenRouterTeacher.from_env()
+    mcp_server = create_mcp(lambda: Session(engine), teacher_instance)
     mcp_app = mcp_server.http_app(path="/")
 
     @asynccontextmanager
@@ -36,6 +39,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.state.fallback_tokens = {}
     app.state.judge = OpenRouterJudge.from_env()
     app.state.stt = OpenAICompatibleSTT.from_env()
+    app.state.teacher = teacher_instance
 
     app.include_router(decks.router)
     app.include_router(cards.router)

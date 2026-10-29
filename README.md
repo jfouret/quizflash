@@ -11,6 +11,7 @@ Self-hosted, single-user spaced-repetition quiz application. Cards are fed by th
   - `ai_assess`: the AI decides and the review is saved immediately.
   - `self_fallback`: manual rating, only available through a single-use token issued after an actual judge failure.
 - Voice answers: automatic recording when microphone permission is granted, an elapsed-time counter, server-side remote STT, and an editable transcript. Settings can send the transcript straight to the judge or wait for validation. Corrections can be judged again before the review is saved. Response time, STT call duration, and audio duration are persisted.
+- Deck-level and card-level context fields, plus an optional LLM teacher: after a result, the teacher explains the card using both contexts (toggle in settings; otherwise use the Teacher/Regenerate buttons in the result panel).
 - Pluggable schedulers: FSRS (default, `fsrs` PyPI package) and SM-2, configurable per deck.
 - SQL statistics per deck, card, and tag.
 - FastMCP server mounted at `/mcp` for external AI agents.
@@ -40,6 +41,9 @@ Environment variables can come from the shell or a `.env` file (see `.env.exampl
 | `STT_BASE_URL` | (none) | OpenAI-compatible `/v1/audio/transcriptions` base |
 | `STT_MODEL` | (none) | STT model |
 | `STT_API_KEY` | (none) | STT API key |
+| `TEACHER_BASE_URL` | `JUDGE_BASE_URL` | Chat-completions base for the teacher; `/api/v1/chat/completions` is appended |
+| `TEACHER_MODEL` | (none) | Teacher chat model (required for explanations) |
+| `TEACHER_API_KEY` | `JUDGE_API_KEY` / `OPENROUTER_API_KEY` | Teacher API key |
 
 Example:
 
@@ -51,6 +55,7 @@ export JUDGE_API_KEY="sk-or-..."
 export STT_BASE_URL="https://api.openai.com/v1"
 export STT_MODEL="whisper-1"
 export STT_API_KEY="sk-..."
+export TEACHER_MODEL="openai/gpt-4o-mini"   # reuses JUDGE_BASE_URL and JUDGE_API_KEY
 ```
 
 ## Run locally

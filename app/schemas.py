@@ -19,6 +19,7 @@ class TagRead(BaseModel):
 class DeckCreate(BaseModel):
     name: str = Field(min_length=1)
     description: str = ""
+    context: str = ""
     scheduler: SchedulerName = "fsrs"
     scheduler_params: dict[str, Any] = Field(default_factory=dict)
     eval_mode: EvalMode | None = None
@@ -27,6 +28,7 @@ class DeckCreate(BaseModel):
 class DeckUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1)
     description: str | None = None
+    context: str | None = None
     scheduler: SchedulerName | None = None
     scheduler_params: dict[str, Any] | None = None
     eval_mode: EvalMode | None = None
@@ -38,6 +40,7 @@ class DeckRead(BaseModel):
     id: int
     name: str
     description: str
+    context: str
     scheduler: str
     scheduler_params: dict[str, Any]
     eval_mode: str | None
@@ -49,6 +52,7 @@ class CardCreate(BaseModel):
     question: str = Field(min_length=1)
     answer: str = Field(min_length=1)
     details: str = ""
+    context: str = ""
     expected_time_s: int | None = Field(default=None, ge=1)
     tags: list[str] = Field(default_factory=list)
 
@@ -58,6 +62,7 @@ class CardUpdate(BaseModel):
     question: str | None = Field(default=None, min_length=1)
     answer: str | None = Field(default=None, min_length=1)
     details: str | None = None
+    context: str | None = None
     expected_time_s: int | None = Field(default=None, ge=1)
     tags: list[str] | None = None
 
@@ -70,6 +75,7 @@ class CardRead(BaseModel):
     question: str
     answer: str
     details: str
+    context: str
     expected_time_s: int | None
     created_at: datetime
     tags: list[TagRead]
@@ -90,6 +96,7 @@ class SettingsRead(BaseModel):
     stt_language: str
     voice_auto_judge: bool
     auto_confirm: bool
+    teacher_enabled: bool
     daily_new_limit: int
     daily_review_limit: int
 
@@ -100,6 +107,7 @@ class SettingsUpdate(BaseModel):
     stt_language: str | None = Field(default=None, min_length=1)
     voice_auto_judge: bool | None = None
     auto_confirm: bool | None = None
+    teacher_enabled: bool | None = None
     daily_new_limit: int | None = Field(default=None, ge=0)
     daily_review_limit: int | None = Field(default=None, ge=0)
 
@@ -125,6 +133,15 @@ class AnswerRequest(BaseModel):
     is_correct: bool | None = None
     judge_feedback: str = ""
     judge_model: str = ""
+
+
+class ExplainRequest(BaseModel):
+    card_id: int
+
+
+class ExplainResponse(BaseModel):
+    explanation: str
+    model: str
 
 
 class AnswerResponse(BaseModel):

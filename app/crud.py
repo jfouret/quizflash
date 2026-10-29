@@ -40,7 +40,7 @@ def create_deck(session: Session, data: DeckCreate) -> Deck:
 def update_deck(session: Session, deck_id: int, data: DeckUpdate) -> Deck:
     deck = get_deck(session, deck_id)
     values = data.model_dump(exclude_unset=True)
-    for field in ("name", "description", "scheduler", "scheduler_params"):
+    for field in ("name", "description", "context", "scheduler", "scheduler_params"):
         if field in values and values[field] is None:
             raise ValueError(f"{field} cannot be null")
     for key, value in values.items():
@@ -135,7 +135,7 @@ def create_card(session: Session, data: CardCreate) -> Card:
 def update_card(session: Session, card_id: int, data: CardUpdate) -> Card:
     card = get_card(session, card_id)
     values = data.model_dump(exclude_unset=True)
-    for field in ("deck_id", "question", "answer", "details"):
+    for field in ("deck_id", "question", "answer", "details", "context"):
         if field in values and values[field] is None:
             raise ValueError(f"{field} cannot be null")
     if "deck_id" in values:
@@ -186,7 +186,14 @@ def get_settings(session: Session) -> Settings:
 def update_settings(session: Session, data: SettingsUpdate) -> Settings:
     settings = get_settings(session)
     values = data.model_dump(exclude_unset=True)
-    fields = ("eval_mode", "judge_language", "stt_language", "voice_auto_judge", "auto_confirm")
+    fields = (
+        "eval_mode",
+        "judge_language",
+        "stt_language",
+        "voice_auto_judge",
+        "auto_confirm",
+        "teacher_enabled",
+    )
     for field in fields:
         if field in values and values[field] is None:
             raise ValueError(f"{field} cannot be null")
@@ -257,6 +264,15 @@ def get_due(
             review_remaining -= 1
         due.append((card, state))
     return due
+
+
+def get_last_answer_log(session: Session, card_id: int) -> AnswerLog | None:
+    statement = (
+        select(AnswerLog)
+        .where(AnswerLog.card_id == card_id)
+        .order_by(col(AnswerLog.reviewed_at).desc(), col(AnswerLog.id).desc())
+    )
+    return session.exec(statement).first()
 
 
 def record_review(

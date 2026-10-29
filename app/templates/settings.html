@@ -22,6 +22,11 @@
     Auto-confirm AI assessments (save without clicking)
   </label>
   <p class="muted">When on, an AI-decided review is saved immediately; the card still flips to show the result.</p>
+  <label for="teacher-enabled">
+    <input id="teacher-enabled" name="teacher_enabled" type="checkbox" value="true" {% if settings.teacher_enabled %}checked{% endif %}>
+    Teacher explanations (auto after each result; otherwise use the Teacher button)
+  </label>
+  <p class="muted">When on, an LLM explains the card using the deck and card context right after the result. When off, the Teacher and Regenerate buttons stay available in the result panel.</p>
   <label for="new-limit">Daily new-card limit (0 = unlimited)</label>
   <input id="new-limit" name="daily_new_limit" type="number" min="0" value="{{ settings.daily_new_limit }}" required>
   <label for="review-limit">Daily review limit (0 = unlimited)</label>
