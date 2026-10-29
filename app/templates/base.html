@@ -4,32 +4,63 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}QuizDeck{% endblock %}</title>
+  <script>
+    // Apply saved theme before first paint: no attribute = follow system.
+    (function () {
+      var theme = localStorage.getItem('quizdeck-theme') || 'auto';
+      if (theme !== 'auto') document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/pico.min.css">
+  <link rel="stylesheet" href="/static/style.css">
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-  <style>
-    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-    body { max-width: 960px; margin: 0 auto; padding: 1rem; line-height: 1.5; }
-    nav { display: flex; gap: 1rem; margin-bottom: 2rem; }
-    a { color: #2563eb; }
-    label { display: block; margin-top: .8rem; font-weight: 600; }
-    input, textarea, select, button { font: inherit; padding: .55rem; }
-    input, textarea, select { width: 100%; box-sizing: border-box; }
-    textarea { min-height: 6rem; resize: vertical; }
-    button { margin-top: .8rem; cursor: pointer; }
-    .card { border: 1px solid #8886; border-radius: .5rem; padding: 1rem; margin: 1rem 0; }
-    .row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-    .row > * { flex: 1; }
-    .tag { border: 1px solid #8886; border-radius: 1rem; padding: .1rem .5rem; }
-    .muted { color: #777; }
-    .error { color: #dc2626; }
-    .success { color: #16a34a; }
-    .pre { white-space: pre-wrap; overflow-wrap: anywhere; }
-    .danger { background: #dc2626; color: white; border: 0; }
-    [hidden] { display: none !important; }
-  </style>
 </head>
 <body hx-boost="true">
-  <nav><a href="/">Decks</a><a href="/study">Study</a><a href="/settings">Settings</a></nav>
-  <main>{% block content %}{% endblock %}</main>
+  <header>
+    <nav class="container">
+      <ul>
+        <li><strong>QuizDeck</strong></li>
+      </ul>
+      <ul>
+        <li><a href="/" {% if request.url.path == '/' %}aria-current="page"{% endif %}>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4a2 2 0 0 0-2-2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>
+          Decks</a></li>
+        <li><a href="/study" {% if request.url.path.startswith('/study') %}aria-current="page"{% endif %}>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3V9z"/></svg>
+          Study</a></li>
+        <li><a href="/settings" {% if request.url.path.startswith('/settings') %}aria-current="page"{% endif %}>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Settings</a></li>
+        <li><button id="theme-toggle" type="button" class="secondary outline" aria-label="Switch color theme" title="Theme: system">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>
+        </button></li>
+      </ul>
+    </nav>
+  </header>
+  <main class="container">{% block content %}{% endblock %}</main>
+  <footer class="container"><small class="muted">Self-hosted spaced-repetition quizzes</small></footer>
   {% block scripts %}{% endblock %}
+  <script>
+    (function () {
+      var button = document.getElementById('theme-toggle');
+      var order = ['auto', 'light', 'dark'];
+      var labels = {auto: 'Theme: system', light: 'Theme: light', dark: 'Theme: dark'};
+      function current() {
+        return localStorage.getItem('quizdeck-theme') || 'auto';
+      }
+      function apply() {
+        var theme = current();
+        if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
+        else document.documentElement.setAttribute('data-theme', theme);
+        button.title = labels[theme];
+      }
+      button.addEventListener('click', function () {
+        var next = order[(order.indexOf(current()) + 1) % order.length];
+        localStorage.setItem('quizdeck-theme', next);
+        apply();
+      });
+      apply();
+    })();
+  </script>
 </body>
 </html>

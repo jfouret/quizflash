@@ -89,6 +89,7 @@ class SettingsRead(BaseModel):
     judge_language: str
     stt_language: str
     voice_auto_judge: bool
+    auto_confirm: bool
     daily_new_limit: int
     daily_review_limit: int
 
@@ -98,6 +99,7 @@ class SettingsUpdate(BaseModel):
     judge_language: str | None = Field(default=None, min_length=1)
     stt_language: str | None = Field(default=None, min_length=1)
     voice_auto_judge: bool | None = None
+    auto_confirm: bool | None = None
     daily_new_limit: int | None = Field(default=None, ge=0)
     daily_review_limit: int | None = Field(default=None, ge=0)
 

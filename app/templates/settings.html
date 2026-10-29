@@ -14,9 +14,14 @@
   <input id="stt-language" name="stt_language" value="{{ settings.stt_language }}" required>
   <label for="voice-auto-judge">
     <input id="voice-auto-judge" name="voice_auto_judge" type="checkbox" value="true" {% if settings.voice_auto_judge %}checked{% endif %}>
-    Judge voice transcripts immediately
+    Auto-submit answer when voice recording ends
   </label>
-  <p class="muted">When off, wait for transcript validation before judging.</p>
+  <p class="muted">When off, wait for transcript validation before judging. Press Enter to stop recording.</p>
+  <label for="auto-confirm">
+    <input id="auto-confirm" name="auto_confirm" type="checkbox" value="true" {% if settings.auto_confirm %}checked{% endif %}>
+    Auto-confirm AI assessments (save without clicking)
+  </label>
+  <p class="muted">When on, an AI-decided review is saved immediately; the card still flips to show the result.</p>
   <label for="new-limit">Daily new-card limit (0 = unlimited)</label>
   <input id="new-limit" name="daily_new_limit" type="number" min="0" value="{{ settings.daily_new_limit }}" required>
   <label for="review-limit">Daily review limit (0 = unlimited)</label>

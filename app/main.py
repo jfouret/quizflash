@@ -1,8 +1,10 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
 from app.crud import NotFoundError
@@ -52,6 +54,11 @@ def create_app(database_url: str | None = None) -> FastAPI:
         return JSONResponse(status_code=400, content={"detail": str(exc)})
 
     app.mount("/mcp", mcp_app)
+    app.mount(
+        "/static",
+        StaticFiles(directory=str(Path(__file__).parent / "static")),
+        name="static",
+    )
     return app
 
 

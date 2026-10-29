@@ -101,6 +101,7 @@ def study_page(
             "decks": crud.list_decks(session),
             "deck_id": deck_id,
             "settings": crud.get_settings(session),
+            "due_count": len(crud.get_due(session, deck_id)),
         },
     )
 
@@ -123,6 +124,7 @@ def update_settings_form(
     daily_new_limit: Annotated[int, Form()],
     daily_review_limit: Annotated[int, Form()],
     voice_auto_judge: Annotated[bool, Form()] = False,
+    auto_confirm: Annotated[bool, Form()] = False,
 ) -> RedirectResponse:
     crud.update_settings(
         session,
@@ -131,6 +133,7 @@ def update_settings_form(
             judge_language=judge_language,
             stt_language=stt_language,
             voice_auto_judge=voice_auto_judge,
+            auto_confirm=auto_confirm,
             daily_new_limit=daily_new_limit,
             daily_review_limit=daily_review_limit,
         ),

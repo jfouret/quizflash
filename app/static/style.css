@@ -1,0 +1,53 @@
+/* App-specific styles on top of Pico.css */
+:root {
+  --pico-font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --pico-border-radius: .6rem;
+  --pico-primary: #6366f1;
+  --pico-primary-hover: #4f46e5;
+  --pico-primary-active: #4338ca;
+  --pico-primary-focus: rgba(99, 102, 241, .25);
+  --pico-primary-inverse: #fff;
+  --pico-card-box-shadow: 0 1px 3px rgba(0, 0, 0, .08), 0 4px 12px rgba(0, 0, 0, .05);
+  --pico-background-color: #f6f7fb;
+}
+[data-theme="dark"] {
+  --pico-primary: #818cf8;
+  --pico-primary-hover: #a5b4fc;
+  --pico-primary-active: #c7d2fe;
+  --pico-primary-focus: rgba(129, 140, 248, .3);
+  --pico-primary-inverse: #1e1b4b;
+  --pico-background-color: #0f1117;
+}
+.icon { width: .95em; height: .95em; vertical-align: -0.15em; margin-right: .25em; }
+#theme-toggle { padding: .2rem .4rem; margin: 0; }
+#theme-toggle .icon { width: 1em; height: 1em; margin: 0; vertical-align: 0; }
+
+/* 3D flip: question on front, result on back */
+.flip { display: grid; perspective: 1400px; }
+.flip > section { grid-area: 1 / 1; backface-visibility: hidden; transition: transform .55s cubic-bezier(.4, .1, .2, 1); }
+#result { transform: rotateY(180deg); }
+.flip.flipped #study-card { transform: rotateY(-180deg); }
+.flip.flipped #result { transform: rotateY(0deg); }
+nav a[aria-current="page"] { font-weight: 700; text-decoration: underline; }
+.card { border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); padding: 1rem; margin: 1rem 0; background: var(--pico-card-background-color); }
+.row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.row > * { flex: 1; }
+.tag { border: 1px solid var(--pico-muted-border-color); border-radius: 1rem; padding: .1rem .5rem; margin-right: .3rem; font-size: .85em; }
+.muted { color: var(--pico-muted-color); }
+.error { color: var(--pico-del-color); }
+.success { color: var(--pico-ins-color); }
+.pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.danger { background: var(--pico-del-color); border-color: var(--pico-del-color); }
+[hidden] { display: none !important; }
+
+#status { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 10; padding: .5rem 1rem; border-radius: var(--pico-border-radius); background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); box-shadow: var(--pico-box-shadow); max-width: 90vw; }
+#status.error { border-color: var(--pico-del-color); color: var(--pico-del-color); }
+#status:empty { display: none; }
+
+#eq { width: 96px; height: 28px; }
+.recording #record { background: var(--pico-del-color); border-color: var(--pico-del-color); }
+.recording #record::before { content: "● "; }
+
+@media (max-width: 600px) {
+  .row > button { flex: 1 1 100%; }
+}

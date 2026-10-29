@@ -74,5 +74,6 @@ class Settings(SQLModel, table=True):
     judge_language: str = "auto"
     stt_language: str = "auto"
     voice_auto_judge: bool = False
+    auto_confirm: bool = False
     daily_new_limit: int = 0
     daily_review_limit: int = 0

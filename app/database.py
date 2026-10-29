@@ -40,6 +40,13 @@ def init_db(engine: Engine) -> None:
                     "BOOLEAN NOT NULL DEFAULT FALSE"
                 )
             )
+        if "auto_confirm" not in {column["name"] for column in columns}:
+            connection.execute(
+                text(
+                    "ALTER TABLE settings ADD COLUMN auto_confirm "
+                    "BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
     with Session(engine) as session:
         if session.get(Settings, 1) is None:
             session.add(Settings())
