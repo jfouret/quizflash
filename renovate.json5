@@ -1,0 +1,30 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    "group:all"
+  ],
+  packageRules: [
+    {
+      // python:3.12-slim in the Dockerfile is tracked by the dockerfile manager
+      matchDatasources: ["python-version"],
+      enabled: false
+    }
+  ],
+  prConcurrentLimit: 15,
+  prHeader: "![Renovate Bot](https://avatars.githubusercontent.com/u/25180681?v=4&s=40) Renovate: Dependency Update",
+  prBodyNotes: [
+    "This PR has been created by Renovate Bot to keep your dependencies up-to-date.",
+    "Managed by centralized Renovate bot from jfouret/renovate repository"
+  ],
+  rebaseWhen: "behind-base-branch",
+  automerge: true,
+  // private repo on GitHub Free: platform auto-merge unavailable, let Renovate merge directly
+  platformAutomerge: false,
+  // versions stay pinned in the repo files: Dockerfile FROM lines, pyproject.toml/uv.lock, workflow action tags
+  enabledManagers: [
+    "dockerfile",
+    "github-actions",
+    "uv"
+  ]
+}
