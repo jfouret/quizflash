@@ -7,6 +7,10 @@ EvalMode = Literal["ai_preselect", "ai_assess"]
 SchedulerName = Literal["fsrs", "sm2"]
 InputMethod = Literal["text", "voice"]
 StatsScope = Literal["deck", "card", "tag"]
+Visibility = Literal["private", "public"]
+Registration = Literal["open", "approval", "closed"]
+UserStatus = Literal["pending", "active", "disabled"]
+Role = Literal["admin", "user"]
 
 
 class TagRead(BaseModel):
@@ -23,6 +27,7 @@ class DeckCreate(BaseModel):
     scheduler: SchedulerName = "fsrs"
     scheduler_params: dict[str, Any] = Field(default_factory=dict)
     eval_mode: EvalMode | None = None
+    visibility: Visibility = "private"
 
 
 class DeckUpdate(BaseModel):
@@ -32,6 +37,7 @@ class DeckUpdate(BaseModel):
     scheduler: SchedulerName | None = None
     scheduler_params: dict[str, Any] | None = None
     eval_mode: EvalMode | None = None
+    visibility: Visibility | None = None
 
 
 class DeckRead(BaseModel):
@@ -44,7 +50,16 @@ class DeckRead(BaseModel):
     scheduler: str
     scheduler_params: dict[str, Any]
     eval_mode: str | None
+    owner_id: int
+    visibility: str
+    source_deck_id: int | None
     created_at: datetime
+
+
+class PublicDeckRead(DeckRead):
+    owner_name: str
+    card_count: int
+    following: bool
 
 
 class CardCreate(BaseModel):
@@ -90,7 +105,6 @@ class DueCard(BaseModel):
 class SettingsRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
     eval_mode: str
     judge_language: str
     stt_language: str
@@ -163,3 +177,63 @@ class StatsResponse(BaseModel):
     correct_rate: float
     avg_response_time_ms: float | None
     by_mode: dict[str, int]
+
+
+class AppSettingsRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    registration: str
+    allow_public_decks: bool
+    teacher_allowed: bool
+    voice_allowed: bool
+    default_settings: dict[str, Any]
+
+
+class AppSettingsUpdate(BaseModel):
+    registration: Registration | None = None
+    allow_public_decks: bool | None = None
+    teacher_allowed: bool | None = None
+    voice_allowed: bool | None = None
+    default_settings: SettingsUpdate | None = None
+
+
+class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    display_name: str
+    role: str
+    status: str
+    oidc_subject: str | None
+    created_at: datetime
+    last_login_at: datetime | None
+
+
+class UserAdminUpdate(BaseModel):
+    status: UserStatus | None = None
+    role: Role | None = None
+
+
+class MeResponse(BaseModel):
+    user: UserRead
+    csrf_token: str
+
+
+class ApiTokenCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
+class ApiTokenRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    prefix: str
+    created_at: datetime
+    last_used_at: datetime | None
+    revoked_at: datetime | None
+
+
+class ApiTokenCreated(ApiTokenRead):
+    token: str

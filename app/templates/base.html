@@ -14,31 +14,55 @@
   <link rel="stylesheet" href="/static/pico.min.css">
   <link rel="stylesheet" href="/static/style.css">
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  {% set current_user = request.state.user if request.state.user is defined else none %}
+  {% if current_user %}<meta name="csrf-token" content="{{ request.state.csrf_token }}">{% endif %}
 </head>
-<body hx-boost="true">
-  <header>
+<body hx-boost="true"{% if current_user %} hx-headers='{"X-CSRF-Token": "{{ request.state.csrf_token }}"}'{% endif %}>
+  {% set path = request.url.path %}
+  <header class="site-header">
     <nav class="container">
       <ul>
-        <li><strong>QuizDeck</strong></li>
+        <li><a class="brand" href="/"><span class="brand-mark" aria-hidden="true">Q</span>QuizDeck</a></li>
       </ul>
+      {% if current_user %}
+      <ul class="nav-links">
+        <li><a href="/" {% if path == '/' or path.startswith('/decks') %}aria-current="page"{% endif %}>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4a2 2 0 0 0-2-2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>Decks</a></li>
+        <li><a href="/study" {% if path.startswith('/study') %}aria-current="page"{% endif %}>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3V9z"/></svg>Study</a></li>
+        <li><a href="/explore" {% if path.startswith('/explore') %}aria-current="page"{% endif %}>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z"/></svg>Explore</a></li>
+        <li><a href="/settings" {% if path.startswith('/settings') %}aria-current="page"{% endif %}>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a></li>
+        {% if current_user.role == 'admin' %}
+        <li><a href="/admin" {% if path.startswith('/admin') %}aria-current="page"{% endif %}>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Admin</a></li>
+        {% endif %}
+      </ul>
+      {% endif %}
       <ul>
-        <li><a href="/" {% if request.url.path == '/' %}aria-current="page"{% endif %}>
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4a2 2 0 0 0-2-2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>
-          Decks</a></li>
-        <li><a href="/study" {% if request.url.path.startswith('/study') %}aria-current="page"{% endif %}>
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3V9z"/></svg>
-          Study</a></li>
-        <li><a href="/settings" {% if request.url.path.startswith('/settings') %}aria-current="page"{% endif %}>
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Settings</a></li>
-        <li><button id="theme-toggle" type="button" class="secondary outline" aria-label="Switch color theme" title="Theme: system">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>
+        {% if current_user %}
+        <li class="nav-user">
+          <span class="avatar" aria-hidden="true">{{ (current_user.display_name or current_user.email)[:1] }}</span>
+          <span class="who muted"><small>{{ current_user.display_name or current_user.email }}</small></span>
+        </li>
+        <li>
+          <form method="post" action="/logout" class="actions">
+            <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+            <button type="submit" class="secondary outline sm" title="Signed in as {{ current_user.email }}">Log out</button>
+          </form>
+        </li>
+        {% endif %}
+        <li><button id="theme-toggle" type="button" class="secondary outline icon-btn" aria-label="Switch color theme" title="Theme: system">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>
         </button></li>
       </ul>
     </nav>
   </header>
+  {% set notice = notices.get(request.query_params.get('notice', '')) %}
+  {% if notice %}<div class="toast" role="status">{{ notice }}</div>{% endif %}
   <main class="container">{% block content %}{% endblock %}</main>
-  <footer class="container"><small class="muted">Self-hosted spaced-repetition quizzes</small></footer>
+  <footer class="container"><small class="muted">QuizDeck · self-hosted spaced-repetition quizzes</small></footer>
   {% block scripts %}{% endblock %}
   <script>
     (function () {
@@ -53,6 +77,7 @@
         if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
         else document.documentElement.setAttribute('data-theme', theme);
         button.title = labels[theme];
+        button.setAttribute('aria-label', labels[theme] + ' (click to change)');
       }
       button.addEventListener('click', function () {
         var next = order[(order.indexOf(current()) + 1) % order.length];
@@ -60,6 +85,25 @@
         apply();
       });
       apply();
+      // Body scripts re-run on hx-boost navigation: bind document handlers once.
+      if (window.quizdeckUiBound) return;
+      window.quizdeckUiBound = true;
+      document.addEventListener('click', function (event) {
+        var opener = event.target.closest('[data-open]');
+        if (opener) document.getElementById(opener.dataset.open).showModal();
+        var closer = event.target.closest('[data-close]');
+        if (closer) closer.closest('dialog').close();
+        var copy = event.target.closest('[data-copy]');
+        if (copy) {
+          navigator.clipboard.writeText(document.getElementById(copy.dataset.copy).textContent);
+          copy.textContent = 'Copied';
+        }
+      });
+      document.addEventListener('submit', function (event) {
+        var source = event.submitter && event.submitter.dataset.confirm ? event.submitter : event.target;
+        var message = source.dataset.confirm;
+        if (message && !confirm(message)) { event.preventDefault(); event.stopPropagation(); }
+      }, true);
     })();
   </script>
 </body>

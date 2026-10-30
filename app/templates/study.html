@@ -1,57 +1,72 @@
 {% extends "base.html" %}
 {% block title %}Study · QuizDeck{% endblock %}
 {% block content %}
-<h1>Study</h1>
-<label for="deck-select">Deck</label>
-<select id="deck-select">
-  <option value="">All decks</option>
-  {% for deck in decks %}<option value="{{ deck.id }}" {% if deck_id == deck.id %}selected{% endif %}>{{ deck.name }}</option>{% endfor %}
-</select>
-<p id="due-count" class="muted">{{ due_count }} card{{ 's' if due_count != 1 }} due</p>
+<div class="page-head">
+  <h1>Study</h1>
+  <div class="study-toolbar" style="margin: 0">
+    <label for="deck-select" class="muted" style="margin: 0">Deck</label>
+    <select id="deck-select">
+      <option value="">All decks</option>
+      {% for deck in decks %}<option value="{{ deck.id }}" {% if deck_id == deck.id %}selected{% endif %}>{{ deck.name }}</option>{% endfor %}
+    </select>
+    <span id="due-count" class="due-pill">{{ due_count }} card{{ 's' if due_count != 1 }} due</span>
+  </div>
+</div>
 <p id="status" role="status" aria-live="polite"></p>
-<section id="empty" class="card" hidden><h2>Queue empty</h2><p>No cards are due under current limits.</p></section>
+<section id="empty" class="empty empty-study" hidden>
+  <h2>All caught up</h2>
+  <p>No cards are due under your current limits.</p>
+  <div class="actions"><a role="button" class="secondary outline" href="/">Back to decks</a><a role="button" class="secondary outline" href="/explore">Explore decks</a></div>
+</section>
 <div id="flip" class="flip">
 <section id="study-card" class="card" hidden>
-  <p id="card-state" class="muted"></p>
+  <p id="card-state" class="badge accent"></p>
   <h2 id="question" class="pre"></h2>
   <label for="answer-input">Your answer</label>
-  <textarea id="answer-input" autofocus></textarea>
-  <div class="row">
-    <button id="record" type="button">Record voice</button>
-    <button id="text-mode" type="button">Use text input</button>
-    <button id="submit" type="button">Submit answer</button>
+  <textarea id="answer-input" rows="3" autofocus placeholder="Type your answer{{ ' or record it' if voice_allowed }}…"></textarea>
+  <div class="study-actions">
+    <button id="record" type="button" class="secondary" {% if not voice_allowed %}hidden{% endif %}>Record voice</button>
+    <button id="text-mode" type="button" class="secondary outline" {% if not voice_allowed %}hidden{% endif %}>Use text input</button>
     <span id="recording-counter" class="muted" role="timer" aria-label="Recording duration" hidden>0:00</span>
     <canvas id="eq" width="96" height="28" hidden aria-hidden="true"></canvas>
+    <button id="submit" type="button">Submit answer</button>
   </div>
 </section>
 <section id="result" class="card" hidden>
   <p id="feedback" class="pre"></p>
   <p id="judge-info" class="muted"></p>
-  <h3>Expected answer</h3><p id="expected-answer" class="pre"></p>
+  <h3>Expected answer</h3><p id="expected-answer" class="pre answer-box"></p>
   <div id="details-wrap" hidden><h3>Going further</h3><p id="details" class="pre"></p></div>
   <div id="teacher-wrap" hidden>
     <h3>Teacher</h3>
     <p id="teacher-explanation" class="pre"></p>
     <p id="teacher-info" class="muted"></p>
-    <div class="row">
-      <button id="teacher-btn" type="button">Teacher</button>
-      <button id="teacher-regen" type="button">Regenerate</button>
+    <div class="actions">
+      <button id="teacher-btn" type="button" class="sm secondary outline">Explain</button>
+      <button id="teacher-regen" type="button" class="sm secondary outline">Regenerate</button>
     </div>
   </div>
-  <div id="rating-controls" hidden>
-    <label for="rating">Rating</label>
-    <select id="rating">
-      <option value="1">1 · Again</option><option value="2">2 · Hard</option>
-      <option value="3">3 · Good</option><option value="4">4 · Easy</option>
-    </select>
-    <label for="correct">Correctness</label>
-    <select id="correct"><option value="true">Correct</option><option value="false">Incorrect</option></select>
+  <div id="rating-controls" class="grid-2" hidden style="margin-top: 1.25rem">
+    <div>
+      <label for="rating">Rating</label>
+      <select id="rating">
+        <option value="1">1 · Again</option><option value="2">2 · Hard</option>
+        <option value="3">3 · Good</option><option value="4">4 · Easy</option>
+      </select>
+    </div>
+    <div>
+      <label for="correct">Correctness</label>
+      <select id="correct"><option value="true">Correct</option><option value="false">Incorrect</option></select>
+    </div>
   </div>
   <p id="final-rating"></p>
-  <button id="confirm" type="button" hidden>Confirm review</button>
-  <button id="next" type="button" hidden>Next card</button>
+  <div class="actions">
+    <button id="confirm" type="button" hidden>Confirm review</button>
+    <button id="next" type="button" hidden>Next card</button>
+  </div>
 </section>
 </div>
+<p class="shortcuts muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> submit · <kbd>Enter</kbd> next / stop recording · <kbd>1</kbd>–<kbd>4</kbd> rating</p>
 {% endblock %}
 {% block scripts %}
 <script>
@@ -111,6 +126,11 @@ let eqData = null;
 let eqFrame = null;
 let dueCount = Number(dueCountEl.textContent) || 0;
 
+function formatDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'});
+}
+
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.className = isError ? 'error' : 'muted';
@@ -121,8 +141,12 @@ function setFlipped(on) {
   else flipEl.classList.remove('flipped');
 }
 
+const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+const voiceAllowed = {{ voice_allowed | tojson }};
+
 async function api(url, options = {}) {
-  const response = await fetch(url, options);
+  const headers = {...(options.headers || {}), 'X-CSRF-Token': csrfToken};
+  const response = await fetch(url, {...options, headers, credentials: 'same-origin'});
   const data = await response.json();
   if (!response.ok) {
     const detail = typeof data.detail === 'string' ? data.detail : 'Request failed';
@@ -252,7 +276,7 @@ async function loadNext() {
       return;
     }
     questionEl.textContent = current.card.question;
-    cardStateEl.textContent = current.is_new ? 'New card' : 'Review · due ' + current.due;
+    cardStateEl.textContent = current.is_new ? 'New card' : 'Review · due ' + formatDate(current.due);
     studyEl.hidden = false;
     startedAt = Date.now();
     answerInput.focus();
@@ -370,7 +394,7 @@ function showReviewed(result) {
   showFeedback(result);
   showTeacher();
   judgeInfoEl.textContent = result.mode === 'self_fallback' ? 'Self fallback (judge failed)' : 'Judge: ' + result.judge_model;
-  finalRatingEl.textContent = 'Saved rating ' + result.rating + ' · ' + (result.is_correct ? 'correct' : 'incorrect') + ' · next due ' + result.due;
+  finalRatingEl.textContent = 'Saved rating ' + result.rating + ' · ' + (result.is_correct ? 'correct' : 'incorrect') + ' · next due ' + formatDate(result.due);
   ratingControls.hidden = true;
   confirmButton.hidden = true;
   nextButton.hidden = false;
@@ -536,7 +560,7 @@ function toggleRecording() {
 }
 
 async function watchMicrophonePermission() {
-  if (!navigator.permissions || !navigator.mediaDevices) return;
+  if (!voiceAllowed || !navigator.permissions || !navigator.mediaDevices) return;
   try {
     const permission = await navigator.permissions.query({name: 'microphone'});
     microphoneAuthorized = permission.state === 'granted';

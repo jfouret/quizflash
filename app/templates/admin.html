@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Admin · QuizDeck{% endblock %}
+{% block content %}
+{% set csrf %}<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">{% endset %}
+{% set pending = users | selectattr('status', 'equalto', 'pending') | list %}
+<div class="page-head">
+  <div>
+    <h1>Administration</h1>
+    <p class="muted">Manage accounts and application-wide settings. Private content of users is not visible here.</p>
+  </div>
+</div>
+
+<div class="stat-tiles">
+  <div class="card"><strong>{{ users|length }}</strong><span>Users</span></div>
+  <div class="card {{ 'warn' if pending }}"><strong>{{ pending|length }}</strong><span>Awaiting approval</span></div>
+  <div class="card"><strong>{{ users | selectattr('role', 'equalto', 'admin') | list | length }}</strong><span>Administrators</span></div>
+  <div class="card"><strong>{{ public_decks|length }}</strong><span>Public decks</span></div>
+</div>
+
+<h2 class="section-title">Users <span class="count">{{ users|length }}</span></h2>
+{% if oidc_enabled %}<p class="muted"><small>Roles come from the identity provider and cannot be changed here.</small></p>{% endif %}
+<div class="table-wrap">
+  <table class="stack">
+    <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Created</th><th>Last login</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for user in users|sort(attribute='status', reverse=true) %}
+    <tr>
+      <td><strong>{{ user.display_name }}</strong><br><small class="muted">{{ user.email }}</small></td>
+      <td data-label="Role">{% if user.role == 'admin' %}<span class="badge accent">Admin</span>{% else %}<span class="badge">User</span>{% endif %}</td>
+      <td data-label="Status">
+        {% if user.status == 'active' %}<span class="badge success">Active</span>
+        {% elif user.status == 'pending' %}<span class="badge warn">Pending</span>
+        {% else %}<span class="badge danger">Suspended</span>{% endif %}
+      </td>
+      <td class="nowrap" data-label="Created">{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+      <td class="nowrap" data-label="Last login">{{ user.last_login_at.strftime('%Y-%m-%d %H:%M') if user.last_login_at else 'Never' }}</td>
+      <td>
+        {% if user.id == request.state.user.id %}<span class="muted">You</span>{% else %}
+        <form method="post" action="/admin/users/{{ user.id }}" class="actions">
+          {{ csrf }}
+          {% if user.status == 'pending' %}<button class="sm" name="action" value="approve" type="submit">Approve</button>{% endif %}
+          {% if user.status == 'active' %}<button class="sm secondary outline" name="action" value="suspend" type="submit" data-confirm="Suspend {{ user.email }}? Their sessions and MCP tokens stop working.">Suspend</button>{% endif %}
+          {% if user.status == 'disabled' %}<button class="sm" name="action" value="reactivate" type="submit">Reactivate</button>{% endif %}
+          {% if not oidc_enabled %}
+            {% if user.role == 'user' %}<button class="sm secondary outline" name="action" value="promote" type="submit" data-confirm="Make {{ user.email }} an administrator?">Make admin</button>
+            {% else %}<button class="sm secondary outline" name="action" value="demote" type="submit">Remove admin</button>{% endif %}
+          {% endif %}
+          <button class="sm danger outline" name="action" value="delete" type="submit"
+                  data-confirm="Delete {{ user.email }}, their decks and all their progress? This cannot be undone.">Delete</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2 class="section-title">Application settings</h2>
+<form method="post" action="/admin/settings">
+  {{ csrf }}
+  <fieldset class="panel">
+    <legend>Access</legend>
+    <label for="registration">Registration</label>
+    <select id="registration" name="registration">
+      <option value="open" {% if app_settings.registration == 'open' %}selected{% endif %}>Open: new accounts are active immediately</option>
+      <option value="approval" {% if app_settings.registration == 'approval' %}selected{% endif %}>Approval: an admin validates new accounts</option>
+      <option value="closed" {% if app_settings.registration == 'closed' %}selected{% endif %}>Closed: no new accounts</option>
+    </select>
+  </fieldset>
+  <fieldset class="panel">
+    <legend>Features</legend>
+    <label><input name="allow_public_decks" type="checkbox" role="switch" value="true" {% if app_settings.allow_public_decks %}checked{% endif %}> Allow public decks</label>
+    <label><input name="teacher_allowed" type="checkbox" role="switch" value="true" {% if app_settings.teacher_allowed %}checked{% endif %}> Allow teacher explanations</label>
+    <label><input name="voice_allowed" type="checkbox" role="switch" value="true" {% if app_settings.voice_allowed %}checked{% endif %}> Allow voice answers</label>
+    <small class="hint">Disabled features are turned off for every user, whatever their own settings.</small>
+  </fieldset>
+  {% set defaults = app_settings.default_settings %}
+  <fieldset class="panel">
+    <legend>Defaults for new users</legend>
+    <label for="default-eval-mode">Evaluation mode</label>
+    <select id="default-eval-mode" name="default_eval_mode">
+      <option value="ai_preselect" {% if defaults.get('eval_mode', 'ai_preselect') == 'ai_preselect' %}selected{% endif %}>AI proposes, user confirms</option>
+      <option value="ai_assess" {% if defaults.get('eval_mode') == 'ai_assess' %}selected{% endif %}>AI decides</option>
+    </select>
+    <div class="grid-2">
+      <div><label for="default-judge-language">Judge language</label>
+      <input id="default-judge-language" name="default_judge_language" value="{{ defaults.get('judge_language', 'auto') }}" required></div>
+      <div><label for="default-stt-language">Speech-to-text language</label>
+      <input id="default-stt-language" name="default_stt_language" value="{{ defaults.get('stt_language', 'auto') }}" required></div>
+    </div>
+  </fieldset>
+  <button type="submit">Save application settings</button>
+</form>
+
+<h2 class="section-title">Public decks <span class="count">{{ public_decks|length }}</span></h2>
+{% if public_decks %}
+<div class="table-wrap">
+  <table class="stack">
+    <thead><tr><th>Deck</th><th>Owner</th><th>Cards</th><th></th></tr></thead>
+    <tbody>
+    {% for deck, owner, count in public_decks %}
+    <tr>
+      <td><strong>{{ deck.name }}</strong></td><td data-label="Owner">{{ owner }}</td><td data-label="Cards">{{ count }}</td>
+      <td><form method="post" action="/admin/decks/{{ deck.id }}/unpublish" class="actions" data-confirm="Unpublish “{{ deck.name }}”? Followers lose access.">{{ csrf }}<button class="sm secondary outline" type="submit">Unpublish</button></form></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}<p class="muted">No public decks.</p>{% endif %}
+{% endblock %}

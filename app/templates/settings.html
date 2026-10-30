@@ -1,37 +1,111 @@
 {% extends "base.html" %}
 {% block title %}Settings · QuizDeck{% endblock %}
 {% block content %}
-<h1>Settings</h1>
-<form method="post" action="/settings" class="card">
-  <label for="eval-mode">Evaluation mode</label>
-  <select id="eval-mode" name="eval_mode">
-    <option value="ai_preselect" {% if settings.eval_mode == 'ai_preselect' %}selected{% endif %}>AI proposes; I confirm</option>
-    <option value="ai_assess" {% if settings.eval_mode == 'ai_assess' %}selected{% endif %}>AI decides</option>
-  </select>
-  <label for="judge-language">Judge language (or auto)</label>
-  <input id="judge-language" name="judge_language" value="{{ settings.judge_language }}" required>
-  <label for="stt-language">STT language</label>
-  <input id="stt-language" name="stt_language" value="{{ settings.stt_language }}" required>
-  <label for="voice-auto-judge">
-    <input id="voice-auto-judge" name="voice_auto_judge" type="checkbox" value="true" {% if settings.voice_auto_judge %}checked{% endif %}>
-    Auto-submit answer when voice recording ends
-  </label>
-  <p class="muted">When off, wait for transcript validation before judging. Press Enter to stop recording.</p>
-  <label for="auto-confirm">
-    <input id="auto-confirm" name="auto_confirm" type="checkbox" value="true" {% if settings.auto_confirm %}checked{% endif %}>
-    Auto-confirm AI assessments (save without clicking)
-  </label>
-  <p class="muted">When on, an AI-decided review is saved immediately; the card still flips to show the result.</p>
-  <label for="teacher-enabled">
-    <input id="teacher-enabled" name="teacher_enabled" type="checkbox" value="true" {% if settings.teacher_enabled %}checked{% endif %}>
-    Teacher explanations (auto after each result; otherwise use the Teacher button)
-  </label>
-  <p class="muted">When on, an LLM explains the card using the deck and card context right after the result. When off, the Teacher and Regenerate buttons stay available in the result panel.</p>
-  <label for="new-limit">Daily new-card limit (0 = unlimited)</label>
-  <input id="new-limit" name="daily_new_limit" type="number" min="0" value="{{ settings.daily_new_limit }}" required>
-  <label for="review-limit">Daily review limit (0 = unlimited)</label>
-  <input id="review-limit" name="daily_review_limit" type="number" min="0" value="{{ settings.daily_review_limit }}" required>
+{% set csrf %}<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">{% endset %}
+<div class="page-head">
+  <div>
+    <h1>Settings</h1>
+    <p class="muted">These preferences apply to your account only.</p>
+  </div>
+</div>
+
+<form method="post" action="/settings">
+  {{ csrf }}
+  <fieldset class="panel">
+    <legend>Evaluation</legend>
+    <label for="eval-mode">Evaluation mode</label>
+    <select id="eval-mode" name="eval_mode" aria-describedby="eval-hint">
+      <option value="ai_preselect" {% if settings.eval_mode == 'ai_preselect' %}selected{% endif %}>AI proposes, I confirm</option>
+      <option value="ai_assess" {% if settings.eval_mode == 'ai_assess' %}selected{% endif %}>AI decides</option>
+    </select>
+    <small id="eval-hint" class="hint">A deck can override this mode.</small>
+    <label>
+      <input name="auto_confirm" type="checkbox" role="switch" value="true" {% if settings.auto_confirm %}checked{% endif %}>
+      Auto-confirm AI assessments
+      <small class="hint">Save an AI-decided review immediately; the card still flips to show the result.</small>
+    </label>
+    <label for="judge-language">Judge language</label>
+    <input id="judge-language" name="judge_language" value="{{ settings.judge_language }}" required aria-describedby="lang-hint">
+    <small id="lang-hint" class="hint">Language code such as <code>fr</code>, or <code>auto</code>.</small>
+  </fieldset>
+
+  <fieldset class="panel">
+    <legend>Voice answers</legend>
+    {% if not app_settings.voice_allowed %}<p class="callout warn">Voice answers are disabled by the administrator.</p>{% endif %}
+    <label for="stt-language">Speech-to-text language</label>
+    <input id="stt-language" name="stt_language" value="{{ settings.stt_language }}" required>
+    <label>
+      <input name="voice_auto_judge" type="checkbox" role="switch" value="true" {% if settings.voice_auto_judge %}checked{% endif %}>
+      Submit automatically when recording ends
+      <small class="hint">When off, review the transcript before judging. Press <kbd>Enter</kbd> to stop recording.</small>
+    </label>
+  </fieldset>
+
+  <fieldset class="panel">
+    <legend>Teacher</legend>
+    {% if not app_settings.teacher_allowed %}<p class="callout warn">Teacher explanations are disabled by the administrator.</p>{% endif %}
+    <label>
+      <input name="teacher_enabled" type="checkbox" role="switch" value="true" {% if settings.teacher_enabled %}checked{% endif %}>
+      Explain automatically after each result
+      <small class="hint">An LLM explains the card using the deck and card context. When off, use the Teacher button in the result panel.</small>
+    </label>
+  </fieldset>
+
+  <fieldset class="panel">
+    <legend>Daily limits</legend>
+    <div class="grid-2">
+      <div>
+        <label for="new-limit">New cards per day</label>
+        <input id="new-limit" name="daily_new_limit" type="number" min="0" value="{{ settings.daily_new_limit }}" required>
+      </div>
+      <div>
+        <label for="review-limit">Reviews per day</label>
+        <input id="review-limit" name="daily_review_limit" type="number" min="0" value="{{ settings.daily_review_limit }}" required>
+      </div>
+    </div>
+    <small class="hint">0 means unlimited.</small>
+  </fieldset>
   <button type="submit">Save settings</button>
 </form>
-<p class="muted">Judge and STT endpoints are configured through environment variables. No models run locally.</p>
+
+<h2 class="section-title" id="tokens">MCP access tokens</h2>
+<p class="muted">Tokens let an AI agent act on your account through <code>/mcp</code> with the header <code>Authorization: Bearer &lt;token&gt;</code>. They never expire: revoke any token you no longer use.</p>
+{% if new_token %}
+<div class="callout success" role="alert">
+  <p><strong>Copy this token now. It will not be shown again.</strong></p>
+  <div class="token-reveal">
+    <code id="new-token">{{ new_token }}</code>
+    <button type="button" class="sm" data-copy="new-token">Copy</button>
+  </div>
+</div>
+{% endif %}
+{% if tokens %}
+<div class="table-wrap">
+  <table class="stack">
+    <thead><tr><th>Name</th><th>Token</th><th>Created</th><th>Last used</th><th></th></tr></thead>
+    <tbody>
+    {% for token in tokens %}
+    <tr>
+      <td>{{ token.name }}</td>
+      <td data-label="Token"><code>{{ token.prefix }}…</code></td>
+      <td class="nowrap" data-label="Created">{{ token.created_at.strftime('%Y-%m-%d') }}</td>
+      <td class="nowrap" data-label="Last used">{{ token.last_used_at.strftime('%Y-%m-%d %H:%M') if token.last_used_at else 'Never' }}</td>
+      <td class="nowrap">{% if token.revoked_at %}<span class="badge danger">Revoked</span>{% else %}
+        <form method="post" action="/settings/tokens/{{ token.id }}/revoke" class="actions" data-confirm="Revoke “{{ token.name }}”? Agents using it lose access immediately.">{{ csrf }}<button class="danger outline sm" type="submit">Revoke</button></form>
+      {% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+<form method="post" action="/settings/tokens" class="card">
+  {{ csrf }}
+  <label for="token-name">New token</label>
+  <fieldset role="group">
+    <input id="token-name" name="name" required maxlength="100" placeholder="Name, e.g. Claude desktop">
+    <button type="submit">Create token</button>
+  </fieldset>
+</form>
+<p class="muted"><small>Judge and speech-to-text endpoints are configured by the server administrator.</small></p>
 {% endblock %}

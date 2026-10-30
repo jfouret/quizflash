@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
 from app import crud
-from app.dependencies import JudgeDep, SessionDep, STTDep, TeacherDep
+from app.dependencies import CurrentUser, JudgeDep, SessionDep, STTDep, TeacherDep
 from app.judge.base import JudgeError
 from app.schemas import (
     AnswerRequest,
@@ -26,8 +26,10 @@ MAX_AUDIO_BYTES = 25 * 1024 * 1024
 
 
 @router.get("/next", response_model=DueCard | None)
-def next_card(session: SessionDep, deck_id: int | None = None) -> DueCard | None:
-    due = crud.get_due(session, deck_id)
+def next_card(
+    session: SessionDep, user: CurrentUser, deck_id: int | None = None
+) -> DueCard | None:
+    due = crud.get_due(session, user, deck_id)
     if not due:
         return None
     card, state = due[0]
@@ -41,16 +43,19 @@ def next_card(session: SessionDep, deck_id: int | None = None) -> DueCard | None
 @router.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe(
     session: SessionDep,
+    user: CurrentUser,
     stt: STTDep,
     audio: Annotated[UploadFile, File(...)],
 ) -> TranscribeResponse:
+    if not crud.get_app_settings(session).voice_allowed:
+        raise HTTPException(status_code=403, detail="Voice answers are disabled")
     content = await audio.read(MAX_AUDIO_BYTES + 1)
     if not content:
         raise HTTPException(status_code=400, detail="Audio file is empty")
     if len(content) > MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="Audio file exceeds 25 MB")
     try:
-        result = stt.transcribe(content, crud.get_settings(session).stt_language)
+        result = stt.transcribe(content, crud.get_settings(session, user).stt_language)
     except STTError as exc:
         logger.warning("Voice transcription attempt failed: %s", exc)
         raise HTTPException(
@@ -65,11 +70,14 @@ async def transcribe(
 
 
 @router.post("/explain", response_model=ExplainResponse)
-def explain(payload: ExplainRequest, session: SessionDep, teacher: TeacherDep) -> ExplainResponse:
-    card = crud.get_card(session, payload.card_id)
-    deck = crud.get_deck(session, card.deck_id)
-    settings = crud.get_settings(session)
-    log = crud.get_last_answer_log(session, payload.card_id)
+def explain(
+    payload: ExplainRequest, session: SessionDep, user: CurrentUser, teacher: TeacherDep
+) -> ExplainResponse:
+    if not crud.get_app_settings(session).teacher_allowed:
+        raise HTTPException(status_code=403, detail="Teacher explanations are disabled")
+    card, deck = crud.get_trainable_card(session, user, payload.card_id)
+    settings = crud.get_settings(session, user)
+    log = crud.get_last_answer_log(session, user, payload.card_id)
     try:
         result = teacher.explain(
             deck_context=deck.context,
@@ -91,6 +99,7 @@ def explain(payload: ExplainRequest, session: SessionDep, teacher: TeacherDep) -
 
 def _record_answer(
     session: SessionDep,
+    user: CurrentUser,
     payload: AnswerRequest,
     *,
     mode: str,
@@ -101,6 +110,7 @@ def _record_answer(
 ) -> AnswerResponse:
     log, state = crud.record_review(
         session,
+        user,
         card_id=payload.card_id,
         mode=mode,
         input_method=payload.input_method,
@@ -127,18 +137,25 @@ def _record_answer(
 
 @router.post("/answer", response_model=AnswerResponse)
 def answer(
-    request: Request, payload: AnswerRequest, session: SessionDep, judge: JudgeDep
+    request: Request,
+    payload: AnswerRequest,
+    session: SessionDep,
+    user: CurrentUser,
+    judge: JudgeDep,
 ) -> AnswerResponse:
-    card = crud.get_card(session, payload.card_id)
-    deck = crud.get_deck(session, card.deck_id)
-    settings = crud.get_settings(session)
+    card, deck = crud.get_trainable_card(session, user, payload.card_id)
+    settings = crud.get_settings(session, user)
     mode = deck.eval_mode or settings.eval_mode
 
     if payload.self_fallback:
-        tokens: dict[str, tuple[int, float]] = request.app.state.fallback_tokens
+        tokens: dict[str, tuple[int, int, float]] = request.app.state.fallback_tokens
         token = payload.fallback_token or ""
-        token_card_id, expires = tokens.get(token, (0, 0.0))
-        if token_card_id != payload.card_id or expires < time.monotonic():
+        token_user_id, token_card_id, expires = tokens.get(token, (0, 0, 0.0))
+        if (
+            token_user_id != user.id
+            or token_card_id != payload.card_id
+            or expires < time.monotonic()
+        ):
             raise HTTPException(
                 status_code=400,
                 detail="Self fallback requires a recent AI judge failure",
@@ -153,6 +170,7 @@ def answer(
             feedback += f" {payload.judge_feedback}"
         response = _record_answer(
             session,
+            user,
             payload,
             mode="self_fallback",
             rating=payload.rating,
@@ -171,6 +189,7 @@ def answer(
             )
         return _record_answer(
             session,
+            user,
             payload,
             mode=mode,
             rating=payload.rating,
@@ -190,13 +209,13 @@ def answer(
         )
     except JudgeError as exc:
         logger.warning("Judge failed; requiring self-assessment fallback: %s", exc)
-        issued_tokens: dict[str, tuple[int, float]] = request.app.state.fallback_tokens
+        issued_tokens: dict[str, tuple[int, int, float]] = request.app.state.fallback_tokens
         now = time.monotonic()
-        for expired_token, (_, expires) in list(issued_tokens.items()):
+        for expired_token, (_, _, expires) in list(issued_tokens.items()):
             if expires < now:
                 issued_tokens.pop(expired_token, None)
         token = secrets.token_urlsafe(24)
-        issued_tokens[token] = (payload.card_id, now + 600)
+        issued_tokens[token] = (crud.uid(user), payload.card_id, now + 600)
         return AnswerResponse(
             status="fallback_required",
             mode="self_fallback",
@@ -215,6 +234,7 @@ def answer(
         )
     return _record_answer(
         session,
+        user,
         payload,
         mode=mode,
         rating=result.rating,

@@ -1,8 +1,28 @@
 # Operations
 
+## Authentication and sessions
+
+- **Local mode** (no `OIDC_ISSUER`): email/password accounts. Passwords are hashed with scrypt. Login attempts are throttled per client IP and email (5 failures per 15 minutes, in-memory per process). Bootstrap the first admin with `uv run python -m app.cli create-admin --email ...`.
+- **OIDC mode** (`OIDC_ISSUER` set): `/login` only offers single sign-on (authorization code + PKCE); password login and `/signup` return 404. Users are matched on the `(iss, sub)` pair only, never by email; a new identity whose email is already taken is refused. The role is re-synced from `OIDC_ROLE_CLAIM` at every login (`admin` when it contains `OIDC_ADMIN_ROLE`), and a role change revokes existing sessions. Register `https://<host>/auth/oidc/callback` as redirect URI.
+- **Registration policy** (admin setting): `open` (active immediately), `approval` (default; an admin validates the account), or `closed`. It applies to OIDC first logins too; IdP admins are always active.
+- **Sessions** are server-side. The cookie holds a random opaque token (only its SHA-256 is stored), is `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, and named `__Host-session`. A fresh token is issued at every login; logout deletes it. Sessions expire after `SESSION_IDLE_HOURS` of inactivity or `SESSION_MAX_HOURS` in total. Suspending, deleting, or changing the role of a user revokes all their sessions.
+- **CSRF**: every unsafe request (`POST`, `PATCH`, `DELETE`) needs the per-session token, sent as the `X-CSRF-Token` header or a `csrf_token` form field, and a cross-site `Origin` header is rejected. `GET /api/auth/me` returns the token for API clients; pages embed it.
+- The REST API accepts **only** the browser session. Bearer tokens are rejected there.
+
+## Perimeter rules
+
+| Resource | Owner | Follower (public deck) | Any user (public deck) | Others / admins (private deck) |
+|---|---|---|---|---|
+| Read deck, cards | yes | yes | yes | 404 |
+| Train (`/api/study/*`), stats | yes | yes | 403 until followed | 404 |
+| Edit or delete deck, cards | yes | 403 | 403 | 404 |
+| Copy | yes | yes | yes | 404 |
+
+Settings, tags, tokens, schedules, answer logs, and stats are always per user: an owner never sees followers' answers. Unpublishing a deck cuts followers' access (their progress stays dormant); deleting it removes every learner's progress.
+
 ## HTTP API
 
-All API routes are prefixed with `/api`.
+All API routes are prefixed with `/api` and require a session (401 otherwise).
 
 ### Decks
 
@@ -14,7 +34,12 @@ All API routes are prefixed with `/api`.
 | `PATCH` | `/api/decks/{id}` | Update deck (including `eval_mode` override) |
 | `DELETE` | `/api/decks/{id}` | Delete deck and all cards, states, and logs |
 
-Deck fields include `scheduler` (`fsrs` or `sm2`), `scheduler_params`, and an optional `eval_mode` (`ai_preselect` or `ai_assess`) that overrides the global setting.
+| `POST` | `/api/decks/{id}/follow` | Follow a public deck |
+| `DELETE` | `/api/decks/{id}/follow` | Unfollow |
+| `POST` | `/api/decks/{id}/copy` | Copy a readable deck into a new private deck you own |
+| `GET` | `/api/public/decks` | Public decks with owner name, card count, and whether you follow them |
+
+Deck fields include `scheduler` (`fsrs` or `sm2`), `scheduler_params`, an optional `eval_mode` (`ai_preselect` or `ai_assess`) that overrides the user setting, `visibility` (`private` or `public`), `owner_id`, and `source_deck_id` for copies.
 
 ### Cards
 
@@ -54,18 +79,44 @@ A card carries `question`, `answer`, optional `details`, optional `expected_time
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/stats?scope=deck|card|tag&id=` | Aggregates: total, correct, incorrect, correct rate, average response time, counts by mode |
-| `GET` | `/api/settings` | Global settings |
+| `GET` | `/api/settings` | Your settings |
 | `PATCH` | `/api/settings` | Update evaluation mode, voice auto-judging, languages, and daily limits |
+| `GET` | `/api/settings/tokens` | Your MCP tokens (metadata only) |
+| `POST` | `/api/settings/tokens` | Create an MCP token; the raw value is returned once |
+| `DELETE` | `/api/settings/tokens/{id}` | Revoke an MCP token |
+| `GET` | `/api/auth/me` | Current user and CSRF token |
+
+### Admin (role `admin`, 403 otherwise)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/admin/users` | List users |
+| `PATCH` | `/api/admin/users/{id}` | Set `status` (`pending`, `active`, `disabled`) or `role` (local mode only) |
+| `DELETE` | `/api/admin/users/{id}` | Delete a user, their decks, and all their progress |
+| `GET`/`PATCH` | `/api/admin/settings` | `registration`, `allow_public_decks`, `teacher_allowed`, `voice_allowed`, `default_settings` (applied to new users) |
+| `POST` | `/api/admin/decks/{id}/unpublish` | Make a public deck private |
+
+Admins cannot modify their own account, and the last active admin cannot be removed. `teacher_allowed: false` and `voice_allowed: false` override every user's settings.
 
 ## MCP endpoint
 
-The FastMCP server is mounted at `/mcp` and exposes:
+The FastMCP server is mounted at `/mcp` (stateless streamable HTTP, JSON responses). Every request needs a personal token created on `/settings`:
+
+```
+Authorization: Bearer qd_...
+```
+
+Tokens never expire, are stored hashed, are shown only once, and act with exactly the owner's perimeter. Revoke them from `/settings`; a suspended user's tokens stop working. Browser cookies are not accepted on `/mcp`.
+
+Tools:
 
 - `list_decks`, `get_deck`, `create_deck`, `update_deck`, `delete_deck`
 - `list_cards`, `get_card`, `create_card`, `update_card`, `delete_card`
 - `list_tags`
 - `list_due(deck_id?)`
 - `get_stats(scope, target)` — `target` is a deck/card ID or tag name
+- `explain_card(card_id)`
+- `list_public_decks`, `follow_deck(deck_id)`, `copy_deck(deck_id)`
 
 Example client URL: `http://127.0.0.1:8000/mcp/`.
 
@@ -90,7 +141,9 @@ Changing a deck's scheduler resets that card's scheduler state on its next revie
 
 ## Deployment notes
 
-- Single user, no authentication. Put the app behind a VPN or an authenticating reverse proxy before exposing it.
+- Serve over HTTPS. Behind a TLS-terminating reverse proxy, keep the original `Host` header and run uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy ip>` so OIDC redirect URIs use `https`.
+- The login throttle and judge-fallback tokens live in process memory: run a single worker, or move them to a shared store first.
+- Schema migrations are managed by Alembic (`app/migrations`) and run automatically at startup. After a model change: `uv run alembic revision --autogenerate -m "..."`. Databases from the single-user version are not migrated; start from a new file.
 - Default database is `./quizdeck.db`; the Docker image uses `sqlite:////data/quizdeck.db` on a `/data` volume.
 - Judge and STT endpoints are read from environment variables at runtime; no keys are stored in the database.
 - `ffmpeg`/`ffprobe` must be available on bare-metal deployments for voice duration measurement.

@@ -1,28 +1,81 @@
 {% extends "base.html" %}
 {% block title %}Decks · QuizDeck{% endblock %}
+{% macro deck_card(deck, owned) %}
+{% set counts = overview.get(deck.id, (0, 0)) %}
+<article class="card deck-card">
+  <div class="meta">
+    {% if not owned %}<span class="badge accent">Following</span>
+    {% elif deck.visibility == 'public' %}<span class="badge success">Public</span>
+    {% else %}<span class="badge">Private</span>{% endif %}
+    {% if deck.source_deck_id %}<span class="badge">Copy</span>{% endif %}
+    <span class="badge">{{ 'FSRS' if deck.scheduler == 'fsrs' else 'SM-2' }}</span>
+  </div>
+  <h3><a href="/decks/{{ deck.id }}">{{ deck.name }}</a></h3>
+  <p class="desc pre">{{ deck.description or 'No description.' }}</p>
+  <div class="stats">
+    <span><strong>{{ counts[0] }}</strong>card{{ 's' if counts[0] != 1 }}</span>
+    <span class="due"><strong>{{ counts[1] }}</strong>due now</span>
+  </div>
+  <div class="actions">
+    {% if counts[1] %}<a role="button" class="sm" href="/study?deck_id={{ deck.id }}">Study {{ counts[1] }}</a>
+    {% else %}<a role="button" class="sm secondary outline" href="/study?deck_id={{ deck.id }}">Study</a>{% endif %}
+    <a role="button" class="sm secondary outline" href="/decks/{{ deck.id }}">{{ 'Manage' if owned else 'View' }}</a>
+  </div>
+</article>
+{% endmacro %}
 {% block content %}
-<h1>Decks</h1>
-{% if not decks %}<p class="muted">No decks yet.</p>{% endif %}
-{% for deck in decks %}
-<section class="card">
-  <h2><a href="/decks/{{ deck.id }}">{{ deck.name }}</a></h2>
-  <p class="pre">{{ deck.description }}</p>
-  <p>{{ deck.scheduler }} · <a href="/study?deck_id={{ deck.id }}">Study this deck</a></p>
-  <form method="post" action="/decks/{{ deck.id }}/delete"
-        onsubmit="return confirm('Delete this deck and all its reviews?')">
-    <button class="danger" type="submit">Delete deck</button>
-  </form>
-</section>
-{% endfor %}
-<section class="card">
-  <h2>New deck</h2>
-  <form method="post" action="/decks">
-    <label for="name">Name</label><input id="name" name="name" required>
-    <label for="description">Description</label><textarea id="description" name="description"></textarea>
-    <label for="context">Context (given to the teacher when explaining cards)</label><textarea id="context" name="context"></textarea>
-    <label for="scheduler">Scheduler</label>
-    <select id="scheduler" name="scheduler"><option value="fsrs">FSRS</option><option value="sm2">SM-2</option></select>
-    <button type="submit">Create deck</button>
-  </form>
-</section>
+{% set csrf %}<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">{% endset %}
+{% set owned = decks | selectattr('owner_id', 'equalto', request.state.user.id) | list %}
+{% set followed = decks | rejectattr('owner_id', 'equalto', request.state.user.id) | list %}
+{% set total_due = overview.values() | map(attribute=1) | sum %}
+<div class="page-head">
+  <div>
+    <h1>Your decks</h1>
+    <p class="muted">{% if total_due %}{{ total_due }} card{{ 's' if total_due != 1 }} waiting for review.{% else %}You are all caught up.{% endif %}</p>
+  </div>
+  <div class="actions">
+    {% if total_due %}<a role="button" href="/study">Study all</a>{% endif %}
+    <button type="button" class="{{ 'secondary outline' if total_due else '' }}" data-open="new-deck">+ New deck</button>
+  </div>
+</div>
+
+{% if not decks %}
+<div class="empty">
+  <h2>No decks yet</h2>
+  <p>Create your first deck, or follow one shared by the community.</p>
+  <div class="actions">
+    <button type="button" data-open="new-deck">+ New deck</button>
+    <a role="button" class="secondary outline" href="/explore">Explore public decks</a>
+  </div>
+</div>
+{% endif %}
+
+{% if owned %}
+<h2 class="section-title">My decks <span class="count">{{ owned|length }}</span></h2>
+<div class="grid-cards">{% for deck in owned %}{{ deck_card(deck, true) }}{% endfor %}</div>
+{% endif %}
+{% if followed %}
+<h2 class="section-title">Following <span class="count">{{ followed|length }}</span></h2>
+<div class="grid-cards">{% for deck in followed %}{{ deck_card(deck, false) }}{% endfor %}</div>
+{% endif %}
+
+<dialog id="new-deck">
+  <article>
+    <header>
+      <h2>New deck</h2>
+      <button type="button" class="secondary outline icon-btn" data-close aria-label="Close">✕</button>
+    </header>
+    <form method="post" action="/decks">
+      {{ csrf }}
+      <label for="name">Name</label><input id="name" name="name" required placeholder="e.g. World capitals">
+      <label for="description">Description</label><textarea id="description" name="description" rows="2"></textarea>
+      <label for="context">Teacher context</label>
+      <textarea id="context" name="context" rows="2" aria-describedby="context-hint"></textarea>
+      <small id="context-hint" class="hint">Background the AI teacher uses when explaining cards of this deck.</small>
+      <label for="scheduler">Scheduler</label>
+      <select id="scheduler" name="scheduler"><option value="fsrs">FSRS (recommended)</option><option value="sm2">SM-2</option></select>
+      <button type="submit">Create deck</button>
+    </form>
+  </article>
+</dialog>
 {% endblock %}

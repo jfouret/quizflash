@@ -1,15 +1,19 @@
 import os
 from collections.abc import Generator
+from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
 from fastapi import Request
-from sqlalchemy import event, inspect, text
+from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
 
-from app.models import Settings
+from app.models import AppSettings
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./quizdeck.db")
+MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
 def create_db_engine(database_url: str = DATABASE_URL) -> Engine:
@@ -29,44 +33,20 @@ def create_db_engine(database_url: str = DATABASE_URL) -> Engine:
     return engine
 
 
+def alembic_config() -> Config:
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS_DIR))
+    return config
+
+
 def init_db(engine: Engine) -> None:
-    SQLModel.metadata.create_all(engine)
+    config = alembic_config()
     with engine.begin() as connection:
-        deck_columns = {column["name"] for column in inspect(connection).get_columns("deck")}
-        if "context" not in deck_columns:
-            connection.execute(
-                text("ALTER TABLE deck ADD COLUMN context TEXT NOT NULL DEFAULT ''")
-            )
-        card_columns = {column["name"] for column in inspect(connection).get_columns("card")}
-        if "context" not in card_columns:
-            connection.execute(
-                text("ALTER TABLE card ADD COLUMN context TEXT NOT NULL DEFAULT ''")
-            )
-        columns = inspect(connection).get_columns("settings")
-        if "voice_auto_judge" not in {column["name"] for column in columns}:
-            connection.execute(
-                text(
-                    "ALTER TABLE settings ADD COLUMN voice_auto_judge "
-                    "BOOLEAN NOT NULL DEFAULT FALSE"
-                )
-            )
-        if "auto_confirm" not in {column["name"] for column in columns}:
-            connection.execute(
-                text(
-                    "ALTER TABLE settings ADD COLUMN auto_confirm "
-                    "BOOLEAN NOT NULL DEFAULT FALSE"
-                )
-            )
-        if "teacher_enabled" not in {column["name"] for column in columns}:
-            connection.execute(
-                text(
-                    "ALTER TABLE settings ADD COLUMN teacher_enabled "
-                    "BOOLEAN NOT NULL DEFAULT TRUE"
-                )
-            )
+        config.attributes["connection"] = connection
+        command.upgrade(config, "head")
     with Session(engine) as session:
-        if session.get(Settings, 1) is None:
-            session.add(Settings())
+        if session.get(AppSettings, 1) is None:
+            session.add(AppSettings())
             session.commit()
 
 

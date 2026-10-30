@@ -1,44 +1,129 @@
 {% extends "base.html" %}
 {% block title %}{{ deck.name }} · QuizDeck{% endblock %}
 {% block content %}
-<h1>{{ deck.name }}</h1>
-<p class="pre">{{ deck.description }}</p>
-{% if deck.context %}<p class="pre"><strong>Context:</strong> {{ deck.context }}</p>{% endif %}
-<p>{{ deck.scheduler }} · <a href="/study?deck_id={{ deck.id }}">Study this deck</a></p>
-<details>
-  <summary>Edit description &amp; context</summary>
+{% set csrf %}<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">{% endset %}
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="{{ '/' if is_owner or following else '/explore' }}">← {{ 'Your decks' if is_owner or following else 'Public decks' }}</a></nav>
+<div class="page-head">
+  <div>
+    <div class="actions">
+      {% if is_owner %}
+        {% if deck.visibility == 'public' %}<span class="badge success">Public</span>{% else %}<span class="badge">Private</span>{% endif %}
+      {% elif following %}<span class="badge accent">Following</span>
+      {% else %}<span class="badge">Public deck</span>{% endif %}
+      {% if deck.source_deck_id %}<span class="badge">Copy</span>{% endif %}
+      <span class="badge">{{ 'FSRS' if deck.scheduler == 'fsrs' else 'SM-2' }}</span>
+      <span class="badge">{{ cards|length }} card{{ 's' if cards|length != 1 }}</span>
+    </div>
+    <h1>{{ deck.name }}</h1>
+    {% if deck.description %}<p class="muted pre">{{ deck.description }}</p>{% endif %}
+  </div>
+  <div class="actions">
+    {% if is_owner or following %}<a role="button" href="/study?deck_id={{ deck.id }}">Study this deck</a>{% endif %}
+    {% if is_owner %}
+      <button type="button" class="secondary outline" data-open="new-card">+ Add card</button>
+    {% else %}
+      {% if following %}
+      <form method="post" action="/decks/{{ deck.id }}/unfollow" class="actions">{{ csrf }}<button class="secondary outline" type="submit">Unfollow</button></form>
+      {% else %}
+      <form method="post" action="/decks/{{ deck.id }}/follow" class="actions">{{ csrf }}<button type="submit">Follow</button></form>
+      {% endif %}
+      <form method="post" action="/decks/{{ deck.id }}/copy" class="actions">{{ csrf }}<button class="secondary outline" type="submit">Copy to my decks</button></form>
+    {% endif %}
+  </div>
+</div>
+
+{% if not is_owner %}
+<p class="callout">
+  {% if following %}You follow this deck: train on it while its owner keeps it up to date. Your progress stays private.
+  {% else %}<strong>Follow</strong> to train on this deck while its owner keeps it up to date, or <strong>copy</strong> it to get your own editable version.{% endif %}
+</p>
+{% endif %}
+
+{% if deck.context %}
+<details class="disclosure"><summary>Teacher context</summary><p class="pre">{{ deck.context }}</p></details>
+{% endif %}
+
+{% if is_owner %}
+<details class="disclosure">
+  <summary>Deck settings</summary>
   <form method="post" action="/decks/{{ deck.id }}/update">
-    <label for="deck-description">Description</label><textarea id="deck-description" name="description">{{ deck.description }}</textarea>
-    <label for="deck-context">Context (given to the teacher when explaining cards)</label><textarea id="deck-context" name="context">{{ deck.context }}</textarea>
+    {{ csrf }}
+    <label for="deck-description">Description</label><textarea id="deck-description" name="description" rows="2">{{ deck.description }}</textarea>
+    <label for="deck-context">Teacher context</label><textarea id="deck-context" name="context" rows="3">{{ deck.context }}</textarea>
+    <small class="hint">Background the AI teacher uses when explaining cards of this deck.</small>
+    <label for="deck-visibility">Visibility</label>
+    <select id="deck-visibility" name="visibility" aria-describedby="visibility-hint">
+      <option value="private" {% if deck.visibility == 'private' %}selected{% endif %}>Private: only you</option>
+      {% if allow_public or deck.visibility == 'public' %}<option value="public" {% if deck.visibility == 'public' %}selected{% endif %}>Public: anyone can follow or copy</option>{% endif %}
+    </select>
+    <small id="visibility-hint" class="hint">{% if not allow_public %}Public decks are disabled by the administrator.{% else %}Making a public deck private removes followers' access.{% endif %}</small>
     <button type="submit">Save deck</button>
   </form>
 </details>
-<h2>Cards ({{ cards|length }})</h2>
+{% endif %}
+
+<h2 class="section-title">Cards <span class="count">{{ cards|length }}</span></h2>
+{% if cards %}
+<div class="qa-list">
 {% for card in cards %}
-<article class="card">
-  <h3 class="pre">{{ card.question }}</h3>
-  <p class="pre"><strong>Answer:</strong> {{ card.answer }}</p>
-  {% if card.details %}<p class="pre">{{ card.details }}</p>{% endif %}
-  {% if card.context %}<p class="pre"><strong>Context:</strong> {{ card.context }}</p>{% endif %}
-  {% if card.expected_time_s %}<p>Expected time: {{ card.expected_time_s }} s</p>{% endif %}
-  {% for tag in card.tags %}<span class="tag">{{ tag.name }}</span>{% endfor %}
-  <form method="post" action="/cards/{{ card.id }}/delete">
+<details class="qa">
+  <summary>
+    <span class="q pre">{{ card.question }}</span>
+    {% for tag in card.tags %}<span class="tag">{{ tag.name }}</span>{% endfor %}
+  </summary>
+  <dl>
+    <dt>Answer</dt><dd class="pre">{{ card.answer }}</dd>
+    {% if card.details %}<dt>Details</dt><dd class="pre">{{ card.details }}</dd>{% endif %}
+    {% if card.context %}<dt>Context</dt><dd class="pre">{{ card.context }}</dd>{% endif %}
+    {% if card.expected_time_s %}<dt>Expected time</dt><dd>{{ card.expected_time_s }} s</dd>{% endif %}
+  </dl>
+  {% if is_owner %}
+  <form method="post" action="/cards/{{ card.id }}/delete" class="actions" data-confirm="Delete this card and its review history?">
+    {{ csrf }}
     <input type="hidden" name="deck_id" value="{{ deck.id }}">
-    <button class="danger" type="submit">Delete card</button>
+    <button class="danger outline sm" type="submit">Delete card</button>
   </form>
-</article>
-{% else %}<p class="muted">No cards yet.</p>{% endfor %}
-<section class="card">
-  <h2>New card</h2>
-  <form method="post" action="/decks/{{ deck.id }}/cards">
-    <label for="question">Question</label><textarea id="question" name="question" required></textarea>
-    <label for="answer">Answer</label><textarea id="answer" name="answer" required></textarea>
-    <label for="details">Details / links for going further</label><textarea id="details" name="details"></textarea>
-    <label for="context">Context (given to the teacher when explaining this card)</label><textarea id="context" name="context"></textarea>
-    <label for="expected-time">Expected time (seconds, optional)</label>
-    <input id="expected-time" name="expected_time_s" type="number" min="1">
-    <label for="tags">Tags (comma-separated)</label><input id="tags" name="tags">
-    <button type="submit">Create card</button>
+  {% endif %}
+</details>
+{% endfor %}
+</div>
+{% else %}
+<div class="empty">
+  <h3>No cards yet</h3>
+  {% if is_owner %}<p>Add a first question and answer to start studying.</p>
+  <div class="actions"><button type="button" data-open="new-card">+ Add card</button></div>{% endif %}
+</div>
+{% endif %}
+
+{% if is_owner %}
+<section class="card danger-zone" style="margin-top: 2rem">
+  <h3>Delete deck</h3>
+  <p class="muted">Deletes every card and all review history, including followers' progress. This cannot be undone.</p>
+  <form method="post" action="/decks/{{ deck.id }}/delete" class="actions" data-confirm="Delete “{{ deck.name }}” and all its reviews? This cannot be undone.">
+    {{ csrf }}
+    <button class="danger" type="submit">Delete deck</button>
   </form>
 </section>
+
+<dialog id="new-card">
+  <article>
+    <header>
+      <h2>Add card</h2>
+      <button type="button" class="secondary outline icon-btn" data-close aria-label="Close">✕</button>
+    </header>
+    <form method="post" action="/decks/{{ deck.id }}/cards">
+      {{ csrf }}
+      <label for="question">Question</label><textarea id="question" name="question" rows="2" required></textarea>
+      <label for="answer">Answer</label><textarea id="answer" name="answer" rows="2" required></textarea>
+      <label for="details">Details / links for going further</label><textarea id="details" name="details" rows="2"></textarea>
+      <label for="context">Teacher context for this card</label><textarea id="context" name="context" rows="2"></textarea>
+      <div class="grid-2">
+        <div><label for="expected-time">Expected time (seconds)</label><input id="expected-time" name="expected_time_s" type="number" min="1" placeholder="optional"></div>
+        <div><label for="tags">Tags</label><input id="tags" name="tags" placeholder="comma, separated"></div>
+      </div>
+      <button type="submit">Add card</button>
+    </form>
+  </article>
+</dialog>
+{% endif %}
 {% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Sign in · QuizDeck{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <span class="brand"><span class="brand-mark" aria-hidden="true">Q</span>QuizDeck</span>
+  <section class="card">
+    <h1>Welcome back</h1>
+    {% if error %}<p class="callout danger" role="alert">{{ error }}</p>{% endif %}
+    {% if oidc_enabled %}
+    <a role="button" href="/auth/oidc/login" hx-boost="false" style="width: 100%">Sign in with single sign-on</a>
+    {% else %}
+    <form method="post" action="/login">
+      <label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required autofocus>
+      <label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Sign in</button>
+    </form>
+    {% endif %}
+  </section>
+  {% if not oidc_enabled and registration != 'closed' %}
+  <p class="alt">New here? <a href="/signup">Create an account</a>{% if registration == 'approval' %}<br><small class="muted">An administrator validates new accounts.</small>{% endif %}</p>
+  {% endif %}
+</div>
+{% endblock %}

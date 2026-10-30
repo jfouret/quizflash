@@ -1,9 +1,5 @@
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-from sqlmodel import Session
 
-from app.database import create_db_engine, init_db
-from app.models import Settings
 from tests.conftest import response_dict
 
 
@@ -66,33 +62,3 @@ def test_settings_form_updates_voice_auto_judge(client: TestClient) -> None:
     settings = response_dict(client.get("/api/settings"))
     assert settings["voice_auto_judge"] is True
     assert settings["teacher_enabled"] is True
-
-
-def test_existing_settings_gain_voice_auto_judge_default() -> None:
-    engine = create_db_engine("sqlite://")
-    with engine.begin() as connection:
-        connection.execute(
-            text(
-                "CREATE TABLE settings ("
-                "id INTEGER PRIMARY KEY, "
-                "eval_mode VARCHAR NOT NULL, "
-                "judge_language VARCHAR NOT NULL, "
-                "stt_language VARCHAR NOT NULL, "
-                "daily_new_limit INTEGER NOT NULL, "
-                "daily_review_limit INTEGER NOT NULL)"
-            )
-        )
-        connection.execute(
-            text(
-                "INSERT INTO settings VALUES "
-                "(1, 'ai_preselect', 'auto', 'auto', 0, 0)"
-            )
-        )
-
-    init_db(engine)
-
-    with Session(engine) as session:
-        settings = session.get(Settings, 1)
-        assert settings is not None
-        assert settings.voice_auto_judge is False
-        assert settings.teacher_enabled is True

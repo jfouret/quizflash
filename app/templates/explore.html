@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Explore · QuizDeck{% endblock %}
+{% block content %}
+{% set csrf %}<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">{% endset %}
+<div class="page-head">
+  <div>
+    <h1>Explore</h1>
+    <p class="muted">Follow a deck to train on it while its owner keeps it up to date, or copy it to edit your own version.</p>
+  </div>
+  {% if decks %}<input class="search" type="search" id="deck-search" placeholder="Search public decks" aria-label="Search public decks">{% endif %}
+</div>
+{% if decks %}
+<div class="grid-cards" id="public-decks">
+{% for deck, owner, count, following in decks %}
+<article class="card deck-card" data-search="{{ (deck.name ~ ' ' ~ deck.description ~ ' ' ~ owner) | lower }}">
+  <div class="meta">
+    {% if deck.owner_id == request.state.user.id %}<span class="badge success">Yours</span>
+    {% elif following %}<span class="badge accent">Following</span>{% endif %}
+    <span class="badge">{{ count }} card{{ 's' if count != 1 }}</span>
+  </div>
+  <h3><a href="/decks/{{ deck.id }}">{{ deck.name }}</a></h3>
+  <p class="desc pre">{{ deck.description or 'No description.' }}</p>
+  <p class="muted"><small>by {{ owner }}</small></p>
+  <div class="actions">
+    {% if deck.owner_id == request.state.user.id %}
+    <a role="button" class="sm secondary outline" href="/decks/{{ deck.id }}">Manage</a>
+    {% else %}
+      {% if following %}
+      <a role="button" class="sm" href="/study?deck_id={{ deck.id }}">Study</a>
+      <form method="post" action="/decks/{{ deck.id }}/unfollow" class="actions">{{ csrf }}<button class="sm secondary outline" type="submit">Unfollow</button></form>
+      {% else %}
+      <form method="post" action="/decks/{{ deck.id }}/follow" class="actions">{{ csrf }}<button class="sm" type="submit">Follow</button></form>
+      {% endif %}
+      <form method="post" action="/decks/{{ deck.id }}/copy" class="actions">{{ csrf }}<button class="sm secondary outline" type="submit">Copy</button></form>
+    {% endif %}
+  </div>
+</article>
+{% endfor %}
+</div>
+<p id="no-match" class="empty" hidden>No public deck matches your search.</p>
+<script>
+  (function () {
+    var input = document.getElementById('deck-search');
+    var cards = document.querySelectorAll('#public-decks [data-search]');
+    var none = document.getElementById('no-match');
+    input.addEventListener('input', function () {
+      var term = input.value.trim().toLowerCase();
+      var shown = 0;
+      cards.forEach(function (card) {
+        var match = card.dataset.search.indexOf(term) !== -1;
+        card.hidden = !match;
+        if (match) shown += 1;
+      });
+      none.hidden = shown !== 0;
+    });
+  })();
+</script>
+{% else %}
+<div class="empty">
+  <h2>No public decks yet</h2>
+  <p>Publish one of your decks from its settings to share it here.</p>
+</div>
+{% endif %}
+{% endblock %}

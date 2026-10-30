@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Sign up · QuizDeck{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <span class="brand"><span class="brand-mark" aria-hidden="true">Q</span>QuizDeck</span>
+  <section class="card">
+    <h1>Create an account</h1>
+    {% if error %}<p class="callout danger" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="/signup">
+      <label for="display-name">Display name</label><input id="display-name" name="display_name" autocomplete="nickname" autofocus>
+      <label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required>
+      <label for="password">Password</label><input id="password" name="password" type="password" minlength="12" autocomplete="new-password" required aria-describedby="password-hint">
+      <small id="password-hint" class="hint">At least 12 characters.</small>
+      <button type="submit">Create account</button>
+    </form>
+  </section>
+  <p class="alt">Already have an account? <a href="/login">Sign in</a></p>
+</div>
+{% endblock %}

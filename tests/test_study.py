@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.judge.base import JudgeError, JudgeResult
-from app.models import AnswerLog, CardState
+from app.models import AnswerLog, CardState, User
 from app.stt.base import STTError
 from tests.conftest import FakeJudge, FakeSTT, response_dict
 
@@ -248,7 +248,7 @@ def test_deck_evaluation_mode_override(client: TestClient, card: dict[str, Any])
 
 
 def test_sm2_deck_scheduler_reschedules_low_rating(
-    client: TestClient, db_session: Session, fake_judge: FakeJudge
+    client: TestClient, db_session: Session, fake_judge: FakeJudge, alice: User
 ) -> None:
     enable_ai_assess(client)
     deck = response_dict(
@@ -267,7 +267,7 @@ def test_sm2_deck_scheduler_reschedules_low_rating(
     )
     due = datetime.fromisoformat(result["due"].replace("Z", "+00:00"))
     assert before + timedelta(hours=23) < due < before + timedelta(hours=25)
-    state = db_session.get(CardState, card["id"])
+    state = db_session.get(CardState, (alice.id, card["id"]))
     assert state is not None
     assert state.scheduler == "sm2"
     assert state.state["repetitions"] == 0
