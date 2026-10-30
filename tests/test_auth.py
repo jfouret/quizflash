@@ -196,12 +196,27 @@ def _claims(sub: str, *roles: str, email: str | None = None) -> dict[str, Any]:
     }
 
 
+def _jwt(payload: dict[str, Any]) -> str:
+    import base64
+    import json
+
+    def enc(data: dict[str, Any]) -> str:
+        raw = json.dumps(data).encode()
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+    return f"{enc({'alg': 'none'})}.{enc(payload)}.sig"
+
+
 class FakeOIDCClient:
     def __init__(self) -> None:
         self.claims: dict[str, Any] = {}
+        self.access_token_claims: dict[str, Any] | None = None
 
     async def authorize_access_token(self, _: Any) -> dict[str, Any]:
-        return {"userinfo": self.claims}
+        token: dict[str, Any] = {"userinfo": self.claims}
+        if self.access_token_claims is not None:
+            token["access_token"] = _jwt(self.access_token_claims)
+        return token
 
     async def userinfo(self, token: Any) -> dict[str, Any]:
         return {}
@@ -253,6 +268,45 @@ def test_oidc_mode_disables_local_login_and_syncs_roles() -> None:
         fake.claims = _claims("root")
         TestClient(app, base_url=BASE_URL).get("/auth/oidc/callback")
         assert client.get("/api/auth/me").status_code == 401
+
+
+def test_oidc_role_read_from_access_token() -> None:
+    from app.main import create_app
+
+    app = create_app("sqlite://", teacher=FakeTeacher(), auth_config=OIDC)
+    fake = FakeOIDCClient()
+    app.state.oauth.oidc = fake
+    with TestClient(app, base_url=BASE_URL) as client:
+        # Keycloak-style: role claim only in the access token, not in the ID token.
+        fake.claims = _claims("root")
+        fake.access_token_claims = {"realm_access": {"roles": ["quizdeck-admin"]}}
+        assert client.get("/auth/oidc/callback", follow_redirects=False).status_code == 303
+        me = response_dict(client.get("/api/auth/me"))
+        assert me["user"]["role"] == "admin"
+        assert me["user"]["status"] == "active"
+
+
+def test_oidc_pending_admin_is_promoted_to_active(
+    app: FastAPI, lifespan_client: TestClient
+) -> None:
+    with Session(app.state.engine) as session:
+        user = auth.provision_oidc_user(session, _claims("wannabe"), OIDC)
+        assert user.status == "pending" and user.role == "user"
+        # Role appears later in the IdP: pending admin becomes active on next login.
+        user = auth.provision_oidc_user(session, _claims("wannabe", "quizdeck-admin"), OIDC)
+        assert user.role == "admin" and user.status == "active"
+        # A suspended admin stays suspended.
+        user.status = "disabled"
+        session.add(user)
+        session.commit()
+        user = auth.provision_oidc_user(session, _claims("wannabe", "quizdeck-admin"), OIDC)
+        assert user.status == "disabled"
+
+
+def test_decode_jwt_payload_ignores_garbage() -> None:
+    assert auth.decode_jwt_payload("not-a-jwt") == {}
+    assert auth.decode_jwt_payload("a.!!!.c") == {}
+    assert auth.decode_jwt_payload(_jwt({"sub": "x"})) == {"sub": "x"}
 
 
 def test_oidc_never_links_by_email(app: FastAPI, alice: User) -> None:

@@ -1,5 +1,7 @@
+import base64
 import hashlib
 import hmac
+import json
 import os
 import secrets
 import time
@@ -226,11 +228,54 @@ def _claim(claims: dict[str, Any], path: str) -> Any:
     return value
 
 
+def decode_jwt_payload(token: str) -> dict[str, Any]:
+    """Decode a JWT payload without verifying the signature.
+
+    Only for tokens returned directly by the IdP token endpoint over TLS;
+    iss/sub still come from the verified ID token.
+    """
+    try:
+        payload = token.split(".")[1]
+        decoded = base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))
+        data: Any = json.loads(decoded)
+    except (IndexError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def oidc_role(claims: dict[str, Any], config: AuthConfig) -> str:
     roles = _claim(claims, config.oidc_role_claim)
     if isinstance(roles, str):
         roles = roles.split()
     return "admin" if isinstance(roles, list) and config.oidc_admin_role in roles else "user"
+
+
+def _set_claim(claims: dict[str, Any], path: str, value: Any) -> None:
+    parts = path.split(".")
+    node = claims
+    for part in parts[:-1]:
+        child = node.get(part)
+        if not isinstance(child, dict):
+            child = {}
+            node[part] = child
+        node = child
+    node[parts[-1]] = value
+
+
+def merge_oidc_claims(config: AuthConfig, *sources: dict[str, Any]) -> dict[str, Any]:
+    """Merge claim sources, highest precedence first.
+
+    The admin role wins if ANY source carries it: some IdPs (Keycloak realm roles)
+    only put the role claim in the access token, others only in userinfo.
+    """
+    merged: dict[str, Any] = {}
+    for source in sources:
+        merged.update(source)
+    for source in sources:
+        if oidc_role(source, config) == "admin" and oidc_role(merged, config) != "admin":
+            _set_claim(merged, config.oidc_role_claim, _claim(source, config.oidc_role_claim))
+            break
+    return merged
 
 
 def provision_oidc_user(db: Session, claims: dict[str, Any], config: AuthConfig) -> User:
@@ -261,6 +306,10 @@ def provision_oidc_user(db: Session, claims: dict[str, Any], config: AuthConfig)
     if user.role != role and user.id is not None:
         db.exec(delete(AuthSession).where(col(AuthSession.user_id) == user.id))
     user.role = role
+    # Bootstrap path: an IdP admin is active even under the approval policy,
+    # so the first admin can never lock themselves out as pending.
+    if role == "admin" and user.status == "pending":
+        user.status = "active"
     db.add(user)
     db.commit()
     db.refresh(user)

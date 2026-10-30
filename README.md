@@ -64,7 +64,7 @@ Environment variables can come from the shell or a `.env` file (see `.env.exampl
 | `OIDC_ISSUER` | (none) | Issuer URL. When set, OIDC is the only login method |
 | `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | (none) | Confidential client credentials (required with OIDC) |
 | `OIDC_SCOPES` | `openid email profile` | Requested scopes |
-| `OIDC_ROLE_CLAIM` | `roles` | Claim holding roles; dotted paths allowed (e.g. `realm_access.roles` for Keycloak) |
+| `OIDC_ROLE_CLAIM` | `roles` | Claim holding roles; dotted paths allowed (e.g. `realm_access.roles` for Keycloak). Read from the ID token, the access token, and userinfo — whichever carries it |
 | `OIDC_ADMIN_ROLE` | `admin` | Role value that grants the QuizDeck `admin` role |
 
 Example:

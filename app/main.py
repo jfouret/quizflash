@@ -67,7 +67,7 @@ def create_app(
 
     app = FastAPI(
         title="QuizDeck",
-        version="0.1.0",
+        version="0.1.1",
         lifespan=app_lifespan,
     )
     app.state.engine = engine

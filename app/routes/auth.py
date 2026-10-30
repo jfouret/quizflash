@@ -77,15 +77,23 @@ def login(
     registration = crud.get_app_settings(session).registration
     if throttle.blocked(key):
         return _page(
-            request, "login.html", 429, error="Too many attempts. Try again later.",
-            oidc_enabled=False, registration=registration,
+            request,
+            "login.html",
+            429,
+            error="Too many attempts. Try again later.",
+            oidc_enabled=False,
+            registration=registration,
         )
     user = auth.authenticate_local(session, email, password)
     if user is None:
         throttle.fail(key)
         return _page(
-            request, "login.html", 400, error="Invalid email or password.",
-            oidc_enabled=False, registration=registration,
+            request,
+            "login.html",
+            400,
+            error="Invalid email or password.",
+            oidc_enabled=False,
+            registration=registration,
         )
     throttle.reset(key)
     if user.status != "active":
@@ -160,10 +168,15 @@ async def oidc_callback(request: Request, session: SessionDep, config: AuthConfi
     client = request.app.state.oauth.oidc
     try:
         token = await client.authorize_access_token(request)
-        claims = dict(token.get("userinfo") or {})
-        if auth.oidc_role(claims, config) != "admin" and "access_token" in token:
+        sources = [dict(token.get("userinfo") or {})]
+        access_token = token.get("access_token")
+        if isinstance(access_token, str):
+            # Some IdPs (e.g. Keycloak realm roles) only put the role claim in the access token.
+            sources.append(auth.decode_jwt_payload(access_token))
+        if auth.oidc_role(sources[0], config) != "admin" and "access_token" in token:
             # Some IdPs only expose roles through the userinfo endpoint.
-            claims = {**dict(await client.userinfo(token=token)), **claims}
+            sources.append(dict(await client.userinfo(token=token)))
+        claims = auth.merge_oidc_claims(config, *sources)
     except OAuthError as exc:
         logger.warning("OIDC callback failed: %s", exc)
         return _page(request, "message.html", 400, message="Single sign-on failed. Try again.")

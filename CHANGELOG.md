@@ -4,6 +4,16 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-10-30
+
+### Fixed
+
+- OIDC admin role is now also read from the access token JWT and userinfo, not only
+  the ID token (Keycloak realm roles with `access.token.claim` only no longer lock
+  out the first admin).
+- An OIDC user whose IdP role is the admin role is promoted from `pending` to
+  `active` on login, so the approval policy can never block the first admin.
+
 ## [0.1.0] - 2026-10-30
 
 ### Added
