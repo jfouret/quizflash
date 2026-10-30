@@ -60,6 +60,12 @@ def _resource_calls(v: Victim) -> dict[tuple[str, str], Call]:
         ("POST", "/api/study/explain"): Call(
             "POST", "/api/study/explain", json={"card_id": v.card}
         ),
+        ("POST", "/api/study/speak-question"): Call(
+            "POST", "/api/study/speak-question", json={"card_id": v.card}
+        ),
+        ("POST", "/api/study/speak-explanation"): Call(
+            "POST", "/api/study/speak-explanation", json={"card_id": v.card}
+        ),
         ("GET", "/decks/{deck_id}"): Call("GET", f"/decks/{v.deck}"),
         ("POST", "/decks/{deck_id}/update"): Call(
             "POST", f"/decks/{v.deck}/update", data={"description": "pwned"}

@@ -375,7 +375,13 @@ def get_app_settings(session: Session) -> AppSettings:
 def update_app_settings(session: Session, data: AppSettingsUpdate) -> AppSettings:
     app_settings = get_app_settings(session)
     values = data.model_dump(exclude_unset=True)
-    for field in ("registration", "allow_public_decks", "teacher_allowed", "voice_allowed"):
+    for field in (
+        "registration",
+        "allow_public_decks",
+        "teacher_allowed",
+        "voice_allowed",
+        "tts_allowed",
+    ):
         if field in values and values[field] is None:
             raise ValueError(f"{field} cannot be null")
     if "default_settings" in values:
@@ -406,8 +412,11 @@ def effective_settings(session: Session, user: User) -> Settings:
     """User settings with admin-level switches applied (not persisted)."""
     settings = get_settings(session, user)
     effective = Settings.model_validate(settings.model_dump())
-    if not get_app_settings(session).teacher_allowed:
+    app_settings = get_app_settings(session)
+    if not app_settings.teacher_allowed:
         effective.teacher_enabled = False
+    if not app_settings.tts_allowed:
+        effective.tts_enabled = False
     return effective
 
 
@@ -421,6 +430,9 @@ def update_settings(session: Session, user: User, data: SettingsUpdate) -> Setti
         "voice_auto_judge",
         "auto_confirm",
         "teacher_enabled",
+        "tts_enabled",
+        "question_vocal",
+        "teacher_vocal",
         "daily_new_limit",
         "daily_review_limit",
     )

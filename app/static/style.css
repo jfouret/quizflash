@@ -231,6 +231,9 @@ kbd { font-size: .75rem; padding: .1rem .35rem; }
 .flip.flipped #result { transform: rotateY(0deg); }
 #study-card, #result { padding: 1.75rem; }
 #question { font-size: clamp(1.35rem, 3vw, 1.9rem); margin: .5rem 0 1.25rem; }
+.question-row { display: flex; align-items: flex-start; gap: .5rem; }
+.question-row #question { flex: 1; }
+.question-row button { margin: .5rem 0 0; flex-shrink: 0; }
 #card-state { margin: 0; }
 .study-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .study-actions button { margin: 0; }

@@ -10,12 +10,13 @@ from sqlmodel import Session
 
 from app import auth
 from app.auth import AuthConfig
-from app.dependencies import get_judge, get_stt, get_teacher
+from app.dependencies import get_judge, get_stt, get_teacher, get_tts
 from app.judge.base import JudgeError, JudgeResult
 from app.main import create_app
 from app.models import User
 from app.stt.base import STTError, STTResult
 from app.teacher.base import TeacherError, TeacherResult
+from app.tts.base import TTSError, TTSResult
 
 
 class FakeJudge:
@@ -58,6 +59,7 @@ class FakeTeacher:
         self.result = TeacherResult(explanation="Paris is the capital of France.")
         self.error: TeacherError | None = None
         self.calls: list[dict[str, Any]] = []
+        self.vocal_calls: list[dict[str, Any]] = []
 
     def explain(
         self,
@@ -85,6 +87,12 @@ class FakeTeacher:
             raise self.error
         return self.result
 
+    def to_vocal(self, text: str, *, language: str) -> str:
+        self.vocal_calls.append({"text": text, "language": language})
+        if self.error is not None:
+            raise self.error
+        return "Vocal: " + text
+
 
 class FakeSTT:
     def __init__(self) -> None:
@@ -94,6 +102,21 @@ class FakeSTT:
 
     def transcribe(self, audio: bytes, language: str) -> STTResult:
         self.calls.append((audio, language))
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
+class FakeTTS:
+    model = "fake-tts"
+
+    def __init__(self) -> None:
+        self.result = TTSResult(audio=b"FAKEAUDIO", content_type="audio/mpeg")
+        self.error: TTSError | None = None
+        self.calls: list[tuple[str, str]] = []
+
+    def speak(self, text: str, language: str) -> TTSResult:
+        self.calls.append((text, language))
         if self.error is not None:
             raise self.error
         return self.result
@@ -126,6 +149,11 @@ def fake_teacher() -> FakeTeacher:
     return FakeTeacher()
 
 
+@pytest.fixture
+def fake_tts() -> FakeTTS:
+    return FakeTTS()
+
+
 PASSWORD = "correct horse battery staple"
 BASE_URL = "https://testserver"
 
@@ -140,12 +168,14 @@ def app(
     fake_judge: FakeJudge,
     fake_stt: FakeSTT,
     fake_teacher: FakeTeacher,
+    fake_tts: FakeTTS,
     auth_config: AuthConfig,
 ) -> FastAPI:
     application = create_app("sqlite://", teacher=fake_teacher, auth_config=auth_config)
     application.dependency_overrides[get_judge] = lambda: fake_judge
     application.dependency_overrides[get_stt] = lambda: fake_stt
     application.dependency_overrides[get_teacher] = lambda: fake_teacher
+    application.dependency_overrides[get_tts] = lambda: fake_tts
     return application
 
 

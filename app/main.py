@@ -22,6 +22,7 @@ from app.stt.openai_compat import OpenAICompatibleSTT
 from app.teacher.base import Teacher
 from app.teacher.openrouter import OpenRouterTeacher
 from app.templating import templates
+from app.tts.openrouter import OpenRouterTTS
 
 ROUTERS = (
     auth.router,
@@ -66,7 +67,7 @@ def create_app(
 
     app = FastAPI(
         title="QuizDeck",
-        version="0.2.0",
+        version="0.1.0",
         lifespan=app_lifespan,
     )
     app.state.engine = engine
@@ -77,6 +78,7 @@ def create_app(
     app.state.judge = OpenRouterJudge.from_env()
     app.state.stt = OpenAICompatibleSTT.from_env()
     app.state.teacher = teacher_instance
+    app.state.tts = OpenRouterTTS.from_env()
 
     if config.oidc_enabled:
         oauth = OAuth()

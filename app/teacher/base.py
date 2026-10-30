@@ -24,6 +24,8 @@ class Teacher(Protocol):
         language: str,
     ) -> TeacherResult: ...
 
+    def to_vocal(self, text: str, *, language: str) -> str: ...
+
 
 class TeacherError(RuntimeError):
     pass

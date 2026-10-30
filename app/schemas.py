@@ -111,6 +111,9 @@ class SettingsRead(BaseModel):
     voice_auto_judge: bool
     auto_confirm: bool
     teacher_enabled: bool
+    tts_enabled: bool
+    question_vocal: bool
+    teacher_vocal: bool
     daily_new_limit: int
     daily_review_limit: int
 
@@ -122,6 +125,9 @@ class SettingsUpdate(BaseModel):
     voice_auto_judge: bool | None = None
     auto_confirm: bool | None = None
     teacher_enabled: bool | None = None
+    tts_enabled: bool | None = None
+    question_vocal: bool | None = None
+    teacher_vocal: bool | None = None
     daily_new_limit: int | None = Field(default=None, ge=0)
     daily_review_limit: int | None = Field(default=None, ge=0)
 
@@ -186,6 +192,7 @@ class AppSettingsRead(BaseModel):
     allow_public_decks: bool
     teacher_allowed: bool
     voice_allowed: bool
+    tts_allowed: bool
     default_settings: dict[str, Any]
 
 
@@ -194,6 +201,7 @@ class AppSettingsUpdate(BaseModel):
     allow_public_decks: bool | None = None
     teacher_allowed: bool | None = None
     voice_allowed: bool | None = None
+    tts_allowed: bool | None = None
     default_settings: SettingsUpdate | None = None
 
 

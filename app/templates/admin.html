@@ -73,6 +73,7 @@
     <label><input name="allow_public_decks" type="checkbox" role="switch" value="true" {% if app_settings.allow_public_decks %}checked{% endif %}> Allow public decks</label>
     <label><input name="teacher_allowed" type="checkbox" role="switch" value="true" {% if app_settings.teacher_allowed %}checked{% endif %}> Allow teacher explanations</label>
     <label><input name="voice_allowed" type="checkbox" role="switch" value="true" {% if app_settings.voice_allowed %}checked{% endif %}> Allow voice answers</label>
+    <label><input name="tts_allowed" type="checkbox" role="switch" value="true" {% if app_settings.tts_allowed %}checked{% endif %}> Allow text-to-speech</label>
     <small class="hint">Disabled features are turned off for every user, whatever their own settings.</small>
   </fieldset>
   {% set defaults = app_settings.default_settings %}

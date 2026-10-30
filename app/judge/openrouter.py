@@ -4,6 +4,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
+from app.config import api_key_env, base_url_env
 from app.judge.base import JudgeError, JudgeResult
 
 
@@ -25,9 +26,9 @@ class OpenRouterJudge:
     @classmethod
     def from_env(cls) -> "OpenRouterJudge":
         return cls(
-            base_url=os.getenv("JUDGE_BASE_URL", "https://openrouter.ai"),
+            base_url=base_url_env("JUDGE_BASE_URL"),
             model=os.getenv("JUDGE_MODEL", "inception/mercury-decide"),
-            api_key=os.getenv("JUDGE_API_KEY") or os.getenv("OPENROUTER_API_KEY") or "",
+            api_key=api_key_env("JUDGE_API_KEY"),
         )
 
     def evaluate(

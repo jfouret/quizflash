@@ -17,6 +17,7 @@ Self-hosted, multi-user spaced-repetition quiz application. Each user owns their
   - `self_fallback`: manual rating, only available through a single-use token issued after an actual judge failure.
 - Voice answers: automatic recording when microphone permission is granted, an elapsed-time counter, server-side remote STT, and an editable transcript. Settings can send the transcript straight to the judge or wait for validation. Corrections can be judged again before the review is saved. Response time, STT call duration, and audio duration are persisted.
 - Deck-level and card-level context fields, plus an optional LLM teacher: after a result, the teacher explains the card using both contexts (toggle in settings; otherwise use the Teacher/Regenerate buttons in the result panel).
+- Spoken output (TTS via OpenRouter): per-user toggle speaks the question and the teacher explanation aloud; optional extra LLM passes ("vocal-ready") rewrite question and explanation into plain spoken sentences before synthesis. Admin can disable TTS globally.
 - Pluggable schedulers: FSRS (default, `fsrs` PyPI package) and SM-2, configurable per deck.
 - SQL statistics per deck, card, and tag.
 - FastMCP server mounted at `/mcp` for external AI agents.
@@ -40,15 +41,22 @@ Environment variables can come from the shell or a `.env` file (see `.env.exampl
 | Variable | Default | Description |
 |---|---|---|
 | `DATABASE_URL` | `sqlite:///./quizdeck.db` | SQLAlchemy database URL |
-| `JUDGE_BASE_URL` | `https://openrouter.ai` | OpenRouter root URL; `/api/alpha/decisions` is appended |
+| `OPENROUTER_BASE_URL` | `https://openrouter.ai` | Shared OpenRouter root; every `X_BASE_URL` below falls back to it |
+| `OPENROUTER_API_KEY` | (none) | Shared key; every `X_API_KEY` below falls back to it |
+| `JUDGE_BASE_URL` | `OPENROUTER_BASE_URL` | Judge root URL; `/api/alpha/decisions` is appended |
 | `JUDGE_MODEL` | `inception/mercury-decide` | OpenRouter decision model |
-| `JUDGE_API_KEY` | (none) | Judge API key; falls back to `OPENROUTER_API_KEY` |
-| `STT_BASE_URL` | (none) | OpenAI-compatible `/v1/audio/transcriptions` base |
+| `JUDGE_API_KEY` | `OPENROUTER_API_KEY` | Judge API key |
+| `STT_BASE_URL` | `OPENROUTER_BASE_URL` | OpenAI-compatible `/v1/audio/transcriptions` base |
 | `STT_MODEL` | (none) | STT model |
-| `STT_API_KEY` | (none) | STT API key |
-| `TEACHER_BASE_URL` | `JUDGE_BASE_URL` | Chat-completions base for the teacher; `/api/v1/chat/completions` is appended |
+| `STT_API_KEY` | `OPENROUTER_API_KEY` | STT API key |
+| `TEACHER_BASE_URL` | `JUDGE_BASE_URL` → `OPENROUTER_BASE_URL` | Chat-completions base for the teacher; `/api/v1/chat/completions` is appended |
 | `TEACHER_MODEL` | (none) | Teacher chat model (required for explanations) |
-| `TEACHER_API_KEY` | `JUDGE_API_KEY` / `OPENROUTER_API_KEY` | Teacher API key |
+| `TEACHER_API_KEY` | `JUDGE_API_KEY` → `OPENROUTER_API_KEY` | Teacher API key |
+| `VOCAL_MODEL` | `TEACHER_MODEL` | Cheap model for the vocal-ready (TTS) rewrite pass |
+| `TTS_BASE_URL` | `TEACHER_BASE_URL` → `OPENROUTER_BASE_URL` | Speech base; `/api/v1/audio/speech` is appended |
+| `TTS_MODEL` | (none) | TTS model (required for spoken output) |
+| `TTS_API_KEY` | `TEACHER_API_KEY` → `OPENROUTER_API_KEY` | TTS API key |
+| `TTS_VOICE` | `alloy` | TTS voice |
 | `COOKIE_SECURE` | `1` | Send the session cookie only over HTTPS (`__Host-session`). Set `0` only for plain-HTTP local development |
 | `SESSION_IDLE_HOURS` | `168` | A session expires after this much inactivity |
 | `SESSION_MAX_HOURS` | `720` | Absolute session lifetime |
@@ -63,13 +71,11 @@ Example:
 
 ```bash
 export DATABASE_URL="sqlite:///./quizdeck.db"
-export JUDGE_BASE_URL="https://openrouter.ai"
+export OPENROUTER_API_KEY="sk-or-..."        # shared by judge, STT, teacher and TTS
 export JUDGE_MODEL="inception/mercury-decide"
-export JUDGE_API_KEY="sk-or-..."
-export STT_BASE_URL="https://api.openai.com/v1"
-export STT_MODEL="whisper-1"
-export STT_API_KEY="sk-..."
-export TEACHER_MODEL="openai/gpt-4o-mini"   # reuses JUDGE_BASE_URL and JUDGE_API_KEY
+export STT_MODEL="whisper-1"                 # STT base URL defaults to OPENROUTER_BASE_URL
+export TEACHER_MODEL="openai/gpt-4o-mini"
+export TTS_MODEL="openai/gpt-4o-mini-tts"
 ```
 
 ## Run locally

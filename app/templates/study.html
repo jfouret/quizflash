@@ -21,7 +21,10 @@
 <div id="flip" class="flip">
 <section id="study-card" class="card" hidden>
   <p id="card-state" class="badge accent"></p>
-  <h2 id="question" class="pre"></h2>
+  <div class="question-row">
+    <h2 id="question" class="pre"></h2>
+    <button id="speak-question" type="button" class="sm secondary outline" title="Listen to the question" {% if not settings.tts_enabled %}hidden{% endif %}>🔊</button>
+  </div>
   <label for="answer-input">Your answer</label>
   <textarea id="answer-input" rows="3" autofocus placeholder="Type your answer{{ ' or record it' if voice_allowed }}…"></textarea>
   <div class="study-actions">
@@ -44,6 +47,7 @@
     <div class="actions">
       <button id="teacher-btn" type="button" class="sm secondary outline">Explain</button>
       <button id="teacher-regen" type="button" class="sm secondary outline">Regenerate</button>
+      <button id="speak-explanation" type="button" class="sm secondary outline" title="Listen to the explanation" {% if not settings.tts_enabled %}hidden{% endif %}>🔊</button>
     </div>
   </div>
   <div id="rating-controls" class="grid-2" hidden style="margin-top: 1.25rem">
@@ -95,6 +99,8 @@ const teacherExplanationEl = document.getElementById('teacher-explanation');
 const teacherInfoEl = document.getElementById('teacher-info');
 const teacherBtn = document.getElementById('teacher-btn');
 const teacherRegenBtn = document.getElementById('teacher-regen');
+const speakQuestionBtn = document.getElementById('speak-question');
+const speakExplanationBtn = document.getElementById('speak-explanation');
 const ratingControls = document.getElementById('rating-controls');
 const ratingInput = document.getElementById('rating');
 const correctInput = document.getElementById('correct');
@@ -104,6 +110,7 @@ const nextButton = document.getElementById('next');
 const voiceAutoJudge = {{ settings.voice_auto_judge | tojson }};
 const autoConfirm = {{ settings.auto_confirm | tojson }};
 const teacherEnabled = {{ settings.teacher_enabled | tojson }};
+const ttsEnabled = {{ settings.tts_enabled | tojson }};
 
 let current = null;
 let startedAt = 0;
@@ -253,6 +260,12 @@ function resetPanels() {
   teacherInfoEl.textContent = '';
   teacherBtn.disabled = false;
   teacherRegenBtn.disabled = false;
+  speakQuestionBtn.disabled = false;
+  speakExplanationBtn.disabled = false;
+  if (spokenAudio) {
+    spokenAudio.pause();
+    spokenAudio = null;
+  }
   pendingResult = null;
   lastPayload = null;
   setTextMode();
@@ -337,6 +350,35 @@ async function fetchExplanation() {
 function showTeacher() {
   teacherWrap.hidden = false;
   if (teacherEnabled) void fetchExplanation();
+}
+
+let spokenAudio = null;
+
+async function speak(endpoint, button) {
+  if (!current || !ttsEnabled) return;
+  button.disabled = true;
+  setStatus('Synthesizing speech…');
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
+      credentials: 'same-origin',
+      body: JSON.stringify({card_id: current.card.id})
+    });
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(typeof data.detail === 'string' ? data.detail : 'Speech synthesis failed');
+    }
+    const blob = await response.blob();
+    if (spokenAudio) spokenAudio.pause();
+    spokenAudio = new Audio(URL.createObjectURL(blob));
+    await spokenAudio.play();
+    setStatus('Playing.');
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function invalidateAssessment() {
@@ -578,6 +620,8 @@ deckSelect.addEventListener('change', loadNext);
 submitButton.addEventListener('click', submitAnswer);
 teacherBtn.addEventListener('click', fetchExplanation);
 teacherRegenBtn.addEventListener('click', fetchExplanation);
+speakQuestionBtn.addEventListener('click', () => void speak('/api/study/speak-question', speakQuestionBtn));
+speakExplanationBtn.addEventListener('click', () => void speak('/api/study/speak-explanation', speakExplanationBtn));
 recordButton.addEventListener('click', toggleRecording);
 textModeButton.addEventListener('click', setTextMode);
 nextButton.addEventListener('click', nextCard);

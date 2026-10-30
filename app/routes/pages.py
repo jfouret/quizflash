@@ -214,6 +214,9 @@ def update_settings_form(
     voice_auto_judge: Annotated[bool, Form()] = False,
     auto_confirm: Annotated[bool, Form()] = False,
     teacher_enabled: Annotated[bool, Form()] = False,
+    tts_enabled: Annotated[bool, Form()] = False,
+    question_vocal: Annotated[bool, Form()] = False,
+    teacher_vocal: Annotated[bool, Form()] = False,
 ) -> RedirectResponse:
     crud.update_settings(
         session,
@@ -225,6 +228,9 @@ def update_settings_form(
             voice_auto_judge=voice_auto_judge,
             auto_confirm=auto_confirm,
             teacher_enabled=teacher_enabled,
+            tts_enabled=tts_enabled,
+            question_vocal=question_vocal,
+            teacher_vocal=teacher_vocal,
             daily_new_limit=daily_new_limit,
             daily_review_limit=daily_review_limit,
         ),
@@ -299,6 +305,7 @@ def admin_settings_form(
     allow_public_decks: Annotated[bool, Form()] = False,
     teacher_allowed: Annotated[bool, Form()] = False,
     voice_allowed: Annotated[bool, Form()] = False,
+    tts_allowed: Annotated[bool, Form()] = False,
 ) -> RedirectResponse:
     crud.update_app_settings(
         session,
@@ -307,6 +314,7 @@ def admin_settings_form(
             allow_public_decks=allow_public_decks,
             teacher_allowed=teacher_allowed,
             voice_allowed=voice_allowed,
+            tts_allowed=tts_allowed,
             default_settings=SettingsUpdate(
                 eval_mode=default_eval_mode,
                 judge_language=default_judge_language,

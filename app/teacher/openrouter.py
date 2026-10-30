@@ -4,6 +4,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
+from app.config import api_key_env, base_url_env
 from app.teacher.base import TeacherError, TeacherResult
 
 
@@ -13,28 +14,24 @@ class OpenRouterTeacher:
         base_url: str,
         model: str,
         api_key: str = "",
+        vocal_model: str = "",
         timeout: float = 30.0,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key
+        self.vocal_model = vocal_model or model
         self.timeout = timeout
         self.transport = transport
 
     @classmethod
     def from_env(cls) -> "OpenRouterTeacher":
         return cls(
-            base_url=os.getenv("TEACHER_BASE_URL")
-            or os.getenv("JUDGE_BASE_URL")
-            or "https://openrouter.ai",
+            base_url=base_url_env("TEACHER_BASE_URL", "JUDGE_BASE_URL"),
             model=os.getenv("TEACHER_MODEL", ""),
-            api_key=(
-                os.getenv("TEACHER_API_KEY")
-                or os.getenv("JUDGE_API_KEY")
-                or os.getenv("OPENROUTER_API_KEY")
-                or ""
-            ),
+            api_key=api_key_env("TEACHER_API_KEY", "JUDGE_API_KEY"),
+            vocal_model=os.getenv("VOCAL_MODEL", ""),
         )
 
     def explain(
@@ -50,18 +47,10 @@ class OpenRouterTeacher:
     ) -> TeacherResult:
         if not self.base_url or not self.model:
             raise TeacherError("TEACHER_BASE_URL and TEACHER_MODEL must be configured")
-        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
-        endpoint = self.base_url
-        if not endpoint.endswith("/api/v1/chat/completions"):
-            endpoint += "/api/v1/chat/completions"
 
-        language_instruction = (
-            "auto" if language == "auto" else f"Answer in {language}."
-        )
+        language_instruction = "auto" if language == "auto" else f"Answer in {language}."
         correctness = (
-            "not yet assessed"
-            if is_correct is None
-            else ("correct" if is_correct else "incorrect")
+            "not yet assessed" if is_correct is None else ("correct" if is_correct else "incorrect")
         )
         sections = [
             f"Deck context:\n{deck_context}" if deck_context else None,
@@ -78,13 +67,44 @@ class OpenRouterTeacher:
             "detail for remembering it. Be concise. " + language_instruction
         )
 
+        response = self._chat(
+            self.model,
+            system_message,
+            user_message,
+        )
+        return self._parse_response(response)
+
+    def to_vocal(self, text: str, *, language: str) -> str:
+        """Rewrite a text so it reads well when spoken aloud (no markdown, lists, symbols)."""
+        if not self.base_url or not self.model:
+            raise TeacherError("TEACHER_BASE_URL and TEACHER_MODEL must be configured")
+        if not text.strip():
+            raise TeacherError("Nothing to rewrite")
+        language_instruction = (
+            "auto-detect the language" if language == "auto" else f"in {language}"
+        )
+        system_message = (
+            "You rewrite quiz text for text-to-speech. Output only the spoken version: "
+            "plain flowing sentences, no markdown, no bullet points, no numbering, no "
+            "parentheses, no URLs, no symbols read awkwardly; spell out abbreviations and "
+            "numbers in words. Keep the meaning and length close to the original, "
+            f"{language_instruction}."
+        )
+        response = self._chat(self.vocal_model, system_message, text)
+        return self._parse_response(response).explanation
+
+    def _chat(self, model: str, system_message: str, user_message: str) -> httpx.Response:
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        endpoint = self.base_url
+        if not endpoint.endswith("/api/v1/chat/completions"):
+            endpoint += "/api/v1/chat/completions"
         with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
             try:
                 response = client.post(
                     endpoint,
                     headers=headers,
                     json={
-                        "model": self.model,
+                        "model": model,
                         "messages": [
                             {"role": "system", "content": system_message},
                             {"role": "user", "content": user_message},
@@ -94,7 +114,7 @@ class OpenRouterTeacher:
                 response.raise_for_status()
             except httpx.HTTPError as exc:
                 raise TeacherError(f"Teacher request failed: {exc}") from exc
-        return self._parse_response(response)
+        return response
 
     @staticmethod
     def _parse_response(response: httpx.Response) -> TeacherResult:

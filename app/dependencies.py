@@ -10,6 +10,7 @@ from app.judge.base import Judge
 from app.models import User
 from app.stt.base import STTProvider
 from app.teacher.base import Teacher
+from app.tts.base import TTSProvider
 
 SessionDep = Annotated[Session, Depends(get_session)]
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
@@ -81,6 +82,11 @@ def get_teacher(request: Request) -> Teacher:
     return cast(Teacher, request.app.state.teacher)
 
 
+def get_tts(request: Request) -> TTSProvider:
+    return cast(TTSProvider, request.app.state.tts)
+
+
 JudgeDep = Annotated[Judge, Depends(get_judge)]
 STTDep = Annotated[STTProvider, Depends(get_stt)]
 TeacherDep = Annotated[Teacher, Depends(get_teacher)]
+TTSDep = Annotated[TTSProvider, Depends(get_tts)]

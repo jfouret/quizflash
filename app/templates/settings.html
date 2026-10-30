@@ -52,6 +52,26 @@
   </fieldset>
 
   <fieldset class="panel">
+    <legend>Spoken output (TTS)</legend>
+    {% if not app_settings.tts_allowed %}<p class="callout warn">Text-to-speech is disabled by the administrator.</p>{% endif %}
+    <label>
+      <input name="tts_enabled" type="checkbox" role="switch" value="true" {% if settings.tts_enabled %}checked{% endif %}>
+      Speak the question and teacher explanation aloud
+      <small class="hint">Adds a speaker button next to the question and in the result panel.</small>
+    </label>
+    <label>
+      <input name="question_vocal" type="checkbox" role="switch" value="true" {% if settings.question_vocal %}checked{% endif %}>
+      Vocal-ready question
+      <small class="hint">Extra LLM pass rewrites the question into plain spoken sentences before synthesis.</small>
+    </label>
+    <label>
+      <input name="teacher_vocal" type="checkbox" role="switch" value="true" {% if settings.teacher_vocal %}checked{% endif %}>
+      Vocal-ready explanation
+      <small class="hint">Extra LLM pass rewrites the teacher explanation into plain spoken sentences before synthesis.</small>
+    </label>
+  </fieldset>
+
+  <fieldset class="panel">
     <legend>Daily limits</legend>
     <div class="grid-2">
       <div>

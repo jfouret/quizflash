@@ -3,11 +3,12 @@ import secrets
 import time
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
 
 from app import crud
-from app.dependencies import CurrentUser, JudgeDep, SessionDep, STTDep, TeacherDep
+from app.dependencies import CurrentUser, JudgeDep, SessionDep, STTDep, TeacherDep, TTSDep
 from app.judge.base import JudgeError
+from app.models import Settings
 from app.schemas import (
     AnswerRequest,
     AnswerResponse,
@@ -19,6 +20,7 @@ from app.schemas import (
 )
 from app.stt.base import STTError
 from app.teacher.base import TeacherError
+from app.tts.base import TTSError
 
 router = APIRouter(prefix="/api/study", tags=["study"])
 logger = logging.getLogger(__name__)
@@ -95,6 +97,86 @@ def explain(
             detail="Teacher explanation failed; try again",
         ) from exc
     return ExplainResponse(explanation=result.explanation, model=teacher.model)
+
+
+def _check_tts(session: SessionDep, user: CurrentUser) -> Settings:
+    """Return effective TTS settings, rejecting when the feature is off."""
+    if not crud.get_app_settings(session).tts_allowed:
+        raise HTTPException(status_code=403, detail="Text-to-speech is disabled")
+    settings = crud.effective_settings(session, user)
+    if not settings.tts_enabled:
+        raise HTTPException(status_code=403, detail="Text-to-speech is off in your settings")
+    return settings
+
+
+def _speak(text: str, language: str, tts: TTSDep) -> Response:
+    try:
+        result = tts.speak(text, language)
+    except TTSError as exc:
+        logger.warning("TTS request failed: %s", exc)
+        raise HTTPException(
+            status_code=502, detail="Speech synthesis failed; try again"
+        ) from exc
+    return Response(content=result.audio, media_type=result.content_type)
+
+
+def _vocal(text: str, language: str, vocal: bool, teacher: TeacherDep) -> str:
+    if not vocal:
+        return text
+    try:
+        return teacher.to_vocal(text, language=language)
+    except TeacherError as exc:
+        logger.warning("Vocal pass failed: %s", exc)
+        raise HTTPException(
+            status_code=502, detail="Vocal rewrite failed; try again"
+        ) from exc
+
+
+@router.post("/speak-question")
+def speak_question(
+    payload: ExplainRequest,
+    session: SessionDep,
+    user: CurrentUser,
+    teacher: TeacherDep,
+    tts: TTSDep,
+) -> Response:
+    card, _ = crud.get_trainable_card(session, user, payload.card_id)
+    settings = _check_tts(session, user)
+    text = _vocal(card.question, settings.judge_language, settings.question_vocal, teacher)
+    return _speak(text, settings.judge_language, tts)
+
+
+@router.post("/speak-explanation")
+def speak_explanation(
+    payload: ExplainRequest,
+    session: SessionDep,
+    user: CurrentUser,
+    teacher: TeacherDep,
+    tts: TTSDep,
+) -> Response:
+    card, deck = crud.get_trainable_card(session, user, payload.card_id)
+    settings = _check_tts(session, user)
+    if not crud.get_app_settings(session).teacher_allowed:
+        raise HTTPException(status_code=403, detail="Teacher explanations are disabled")
+    log = crud.get_last_answer_log(session, user, payload.card_id)
+    try:
+        result = teacher.explain(
+            deck_context=deck.context,
+            card_context=card.context,
+            question=card.question,
+            expected_answer=card.answer,
+            user_answer=log.answer_text if log else "",
+            is_correct=log.is_correct if log else None,
+            language=settings.judge_language,
+        )
+    except TeacherError as exc:
+        logger.warning("Teacher explanation failed: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="Teacher explanation failed; try again",
+        ) from exc
+    text = _vocal(result.explanation, settings.judge_language, settings.teacher_vocal, teacher)
+    return _speak(text, settings.judge_language, tts)
 
 
 def _record_answer(

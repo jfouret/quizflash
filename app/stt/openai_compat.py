@@ -4,6 +4,7 @@ from typing import Any
 
 import httpx
 
+from app.config import api_key_env, base_url_env
 from app.stt.base import STTError, STTResult, measure_audio_duration
 
 
@@ -25,9 +26,9 @@ class OpenAICompatibleSTT:
     @classmethod
     def from_env(cls) -> "OpenAICompatibleSTT":
         return cls(
-            base_url=os.getenv("STT_BASE_URL", ""),
+            base_url=os.getenv("STT_BASE_URL") or base_url_env(),
             model=os.getenv("STT_MODEL", ""),
-            api_key=os.getenv("STT_API_KEY", ""),
+            api_key=api_key_env("STT_API_KEY"),
         )
 
     def transcribe(self, audio: bytes, language: str) -> STTResult:

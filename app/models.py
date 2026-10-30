@@ -134,6 +134,9 @@ class Settings(SQLModel, table=True):
     voice_auto_judge: bool = False
     auto_confirm: bool = False
     teacher_enabled: bool = True
+    tts_enabled: bool = False
+    question_vocal: bool = False
+    teacher_vocal: bool = False
     daily_new_limit: int = 0
     daily_review_limit: int = 0
 
@@ -144,4 +147,5 @@ class AppSettings(SQLModel, table=True):
     allow_public_decks: bool = True
     teacher_allowed: bool = True
     voice_allowed: bool = True
+    tts_allowed: bool = True
     default_settings: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
