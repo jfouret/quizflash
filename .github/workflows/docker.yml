@@ -5,7 +5,7 @@ on:
     branches: [main]
     tags: ["v*"]
   pull_request:
-    paths: ["Dockerfile", "pyproject.toml", "uv.lock", "app/**", ".github/workflows/docker.yml"]
+    paths: ["Dockerfile", "pyproject.toml", "app/**", ".github/workflows/docker.yml"]
 
 permissions:
   contents: read

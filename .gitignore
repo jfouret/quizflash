@@ -11,6 +11,7 @@ quizdeck.db-wal
 
 # Python
 .venv/
+uv.lock
 __pycache__/
 *.py[cod]
 *.egg-info/

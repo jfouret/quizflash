@@ -13,9 +13,10 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY --from=uv /uv /uvx /bin/
-COPY pyproject.toml uv.lock ./
+# No lockfile in the repo (gitignored): dependencies resolve at build time.
+COPY pyproject.toml ./
 COPY app ./app
-RUN uv sync --frozen --no-dev \
+RUN uv sync --no-dev \
     && useradd --create-home appuser \
     && mkdir -p /data \
     && chown -R appuser:appuser /data
