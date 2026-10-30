@@ -7,7 +7,7 @@ dependencies = [
     "alembic>=1.20.1",
     "authlib>=1.9.1",
     "fastapi>=0.116,<1",
-    "fastmcp>=2.11,<3",
+    "fastmcp>=4.1,<5",
     "fsrs>=6.3,<7",
     "httpx>=0.28,<1",
     "itsdangerous>=2.2.0",
@@ -20,7 +20,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "mypy>=1.15,<2",
+    "mypy>=2.4,<3",
     "pytest>=8,<10",
     "ruff>=0.11,<1",
 ]
