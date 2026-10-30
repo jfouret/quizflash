@@ -22,9 +22,15 @@
   // private repo on GitHub Free: platform auto-merge unavailable, let Renovate merge directly
   platformAutomerge: false,
   // versions stay pinned in the repo files: Dockerfile FROM lines, pyproject.toml/uv.lock, workflow action tags
+  // ("uv" manager needs a newer Renovate than the central bot runs; pep621 + uv lock covers it)
   enabledManagers: [
     "dockerfile",
     "github-actions",
-    "uv"
-  ]
+    "pep621"
+  ],
+  postUpgradeTasks: {
+    commands: ["uv lock"],
+    fileFilters: ["uv.lock"],
+    executionMode: "update"
+  }
 }
