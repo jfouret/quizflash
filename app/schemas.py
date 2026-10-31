@@ -3,7 +3,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.grading import DEFAULT_MAX, MAX_MAX
+from app.grading import DEFAULT_LABELS, DEFAULT_MAX, MAX_MAX
 
 # Bounds on free text: the database is user-writable and LLM calls are billed per token.
 MAX_TEXT = 10_000
@@ -56,7 +56,9 @@ class DeckCreate(BaseModel):
     context: str = Field(default="", max_length=MAX_TEXT)
     scheduler: SchedulerName = "fsrs"
     scheduler_params: dict[str, Any] = Field(default_factory=dict)
-    grading_scale: GradingScale = Field(default_factory=GradingScale)
+    grading_scale: GradingScale = Field(
+        default_factory=lambda: GradingScale(max=DEFAULT_MAX, labels=dict(DEFAULT_LABELS))
+    )
     eval_mode: EvalMode | None = None
     visibility: Visibility = "private"
 

@@ -67,7 +67,7 @@ def test_decisions_endpoint_and_request_context() -> None:
     }
     assert body["questions"]["is_correct"]["type"] == "noul"
     assert body["questions"]["rating"]["type"] == "choice"
-    assert set(body["questions"]["rating"]["criteria"]) == {"0", "1", "2", "3", "4"}
+    assert set(body["questions"]["rating"]["criteria"]) == {"0", "1", "2", "3", "4", "5"}
     assert "messages" not in body
 
 
@@ -155,7 +155,7 @@ def test_timeout_is_wrapped_without_retry() -> None:
     assert calls == 1
 
 
-@pytest.mark.parametrize("choice", ["5", 4, None, "-1", "1.5"])
+@pytest.mark.parametrize("choice", ["6", 4, None, "-1", "1.5"])
 def test_invalid_rating_choice_is_rejected(choice: Any) -> None:
     def handler(_: httpx.Request) -> httpx.Response:
         return _judge_response(choice=choice)

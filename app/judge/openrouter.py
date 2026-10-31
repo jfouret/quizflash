@@ -14,6 +14,7 @@ from app.agents import (
     render_prompt,
 )
 from app.config import api_key_env, base_url_env
+from app.grading import DEFAULT_MAX
 from app.judge.base import JudgeError, JudgeResult
 from app.models import AgentConfig
 
@@ -92,7 +93,7 @@ class OpenRouterJudge:
         expected_time_s: int | None,
         response_time_ms: int,
         language: str,
-        max_level: int = 4,
+        max_level: int = DEFAULT_MAX,
         labels: dict[int, str] | None = None,
     ) -> JudgeResult:
         if not self.base_url or not self.model:
@@ -165,7 +166,7 @@ class OpenRouterJudge:
         return self._parse_response(response, max_level)
 
     @staticmethod
-    def _parse_response(response: httpx.Response, max_level: int = 4) -> JudgeResult:
+    def _parse_response(response: httpx.Response, max_level: int = DEFAULT_MAX) -> JudgeResult:
         try:
             payload: dict[str, Any] = response.json()
             correctness = payload["answers"]["is_correct"]
