@@ -4,6 +4,7 @@ import time
 from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
+from fastapi.responses import StreamingResponse
 
 from app import crud
 from app.dependencies import CurrentUser, JudgeDep, SessionDep, STTDep, TeacherDep, TTSDep
@@ -99,11 +100,11 @@ def _check_tts(session: SessionDep, user: CurrentUser) -> Settings:
 
 def _speak(text: str, language: str, tts: TTSDep) -> Response:
     try:
-        result = tts.speak(text, language)
+        stream = tts.speak_stream(text, language)
     except TTSError as exc:
         logger.warning("TTS request failed: %s", exc)
         raise HTTPException(status_code=502, detail="Speech synthesis failed; try again") from exc
-    return Response(content=result.audio, media_type=result.content_type)
+    return StreamingResponse(stream, media_type="audio/mpeg")
 
 
 def _vocal(text: str, language: str, vocal: bool, teacher: TeacherDep) -> str:

@@ -24,8 +24,8 @@ Self-hosted, multi-user spaced-repetition quiz application. Each user owns their
   - `ai_assess`: the AI decides and the review is saved immediately.
   - `self_fallback`: manual rating, only available through a single-use token issued after an actual judge failure.
 - Voice answers: automatic recording when microphone permission is granted, an elapsed-time counter, server-side remote STT, and an editable transcript. Settings can send the transcript straight to the judge or wait for validation. Corrections can be judged again before the review is saved. Response time, STT call duration, and audio duration are persisted.
-- Deck-level and card-level context fields, plus an optional LLM teacher: after a result, the teacher explains the card using both contexts (toggle in settings; otherwise use the Teacher/Regenerate buttons in the result panel).
-- Spoken output (TTS via OpenRouter): per-user toggle speaks the question and the teacher explanation aloud; optional extra LLM passes ("vocal-ready") rewrite question and explanation into plain spoken sentences before synthesis. Admin can disable TTS globally.
+- Deck-level and card-level context fields, plus an optional LLM teacher: after a result, the teacher explains the card using both contexts (toggle in settings; otherwise use the Teacher/Regenerate buttons in the result panel). Explanations render as Markdown.
+- Spoken output (TTS via OpenRouter): per-user toggle speaks the question and the teacher explanation aloud; optional extra LLM passes ("vocal-ready") rewrite question and explanation into plain spoken sentences before synthesis. Playback streams so it starts before the clip is fully generated. Admin can disable TTS globally.
 - Pluggable schedulers: FSRS (default, `fsrs` PyPI package) and SM-2, configurable per deck.
 - SQL statistics per deck, card, and tag.
 - FastMCP server mounted at `/mcp` for external AI agents.
@@ -109,7 +109,13 @@ User answer: {{ user_answer }}
 
 The defaults tell every model to respect the requested language and to keep
 technical terms, proper nouns, code identifiers and abbreviations in their
-original form instead of over-translating them.
+original form instead of over-translating them. The Teacher default asks for a
+short, Markdown answer (at most two sentences) so a review round stays fast. A
+**Restore default prompts** button resets the system prompt and template of the
+current step to the values shipped with the running version.
+
+The Verbalizer step is optional: its pass only runs when a user enables a
+vocal-ready option in their settings, and its prompts may be left empty.
 
 ## Run locally
 

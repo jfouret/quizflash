@@ -33,11 +33,12 @@ Expected answer: {{ card.answer }}
 User answer: {{ user_answer }}"""
 
 DEFAULT_TEACHER_SYSTEM = (
-    "You are a teacher explaining a quiz card to the person who answered it. That person may "
-    "or may not be the card's author. Use the deck and card context when given. Explain why "
-    "the expected answer is right, point out what is missing or wrong in the user's answer "
-    "when one was given, and add one useful detail for remembering it. Be concise. "
-    + LANGUAGE_GUIDELINE
+    "You are a teacher giving a short answer to the person who just attempted this flash "
+    "card. That person may or may not be the card's author. Reply in at most two short "
+    "sentences (about 35 words). Go straight to the point: say why the expected answer is "
+    "right and, when the attempt was wrong, name the one thing that was missed. No greeting, "
+    "no restating the question, no filler. You may use light Markdown, such as **bold** for "
+    "the key term. " + LANGUAGE_GUIDELINE
 )
 DEFAULT_TEACHER_TEMPLATE = """{% if deck.context %}Deck context:
 {{ deck.context }}
@@ -55,10 +56,11 @@ User answer ({{ correctness }}):
 {{ user_answer or '(empty)' }}"""
 
 DEFAULT_VERBALIZER_SYSTEM = (
-    "You rewrite quiz text for text-to-speech. Output only the spoken version: plain flowing "
-    "sentences, no markdown, no bullet points, no numbering, no parentheses, no URLs, no "
-    "symbols read awkwardly; spell out abbreviations and numbers in words. Keep the meaning "
-    "and length close to the original. " + LANGUAGE_GUIDELINE
+    "You rewrite text for text-to-speech. This pass is optional: it only runs when the user "
+    "enables a vocal-ready setting. Output only the spoken version: plain flowing sentences "
+    "with no Markdown, bullets, numbering, parentheses, URLs or symbols that read awkwardly. "
+    "Spell out abbreviations and numbers. Keep the meaning and the length close to the "
+    "original. " + LANGUAGE_GUIDELINE
 )
 DEFAULT_VERBALIZER_TEMPLATE = "{{ text }}"
 

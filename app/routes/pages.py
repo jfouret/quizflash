@@ -5,7 +5,14 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app import __version__, auth, crud
-from app.agents import AGENT_STEPS, ENV_HINTS, PROMPT_VARIABLES, STEP_LABELS, AgentStep
+from app.agents import (
+    AGENT_STEPS,
+    DEFAULT_AGENT_CONFIGS,
+    ENV_HINTS,
+    PROMPT_VARIABLES,
+    STEP_LABELS,
+    AgentStep,
+)
 from app.dependencies import AdminUser, AuthConfigDep, CurrentUser, SessionDep
 from app.schemas import (
     AgentConfigUpdate,
@@ -363,6 +370,7 @@ def agents_page(
                 key: bool(os.getenv(config.api_key_env) or os.getenv("OPENROUTER_API_KEY"))
                 for key, config in configs.items()
             },
+            "defaults": DEFAULT_AGENT_CONFIGS[step],
             "step": step,
         },
     )
@@ -380,7 +388,7 @@ def update_agent_form(
     system_prompt: Annotated[str, Form()] = "",
     prompt_template: Annotated[str, Form()] = "",
 ) -> RedirectResponse:
-    if step in {"judge", "teacher", "verbalizer"} and not prompt_template.strip():
+    if step in {"judge", "teacher"} and not prompt_template.strip():
         raise ValueError("Prompt template is required")
     if not (os.getenv(api_key_env) or os.getenv("OPENROUTER_API_KEY")):
         raise ValueError(

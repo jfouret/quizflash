@@ -48,16 +48,24 @@
   </fieldset>
 
   {% if step in ('judge', 'teacher', 'verbalizer') %}
+  {% set required = step in ('judge', 'teacher') %}
   <fieldset class="panel">
     <legend>Prompts</legend>
+    {% if step == 'verbalizer' %}<p class="hint">The verbalizer is optional. It only runs when a user enables a vocal-ready option in their settings; leave the prompts empty to skip the pass.</p>{% endif %}
     <label for="system-prompt">System prompt</label>
-    <textarea id="system-prompt" name="system_prompt" rows="8">{{ config.system_prompt }}</textarea>
+    <textarea id="system-prompt" name="system_prompt" rows="8" class="mono">{{ config.system_prompt }}</textarea>
     <label for="prompt-template">Prompt template</label>
-    <textarea id="prompt-template" name="prompt_template" rows="14" required>{{ config.prompt_template }}</textarea>
-    <small class="hint">Jinja variables available here: <code>{{ prompt_variables[step] }}</code>. The language guideline is part of the default system prompt.</small>
+    <textarea id="prompt-template" name="prompt_template" rows="14" class="mono"{% if required %} required{% endif %}>{{ config.prompt_template }}</textarea>
+    <small class="hint">Jinja variables available here: <code>{{ prompt_variables[step] }}</code>. The language guideline is part of the default system prompt. Line breaks are kept.</small>
+    <div class="actions">
+      <button type="button" class="sm secondary outline" data-restore-defaults data-default-system="{{ defaults.system_prompt }}" data-default-prompt="{{ defaults.prompt_template }}">Restore default prompts</button>
+    </div>
   </fieldset>
   {% endif %}
 
   <button type="submit">Save {{ labels[step] }}</button>
 </form>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/agents.js?v={{ asset_version }}"></script>
 {% endblock %}

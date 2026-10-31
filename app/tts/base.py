@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -14,6 +15,8 @@ class TTSProvider(Protocol):
     model: str
 
     def speak(self, text: str, language: str) -> TTSResult: ...
+
+    def speak_stream(self, text: str, language: str) -> Iterator[bytes]: ...
 
 
 class TTSError(RuntimeError):

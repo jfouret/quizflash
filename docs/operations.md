@@ -98,7 +98,9 @@ A card carries `question`, `answer`, optional `details`, optional `expected_time
 
 Admins cannot modify their own account, and the last active admin cannot be removed. `teacher_allowed: false` and `voice_allowed: false` override every user's settings.
 
-Agent models, base URLs, voices and prompts are configured on `/admin/agents` (HTML only). Each step stores the *name* of its API key environment variable; key values are read from the environment at request time and are never stored in the database or shown in the UI. Saving a step fails when neither the named variable nor `OPENROUTER_API_KEY` is set.
+Agent models, base URLs, voices and prompts are configured on `/admin/agents` (HTML only). Each step stores the *name* of its API key environment variable; key values are read from the environment at request time and are never stored in the database or shown in the UI. Saving a step fails when neither the named variable nor `OPENROUTER_API_KEY` is set. A **Restore default prompts** button resets the two prompt fields of the current step to the shipped defaults. The Verbalizer step is optional and only runs when a user enables a vocal-ready setting.
+
+TTS audio is streamed from OpenRouter to the browser: the server proxies the audio bytes as they arrive and the study view starts playback before the clip is complete (falling back to buffering the whole clip when the browser cannot stream MP3).
 
 ## MCP endpoint
 

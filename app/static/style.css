@@ -222,6 +222,14 @@ kbd { font-size: .75rem; padding: .1rem .35rem; }
 .error { color: var(--danger-ink); }
 .success { color: var(--success-ink); }
 .pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.mono { font-family: var(--pico-font-family-monospace); font-size: .9rem; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p, .md ul, .md ol { margin: 0 0 .5rem; }
+.md ul, .md ol { padding-left: 1.25rem; }
+.md pre { padding: .6rem .8rem; border-radius: var(--pico-border-radius); background: var(--surface-muted); overflow-x: auto; }
+.md code { font-family: var(--pico-font-family-monospace); font-size: .9em; }
+.md :not(pre) > code { background: var(--surface-muted); padding: .1rem .3rem; border-radius: .25rem; }
 [hidden] { display: none !important; }
 
 /* ---- Study ----------------------------------------------------------------- */

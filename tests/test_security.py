@@ -463,6 +463,7 @@ def test_pages_contain_no_inline_script_or_style(
         "settings": client.get("/settings"),
         "deck": client.get(f"/decks/{deck['id']}"),
         "admin": admin_client.get("/admin"),
+        "agents": admin_client.get("/admin/agents"),
         "login": client.get("/login"),
     }
     for name, response in pages.items():
