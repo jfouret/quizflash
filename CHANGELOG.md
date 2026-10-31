@@ -4,6 +4,22 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.4] - 2026-10-31
+
+### Fixed
+
+- The study view raising the phone keyboard is fixed for real, and the automatic
+  voice flow can now be interrupted. Three changes:
+  - The autofocus decision no longer trusts a media query. A pen counts as a fine
+    pointer on some devices, which made the previous check focus the field anyway.
+    `study.js` now watches the input actually in use: a touch or pen press disables
+    autofocus for the rest of the session, a mouse press re-enables it.
+  - **Type instead** (the old "Use text input") is an interrupt: it stops the
+    recording in progress instead of letting the automatic flow transcribe and
+    submit it, and it is the only action that raises the keyboard on purpose.
+  - Each card starts as a text answer again, so a transcribed card no longer leaves
+    the next one tagged as a voice answer.
+
 ## [0.7.3] - 2026-10-31
 
 ### Fixed
