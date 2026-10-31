@@ -4,7 +4,9 @@ from sqlalchemy import func, or_
 from sqlmodel import Session, col, delete, select
 from sqlmodel.sql.expression import SelectOfScalar
 
+from app.agents import AGENT_STEPS, DEFAULT_AGENT_CONFIGS, AgentStep
 from app.models import (
+    AgentConfig,
     AnswerLog,
     ApiToken,
     AppSettings,
@@ -20,6 +22,7 @@ from app.models import (
     utc_now,
 )
 from app.schemas import (
+    AgentConfigUpdate,
     AppSettingsUpdate,
     CardCreate,
     CardUpdate,
@@ -389,6 +392,31 @@ def update_app_settings(session: Session, data: AppSettingsUpdate) -> AppSetting
     session.commit()
     session.refresh(app_settings)
     return app_settings
+
+
+def get_agent_config(session: Session, step: AgentStep) -> AgentConfig:
+    config = session.get(AgentConfig, step)
+    if config is None:
+        config = AgentConfig(step=step, **DEFAULT_AGENT_CONFIGS[step])
+        session.add(config)
+        session.commit()
+        session.refresh(config)
+    return config
+
+
+def list_agent_configs(session: Session) -> list[AgentConfig]:
+    return [get_agent_config(session, step) for step in AGENT_STEPS]
+
+
+def update_agent_config(session: Session, step: AgentStep, data: AgentConfigUpdate) -> AgentConfig:
+    config = get_agent_config(session, step)
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(config, field, value)
+    config.updated_at = utc_now()
+    session.add(config)
+    session.commit()
+    session.refresh(config)
+    return config
 
 
 def get_settings(session: Session, user: User) -> Settings:

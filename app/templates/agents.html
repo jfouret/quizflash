@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Agents · QuizDeck{% endblock %}
+{% block content %}
+{% set csrf %}<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">{% endset %}
+{% set config = configs[step] %}
+{% set hints = env_hints[step] %}
+<div class="page-head">
+  <div>
+    <h1>Agents</h1>
+    <p class="muted">Configure each model step. API keys stay in environment variables and are never stored or shown here.</p>
+  </div>
+</div>
+
+<nav class="tabs" aria-label="Agent steps">
+  {% for key in steps %}
+  <a href="/admin/agents?step={{ key }}" {% if key == step %}aria-current="page"{% endif %}>{{ labels[key] }}</a>
+  {% endfor %}
+</nav>
+
+{% if not key_configured[step] %}
+<p class="callout warn" role="alert">No API key is defined for this step. Set <code>{{ config.api_key_env }}</code> or <code>OPENROUTER_API_KEY</code> in the environment before saving; keys are never stored in the database.</p>
+{% endif %}
+
+<form method="post" action="/admin/agents/{{ step }}" class="card">
+  {{ csrf }}
+  <fieldset class="panel">
+    <legend>{{ labels[step] }}</legend>
+    <div class="grid-2">
+      <div>
+        <label for="model">Model</label>
+        <input id="model" name="model" value="{{ config.model }}" placeholder="{{ hints.model }}">
+        <small class="hint">Empty uses <code>{{ hints.model }}</code>.</small>
+      </div>
+      <div>
+        <label for="base-url">Base URL</label>
+        <input id="base-url" name="base_url" value="{{ config.base_url }}" placeholder="{{ hints.base_url }}">
+        <small class="hint">Empty uses <code>{{ hints.base_url }}</code>, then <code>OPENROUTER_BASE_URL</code>.</small>
+      </div>
+    </div>
+    <label for="api-key-env">API key environment variable</label>
+    <input id="api-key-env" name="api_key_env" value="{{ config.api_key_env }}" required pattern="[A-Za-z_][A-Za-z0-9_]*">
+    <small class="hint">The value is read from this variable at request time, with <code>OPENROUTER_API_KEY</code> as fallback. The conventional name for this step is <code>{{ hints.api_key }}</code>. It is never stored in the database.</small>
+    {% if step == 'tts' %}
+    <label for="voice">Voice</label>
+    <input id="voice" name="voice" value="{{ config.voice }}" placeholder="TTS_VOICE">
+    <small class="hint">Empty uses <code>TTS_VOICE</code>, then <code>en_paul_neutral</code>. The voice must be supported by the model.</small>
+    {% endif %}
+  </fieldset>
+
+  {% if step in ('judge', 'teacher', 'verbalizer') %}
+  <fieldset class="panel">
+    <legend>Prompts</legend>
+    <label for="system-prompt">System prompt</label>
+    <textarea id="system-prompt" name="system_prompt" rows="8">{{ config.system_prompt }}</textarea>
+    <label for="prompt-template">Prompt template</label>
+    <textarea id="prompt-template" name="prompt_template" rows="14" required>{{ config.prompt_template }}</textarea>
+    <small class="hint">Jinja variables available here: <code>{{ prompt_variables[step] }}</code>. The language guideline is part of the default system prompt.</small>
+  </fieldset>
+  {% endif %}
+
+  <button type="submit">Save {{ labels[step] }}</button>
+</form>
+{% endblock %}

@@ -252,3 +252,17 @@ class ApiTokenRead(BaseModel):
 
 class ApiTokenCreated(ApiTokenRead):
     token: str
+
+
+API_KEY_ENV = Annotated[
+    str, Field(min_length=1, max_length=100, pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
+]
+
+
+class AgentConfigUpdate(BaseModel):
+    model: str | None = Field(default=None, max_length=200)
+    base_url: str | None = Field(default=None, max_length=500)
+    api_key_env: API_KEY_ENV | None = None
+    voice: str | None = Field(default=None, max_length=100)
+    system_prompt: str | None = Field(default=None, max_length=MAX_ANSWER)
+    prompt_template: str | None = Field(default=None, max_length=MAX_ANSWER)

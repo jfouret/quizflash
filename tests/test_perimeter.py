@@ -129,6 +129,8 @@ ADMIN_ONLY = {
     ("POST", "/admin/users/{user_id}"),
     ("POST", "/admin/settings"),
     ("POST", "/admin/decks/{deck_id}/unpublish"),
+    ("GET", "/admin/agents"),
+    ("POST", "/admin/agents/{step}"),
 }
 
 PUBLIC = {
@@ -165,6 +167,18 @@ ADMIN_CALLS = [
         },
     ),
     Call("POST", "/admin/decks/{deck}/unpublish"),
+    Call("GET", "/admin/agents"),
+    Call(
+        "POST",
+        "/admin/agents/judge",
+        data={
+            "model": "",
+            "base_url": "",
+            "api_key_env": "OPENROUTER_API_KEY",
+            "system_prompt": "",
+            "prompt_template": "Is it correct?",
+        },
+    ),
 ]
 
 

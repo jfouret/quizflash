@@ -27,6 +27,24 @@ def _make_stt(transport: httpx.MockTransport) -> OpenAICompatibleSTT:
     )
 
 
+def test_openrouter_root_gets_the_api_v1_prefix() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"text": "Bonjour"})
+
+    stt = OpenAICompatibleSTT(
+        base_url="https://openrouter.ai",
+        model="stt-model",
+        api_key="test-key",
+        transport=httpx.MockTransport(handler),
+    )
+    stt.transcribe(_wav_bytes(), "fr")
+
+    assert str(requests[0].url) == "https://openrouter.ai/api/v1/audio/transcriptions"
+
+
 def test_valid_transcription_measures_wav_duration_server_side() -> None:
     audio = _wav_bytes()
     requests: list[httpx.Request] = []

@@ -3,8 +3,10 @@
 ## One version, one place
 
 `pyproject.toml` holds the version. The app reads it at import time
-(`app.__version__`) and exposes it on `/healthz` and in the OpenAPI schema, so the
-running container always reports the version it was built from.
+(`app.__version__`) and exposes it on `/healthz`, in the OpenAPI schema and in the
+UI footer, so the running container always reports the version it was built from.
+The same footer shows `BUILD_TAG`, which CI sets to the immutable
+`X.Y.Z-YYYY-MM-DD` image tag at build time.
 
 `scripts/check-version.sh` runs on every pull request:
 

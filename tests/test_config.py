@@ -15,6 +15,7 @@ ENV_VARS = [
     "TEACHER_API_KEY",
     "TTS_BASE_URL",
     "TTS_API_KEY",
+    "TTS_VOICE",
     "OPENROUTER_BASE_URL",
     "OPENROUTER_API_KEY",
 ]
@@ -29,6 +30,7 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_defaults_to_openrouter_root_and_no_key() -> None:
     assert base_url_env("JUDGE_BASE_URL") == DEFAULT_OPENROUTER_BASE_URL
     assert api_key_env("JUDGE_API_KEY") == ""
+    assert OpenRouterTTS.from_env().voice == "en_paul_neutral"
 
 
 def test_openrouter_vars_are_the_fallback_for_every_service() -> None:

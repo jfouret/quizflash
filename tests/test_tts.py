@@ -41,6 +41,24 @@ def test_speak_posts_to_audio_speech_endpoint() -> None:
     assert b'"input":"Bonjour"' in body
 
 
+def test_speak_accepts_a_base_that_already_ends_in_api_v1() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, content=b"MP3DATA")
+
+    tts = OpenRouterTTS(
+        base_url="https://openrouter.ai/api/v1",
+        model="tts-model",
+        api_key="test-key",
+        transport=httpx.MockTransport(handler),
+    )
+    tts.speak("hello", "auto")
+
+    assert str(requests[0].url) == "https://openrouter.ai/api/v1/audio/speech"
+
+
 def test_speak_requires_model_and_base_url() -> None:
     transport = httpx.MockTransport(lambda r: httpx.Response(200))
     tts = OpenRouterTTS(base_url="", model="", transport=transport)

@@ -4,13 +4,18 @@ from typing import Annotated, cast
 from fastapi import Depends, HTTPException, Request
 from sqlmodel import Session
 
+from app import crud
 from app.auth import AuthConfig, resolve_session
 from app.database import get_session
 from app.judge.base import Judge
+from app.judge.openrouter import OpenRouterJudge
 from app.models import User
 from app.stt.base import STTProvider
+from app.stt.openai_compat import OpenAICompatibleSTT
 from app.teacher.base import Teacher
+from app.teacher.openrouter import OpenRouterTeacher
 from app.tts.base import TTSProvider
+from app.tts.openrouter import OpenRouterTTS
 
 SessionDep = Annotated[Session, Depends(get_session)]
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
@@ -70,20 +75,35 @@ def require_admin(user: CurrentUser) -> User:
 AdminUser = Annotated[User, Depends(require_admin)]
 
 
-def get_judge(request: Request) -> Judge:
-    return cast(Judge, request.app.state.judge)
+def get_judge(request: Request, session: SessionDep) -> Judge:
+    provider = request.app.state.judge
+    if isinstance(provider, OpenRouterJudge):
+        return OpenRouterJudge.from_config(crud.get_agent_config(session, "judge"))
+    return cast(Judge, provider)
 
 
-def get_stt(request: Request) -> STTProvider:
-    return cast(STTProvider, request.app.state.stt)
+def get_stt(request: Request, session: SessionDep) -> STTProvider:
+    provider = request.app.state.stt
+    if isinstance(provider, OpenAICompatibleSTT):
+        return OpenAICompatibleSTT.from_config(crud.get_agent_config(session, "stt"))
+    return cast(STTProvider, provider)
 
 
-def get_teacher(request: Request) -> Teacher:
-    return cast(Teacher, request.app.state.teacher)
+def get_teacher(request: Request, session: SessionDep) -> Teacher:
+    provider = request.app.state.teacher
+    if isinstance(provider, OpenRouterTeacher):
+        return OpenRouterTeacher.from_config(
+            crud.get_agent_config(session, "teacher"),
+            crud.get_agent_config(session, "verbalizer"),
+        )
+    return cast(Teacher, provider)
 
 
-def get_tts(request: Request) -> TTSProvider:
-    return cast(TTSProvider, request.app.state.tts)
+def get_tts(request: Request, session: SessionDep) -> TTSProvider:
+    provider = request.app.state.tts
+    if isinstance(provider, OpenRouterTTS):
+        return OpenRouterTTS.from_config(crud.get_agent_config(session, "tts"))
+    return cast(TTSProvider, provider)
 
 
 JudgeDep = Annotated[Judge, Depends(get_judge)]
