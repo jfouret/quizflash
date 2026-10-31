@@ -4,17 +4,22 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.5.1] - 2026-10-31
+## [0.5.2] - 2026-10-31
 
 ### Changed
 
 - The study menu lists only the tags present in the selected deck, refreshed when
-  the deck changes.
+  the deck changes (`GET /api/study/tags` accepts `deck_id`).
 
 ### Fixed
 
 - CI no longer publishes an image, attests or creates a release from a pull
   request; publishing stays on `main` pushes and manual refresh runs.
+
+## [0.5.1] - 2026-10-31
+
+### Fixed
+
 - Batch mode: a voice answer is transcribed in the background, so the next card
   appears as soon as recording ends instead of waiting for speech-to-text.
 - Batch review waits for **Next** (or Enter) before showing the following card,
