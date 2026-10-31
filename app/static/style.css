@@ -325,3 +325,10 @@ fieldset[role=group] button { white-space: nowrap; }
 /* ---- Charts ---- */
 .chart-wrap { position: relative; height: 16rem; margin-bottom: 1rem; }
 .stats-table { font-size: .9rem; }
+
+/* ---- htmx ---- */
+/* Same rules htmx would inject as a <style>, kept here so the CSP stays strict
+   (see the htmx-config meta tag in base.html). */
+.htmx-indicator { opacity: 0; }
+.htmx-request .htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }
+.htmx-request.htmx-indicator { opacity: 1; transition: opacity 200ms ease-in; }

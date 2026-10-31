@@ -4,6 +4,19 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.2] - 2026-10-31
+
+### Fixed
+
+- Content-Security-Policy: htmx injected a `<style>` element for its indicator
+  rules, which the strict `style-src 'self'` refused. `includeIndicatorStyles`
+  is now off through the `htmx-config` meta tag and the rules live in
+  `style.css`, so the page produces no CSP violation.
+- The light/dark toggle stopped responding after an `hx-boost` navigation:
+  htmx replaces the header, which removed the listener bound directly to the
+  button. The toggle is now handled by delegation on `document`, and its label
+  resyncs after each swap.
+
 ## [0.6.1] - 2026-10-31
 
 ### Fixed
