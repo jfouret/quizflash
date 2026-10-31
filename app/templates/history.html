@@ -14,12 +14,12 @@
         <option value="">All decks</option>
         {% for deck in decks %}<option value="{{ deck.id }}" {% if deck_id == deck.id %}selected{% endif %}>{{ deck.name }}</option>{% endfor %}
       </select>
-      <button type="submit" class="secondary outline sm">Filter</button>
+      <button type="submit" class="secondary outlined sm">Filter</button>
     </form>
     <form method="post" action="/history/clear" class="actions" data-confirm="{% if deck_id %}Delete your history for this deck?{% else %}Delete all your history? This cannot be undone.{% endif %}">
       {{ csrf }}
       <input type="hidden" name="deck_id" value="{{ deck_id or '' }}">
-      <button class="danger outline sm" type="submit">{{ 'Clear this deck' if deck_id else 'Clear all history' }}</button>
+      <button class="danger outlined sm" type="submit">{{ 'Clear this deck' if deck_id else 'Clear all history' }}</button>
     </form>
   </div>
 </div>
@@ -46,9 +46,9 @@
 </div>
 
 {% if history.total > limit %}
-<nav class="actions mt-2" aria-label="History pages">
-  {% if page > 1 %}<a role="button" class="secondary outline sm" href="/history?page={{ page - 1 }}{% if deck_id %}&amp;deck_id={{ deck_id }}{% endif %}">← Newer</a>{% endif %}
-  {% if page * limit < history.total %}<a role="button" class="secondary outline sm" href="/history?page={{ page + 1 }}{% if deck_id %}&amp;deck_id={{ deck_id }}{% endif %}">Older →</a>{% endif %}
+<nav class="actions mt-8" aria-label="History pages">
+  {% if page > 1 %}<a role="button" class="secondary outlined sm" href="/history?page={{ page - 1 }}{% if deck_id %}&amp;deck_id={{ deck_id }}{% endif %}">← Newer</a>{% endif %}
+  {% if page * limit < history.total %}<a role="button" class="secondary outlined sm" href="/history?page={{ page + 1 }}{% if deck_id %}&amp;deck_id={{ deck_id }}{% endif %}">Older →</a>{% endif %}
 </nav>
 {% endif %}
 {% else %}

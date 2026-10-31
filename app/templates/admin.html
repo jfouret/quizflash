@@ -39,13 +39,13 @@
         <form method="post" action="/admin/users/{{ user.id }}" class="actions">
           {{ csrf }}
           {% if user.status == 'pending' %}<button class="sm" name="action" value="approve" type="submit">Approve</button>{% endif %}
-          {% if user.status == 'active' %}<button class="sm secondary outline" name="action" value="suspend" type="submit" data-confirm="Suspend {{ user.email }}? Their sessions and MCP tokens stop working.">Suspend</button>{% endif %}
+          {% if user.status == 'active' %}<button class="sm secondary outlined" name="action" value="suspend" type="submit" data-confirm="Suspend {{ user.email }}? Their sessions and MCP tokens stop working.">Suspend</button>{% endif %}
           {% if user.status == 'disabled' %}<button class="sm" name="action" value="reactivate" type="submit">Reactivate</button>{% endif %}
           {% if not oidc_enabled %}
-            {% if user.role == 'user' %}<button class="sm secondary outline" name="action" value="promote" type="submit" data-confirm="Make {{ user.email }} an administrator?">Make admin</button>
-            {% else %}<button class="sm secondary outline" name="action" value="demote" type="submit">Remove admin</button>{% endif %}
+            {% if user.role == 'user' %}<button class="sm secondary outlined" name="action" value="promote" type="submit" data-confirm="Make {{ user.email }} an administrator?">Make admin</button>
+            {% else %}<button class="sm secondary outlined" name="action" value="demote" type="submit">Remove admin</button>{% endif %}
           {% endif %}
-          <button class="sm danger outline" name="action" value="delete" type="submit"
+          <button class="sm danger outlined" name="action" value="delete" type="submit"
                   data-confirm="Delete {{ user.email }}, their decks and all their progress? This cannot be undone.">Delete</button>
         </form>
         {% endif %}
@@ -103,7 +103,7 @@
     {% for deck, owner, count in public_decks %}
     <tr>
       <td><strong>{{ deck.name }}</strong></td><td data-label="Owner">{{ owner }}</td><td data-label="Cards">{{ count }}</td>
-      <td><form method="post" action="/admin/decks/{{ deck.id }}/unpublish" class="actions" data-confirm="Unpublish “{{ deck.name }}”? Followers lose access.">{{ csrf }}<button class="sm secondary outline" type="submit">Unpublish</button></form></td>
+      <td><form method="post" action="/admin/decks/{{ deck.id }}/unpublish" class="actions" data-confirm="Unpublish “{{ deck.name }}”? Followers lose access.">{{ csrf }}<button class="sm secondary outlined" type="submit">Unpublish</button></form></td>
     </tr>
     {% endfor %}
     </tbody>

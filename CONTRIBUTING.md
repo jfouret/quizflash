@@ -13,6 +13,18 @@ uv run uvicorn app.main:app --reload
 
 Python 3.12 or newer. `ffmpeg` is needed for voice answers.
 
+The stylesheet `app/static/style.css` is generated from
+`app/static/css/input.css` and committed, so a plain `uvicorn` run serves the
+real thing. After changing `input.css` or any template class, rebuild it:
+
+```bash
+scripts/build-css.sh
+```
+
+The script downloads a checksum-pinned Tailwind CLI release into
+`~/.cache/quizdeck` (no Node.js needed) and writes the minified stylesheet. CI
+re-runs it and fails if the committed file is stale.
+
 ## Before you open a pull request
 
 ```bash

@@ -18,8 +18,8 @@
   </div>
   <div class="actions">
     {% if counts[1] %}<a role="button" class="sm" href="/study?deck_id={{ deck.id }}">Study {{ counts[1] }}</a>
-    {% else %}<a role="button" class="sm secondary outline" href="/study?deck_id={{ deck.id }}">Study</a>{% endif %}
-    <a role="button" class="sm secondary outline" href="/decks/{{ deck.id }}">{{ 'Manage' if owned else 'View' }}</a>
+    {% else %}<a role="button" class="sm secondary outlined" href="/study?deck_id={{ deck.id }}">Study</a>{% endif %}
+    <a role="button" class="sm secondary outlined" href="/decks/{{ deck.id }}">{{ 'Manage' if owned else 'View' }}</a>
   </div>
 </article>
 {% endmacro %}
@@ -35,7 +35,7 @@
   </div>
   <div class="actions">
     {% if total_due %}<a role="button" href="/study">Study all</a>{% endif %}
-    <button type="button" class="{{ 'secondary outline' if total_due else '' }}" data-open="new-deck">+ New deck</button>
+    <button type="button" class="{{ 'secondary outlined' if total_due else '' }}" data-open="new-deck">+ New deck</button>
   </div>
 </div>
 
@@ -45,7 +45,7 @@
   <p>Create your first deck, or follow one shared by the community.</p>
   <div class="actions">
     <button type="button" data-open="new-deck">+ New deck</button>
-    <a role="button" class="secondary outline" href="/explore">Explore public decks</a>
+    <a role="button" class="secondary outlined" href="/explore">Explore public decks</a>
   </div>
 </div>
 {% endif %}
@@ -63,7 +63,7 @@
   <article>
     <header>
       <h2>New deck</h2>
-      <button type="button" class="secondary outline icon-btn" data-close aria-label="Close">✕</button>
+      <button type="button" class="secondary outlined icon-btn" data-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#close"></use></svg></button>
     </header>
     <form method="post" action="/decks">
       {{ csrf }}

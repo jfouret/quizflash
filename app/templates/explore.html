@@ -23,15 +23,15 @@
   <p class="muted"><small>by {{ owner }}</small></p>
   <div class="actions">
     {% if deck.owner_id == request.state.user.id %}
-    <a role="button" class="sm secondary outline" href="/decks/{{ deck.id }}">Manage</a>
+    <a role="button" class="sm secondary outlined" href="/decks/{{ deck.id }}">Manage</a>
     {% else %}
       {% if following %}
       <a role="button" class="sm" href="/study?deck_id={{ deck.id }}">Study</a>
-      <form method="post" action="/decks/{{ deck.id }}/unfollow" class="actions">{{ csrf }}<button class="sm secondary outline" type="submit">Unfollow</button></form>
+      <form method="post" action="/decks/{{ deck.id }}/unfollow" class="actions">{{ csrf }}<button class="sm secondary outlined" type="submit">Unfollow</button></form>
       {% else %}
       <form method="post" action="/decks/{{ deck.id }}/follow" class="actions">{{ csrf }}<button class="sm" type="submit">Follow</button></form>
       {% endif %}
-      <form method="post" action="/decks/{{ deck.id }}/copy" class="actions">{{ csrf }}<button class="sm secondary outline" type="submit">Copy</button></form>
+      <form method="post" action="/decks/{{ deck.id }}/copy" class="actions">{{ csrf }}<button class="sm secondary outlined" type="submit">Copy</button></form>
     {% endif %}
   </div>
 </article>

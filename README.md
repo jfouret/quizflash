@@ -208,7 +208,10 @@ that version stays under the EUPL. Running it as a service creates no obligation
 publish your changes. The licence text is available in 23 languages from
 [joinup.ec.europa.eu](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12).
 
-Bundled third-party assets keep their own licences: [Pico CSS](https://picocss.com)
-(MIT), [htmx](https://htmx.org) (BSD-2-Clause), [Chart.js](https://www.chartjs.org)
-(MIT) and [Lucide](https://lucide.dev) icons (ISC), all vendored under `app/static/`
-so the browser never leaves the site.
+Bundled third-party assets keep their own licences: [htmx](https://htmx.org)
+(BSD-2-Clause), [Chart.js](https://www.chartjs.org) (MIT) and
+[Lucide](https://lucide.dev) icons (ISC), all vendored under `app/static/`
+so the browser never leaves the site. The stylesheet itself is built from
+`app/static/css/input.css` with the [Tailwind CSS](https://tailwindcss.com) (MIT)
+standalone CLI and committed as `app/static/style.css`; see
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for the build command.

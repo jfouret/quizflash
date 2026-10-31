@@ -36,7 +36,7 @@
       <option value="">All decks</option>
       {% for deck in decks %}<option value="{{ deck.id }}" {% if deck_id == deck.id %}selected{% endif %}>{{ deck.name }}</option>{% endfor %}
     </select>
-    <button type="submit" class="secondary outline sm">Apply</button>
+    <button type="submit" class="secondary outlined sm">Apply</button>
   </form>
 </div>
 

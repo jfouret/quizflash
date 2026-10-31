@@ -123,7 +123,7 @@
       <td class="nowrap" data-label="Created">{{ token.created_at.strftime('%Y-%m-%d') }}</td>
       <td class="nowrap" data-label="Last used">{{ token.last_used_at.strftime('%Y-%m-%d %H:%M') if token.last_used_at else 'Never' }}</td>
       <td class="nowrap">{% if token.revoked_at %}<span class="badge danger">Revoked</span>{% else %}
-        <form method="post" action="/settings/tokens/{{ token.id }}/revoke" class="actions" data-confirm="Revoke “{{ token.name }}”? Agents using it lose access immediately.">{{ csrf }}<button class="danger outline sm" type="submit">Revoke</button></form>
+        <form method="post" action="/settings/tokens/{{ token.id }}/revoke" class="actions" data-confirm="Revoke “{{ token.name }}”? Agents using it lose access immediately.">{{ csrf }}<button class="danger outlined sm" type="submit">Revoke</button></form>
       {% endif %}</td>
     </tr>
     {% endfor %}

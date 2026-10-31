@@ -35,14 +35,14 @@
 <section id="empty" class="empty empty-study" hidden>
   <h2>All caught up</h2>
   <p>No cards are due under your current limits.</p>
-  <div class="actions"><a role="button" class="secondary outline" href="/">Back to decks</a><a role="button" class="secondary outline" href="/explore">Explore decks</a></div>
+  <div class="actions"><a role="button" class="secondary outlined" href="/">Back to decks</a><a role="button" class="secondary outlined" href="/explore">Explore decks</a></div>
 </section>
 <section id="batch-done" class="card" hidden>
   <h2>Batch complete</h2>
   <p class="muted">You reviewed every card in this batch.</p>
   <div class="actions">
     <button id="batch-continue" type="button">Continue</button>
-    <button id="batch-menu" type="button" class="secondary outline">Back to menu</button>
+    <button id="batch-menu" type="button" class="secondary outlined">Back to menu</button>
   </div>
 </section>
 <div id="flip" class="flip" hidden>
@@ -50,14 +50,14 @@
   <p id="card-state" class="badge accent"></p>
   <div class="question-row">
     <h2 id="question" class="pre"></h2>
-    <button id="speak-question" type="button" class="sm secondary outline" title="Listen to the question" {% if not settings.tts_enabled %}hidden{% endif %}>🔊</button>
+    <button id="speak-question" type="button" class="sm secondary outlined" title="Listen to the question" {% if not settings.tts_enabled %}hidden{% endif %}><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#volume"></use></svg></button>
   </div>
   <div id="card-tags" class="card-tags" hidden></div>
   <label for="answer-input">Your answer</label>
   <textarea id="answer-input" rows="3" autofocus placeholder="Type your answer{{ ' or record it' if voice_allowed }}…"></textarea>
   <div class="study-actions">
     <button id="record" type="button" class="secondary" {% if not voice_allowed %}hidden{% endif %}>Record voice</button>
-    <button id="text-mode" type="button" class="secondary outline" {% if not voice_allowed %}hidden{% endif %}>Use text input</button>
+    <button id="text-mode" type="button" class="secondary outlined" {% if not voice_allowed %}hidden{% endif %}>Use text input</button>
     <span id="recording-counter" class="muted" role="timer" aria-label="Recording duration" hidden>0:00</span>
     <canvas id="eq" width="96" height="28" hidden aria-hidden="true"></canvas>
     <button id="submit" type="button">Submit answer</button>
@@ -74,12 +74,12 @@
     <div id="teacher-explanation" class="md"></div>
     <p id="teacher-info" class="muted"></p>
     <div class="actions">
-      <button id="teacher-btn" type="button" class="sm secondary outline">Explain</button>
-      <button id="teacher-regen" type="button" class="sm secondary outline">Regenerate</button>
-      <button id="speak-explanation" type="button" class="sm secondary outline" title="Listen to the explanation" {% if not settings.tts_enabled %}hidden{% endif %}>🔊</button>
+      <button id="teacher-btn" type="button" class="sm secondary outlined">Explain</button>
+      <button id="teacher-regen" type="button" class="sm secondary outlined">Regenerate</button>
+      <button id="speak-explanation" type="button" class="sm secondary outlined" title="Listen to the explanation" {% if not settings.tts_enabled %}hidden{% endif %}><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#volume"></use></svg></button>
     </div>
   </div>
-  <div id="rating-controls" class="grid-2 mt-lg" hidden>
+  <div id="rating-controls" class="grid-2 mt-5" hidden>
     <div>
       <label for="rating">Rating</label>
       <select id="rating"></select>

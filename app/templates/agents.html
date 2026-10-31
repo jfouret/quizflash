@@ -58,7 +58,7 @@
     <textarea id="prompt-template" name="prompt_template" rows="14" class="mono"{% if required %} required{% endif %}>{{ config.prompt_template }}</textarea>
     <small class="hint">Jinja variables available here: <code>{{ prompt_variables[step] }}</code>. The language guideline is part of the default system prompt. Line breaks are kept.</small>
     <div class="actions">
-      <button type="button" class="sm secondary outline" data-restore-defaults data-default-system="{{ defaults.system_prompt }}" data-default-prompt="{{ defaults.prompt_template }}">Restore default prompts</button>
+      <button type="button" class="sm secondary outlined" data-restore-defaults data-default-system="{{ defaults.system_prompt }}" data-default-prompt="{{ defaults.prompt_template }}">Restore default prompts</button>
     </div>
   </fieldset>
   {% endif %}

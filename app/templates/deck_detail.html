@@ -20,14 +20,14 @@
   <div class="actions">
     {% if is_owner or following %}<a role="button" href="/study?deck_id={{ deck.id }}">Study this deck</a>{% endif %}
     {% if is_owner %}
-      <button type="button" class="secondary outline" data-open="new-card">+ Add card</button>
+      <button type="button" class="secondary outlined" data-open="new-card">+ Add card</button>
     {% else %}
       {% if following %}
-      <form method="post" action="/decks/{{ deck.id }}/unfollow" class="actions">{{ csrf }}<button class="secondary outline" type="submit">Unfollow</button></form>
+      <form method="post" action="/decks/{{ deck.id }}/unfollow" class="actions">{{ csrf }}<button class="secondary outlined" type="submit">Unfollow</button></form>
       {% else %}
       <form method="post" action="/decks/{{ deck.id }}/follow" class="actions">{{ csrf }}<button type="submit">Follow</button></form>
       {% endif %}
-      <form method="post" action="/decks/{{ deck.id }}/copy" class="actions">{{ csrf }}<button class="secondary outline" type="submit">Copy to my decks</button></form>
+      <form method="post" action="/decks/{{ deck.id }}/copy" class="actions">{{ csrf }}<button class="secondary outlined" type="submit">Copy to my decks</button></form>
     {% endif %}
   </div>
 </div>
@@ -84,11 +84,11 @@
   </dl>
   {% if is_owner %}
   <div class="actions">
-    <button type="button" class="secondary outline sm" data-edit-card="{{ card.id }}">Edit card</button>
+    <button type="button" class="secondary outlined sm" data-edit-card="{{ card.id }}">Edit card</button>
     <form method="post" action="/cards/{{ card.id }}/delete" class="actions" data-confirm="Delete this card and its review history?">
       {{ csrf }}
       <input type="hidden" name="deck_id" value="{{ deck.id }}">
-      <button class="danger outline sm" type="submit">Delete card</button>
+      <button class="danger outlined sm" type="submit">Delete card</button>
     </form>
   </div>
   {% endif %}
@@ -104,7 +104,7 @@
 {% endif %}
 
 {% if is_owner %}
-<section class="card danger-zone mt-2">
+<section class="card danger-zone mt-8">
   <h3>Delete deck</h3>
   <p class="muted">Deletes every card and all review history, including followers' progress. This cannot be undone.</p>
   <form method="post" action="/decks/{{ deck.id }}/delete" class="actions" data-confirm="Delete “{{ deck.name }}” and all its reviews? This cannot be undone.">
@@ -117,7 +117,7 @@
   <article>
     <header>
       <h2>Add card</h2>
-      <button type="button" class="secondary outline icon-btn" data-close aria-label="Close">✕</button>
+      <button type="button" class="secondary outlined icon-btn" data-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#close"></use></svg></button>
     </header>
     <form method="post" action="/decks/{{ deck.id }}/cards">
       {{ csrf }}
@@ -138,7 +138,7 @@
   <article>
     <header>
       <h2>Edit card</h2>
-      <button type="button" class="secondary outline icon-btn" data-close aria-label="Close">✕</button>
+      <button type="button" class="secondary outlined icon-btn" data-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#close"></use></svg></button>
     </header>
     <form method="post" action="" id="edit-card-form">
       {{ csrf }}
