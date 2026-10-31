@@ -33,7 +33,7 @@
           <a class="icon-btn" href="/admin/agents" title="Agent models" aria-label="Agent models" {% if path.startswith('/admin/agents') %}aria-current="page"{% endif %}>{{ nav_icon('agents') }}</a>
           {% endif %}
           <a class="icon-btn" href="/settings" title="Settings" aria-label="Settings" {% if path.startswith('/settings') %}aria-current="page"{% endif %}>{{ nav_icon('settings') }}</a>
-          <button id="theme-toggle" type="button" class="icon-btn" aria-label="Switch color theme" title="Theme: system">{{ nav_icon('theme') }}</button>
+          <button id="theme-toggle" type="button" class="icon-btn" aria-label="Colour theme: system. Click for light." title="Colour theme: system">{{ nav_icon('theme') }}</button>
           <form method="post" action="/logout">
             <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
             <button type="submit" class="icon-btn" title="Log out ({{ current_user.email }})" aria-label="Log out">{{ nav_icon('logout') }}</button>
