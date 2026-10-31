@@ -54,7 +54,7 @@
   </div>
   <div id="card-tags" class="card-tags" hidden></div>
   <label for="answer-input">Your answer</label>
-  <textarea id="answer-input" rows="3" autofocus placeholder="Type your answer{{ ' or record it' if voice_allowed }}…"></textarea>
+  <textarea id="answer-input" rows="3" placeholder="Type your answer{{ ' or record it' if voice_allowed }}…"></textarea>
   <div class="study-actions">
     <button id="record" type="button" class="secondary" {% if not voice_allowed %}hidden{% endif %}>Record voice</button>
     <button id="text-mode" type="button" class="secondary outlined" {% if not voice_allowed %}hidden{% endif %}>Use text input</button>

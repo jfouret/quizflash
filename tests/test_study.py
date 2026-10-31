@@ -258,3 +258,18 @@ def test_sm2_deck_scheduler_reschedules_low_rating(
     assert state is not None
     assert state.scheduler == "sm2"
     assert state.state["repetitions"] == 0
+
+
+def test_study_page_never_autofocuses_the_answer_field(client: TestClient) -> None:
+    """A focused textarea raises the phone keyboard and hides the next card.
+
+    The page must not carry `autofocus`, and study.js skips the focus call when the
+    device has no fine pointer at all (see focusAnswer in the script).
+    """
+    page = client.get("/study").text
+
+    assert 'id="answer-input"' in page
+    assert "autofocus" not in page
+    script = client.get("/static/js/study.js").text
+    assert "(any-pointer: coarse)" in script
+    assert "(any-pointer: fine)" in script

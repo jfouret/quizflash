@@ -4,6 +4,17 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.3] - 2026-10-31
+
+### Fixed
+
+- The study view no longer raises the on-screen keyboard by itself. Every new card
+  focused the answer field, and on a phone that keyboard then covered the question.
+  The field is only focused when the device has a fine pointer (mouse or trackpad);
+  a touch-only device is left alone. Submitting an answer also drops focus now, so
+  the keyboard no longer sits over the result panel, and the `autofocus` attribute
+  is gone from the study page.
+
 ## [0.7.2] - 2026-10-31
 
 ### Changed
