@@ -2,7 +2,7 @@
 (function () {
   var config = document.getElementById('study-config').dataset;
   var flipEl = document.getElementById('flip');
-  var deckSelect = document.getElementById('deck-select');
+  var deckOptionsEl = document.getElementById('deck-options');
   var statusEl = document.getElementById('status');
   var emptyEl = document.getElementById('empty');
   var studyEl = document.getElementById('study-card');
@@ -55,6 +55,7 @@
 
   var current = null;
   var startedAt = 0;
+  var currentLogId = null;
   var inputMethod = 'text';
   var sttDuration = null;
   var audioDuration = null;
@@ -98,6 +99,15 @@
     return tags;
   }
 
+  function selectedDecks() {
+    var decks = [];
+    var inputs = document.querySelectorAll('input[name="study-deck"]');
+    Array.prototype.forEach.call(inputs, function (input) {
+      if (input.checked) decks.push(input.value);
+    });
+    return decks;
+  }
+
   function tagCheckbox(tag, checked) {
     return '<label class="tag-check"><input type="checkbox" name="study-tag" value="' +
       escapeHtml(tag) + '"' + (checked ? ' checked' : '') + '> <span class="tag">' +
@@ -106,10 +116,9 @@
 
   async function refreshStudyTags() {
     var preserved = selectedTags();
-    var query = deckSelect.value ? '?deck_id=' + encodeURIComponent(deckSelect.value) : '';
     var tags;
     try {
-      tags = await api('/api/study/tags' + query);
+      tags = await api('/api/study/tags' + studyQuery());
     } catch (error) {
       return;
     }
@@ -119,8 +128,19 @@
     tagPanelEl.hidden = !tags.length;
   }
 
-  async function onDeckChange() {
+  async function refreshDueCount() {
+    try {
+      var data = await api('/api/study/due' + studyQuery());
+    } catch (error) {
+      return;
+    }
+    dueCount = data.count;
+    dueCountEl.textContent = dueCount + ' card' + (dueCount === 1 ? '' : 's') + ' due';
+  }
+
+  async function onFilterChange() {
     await refreshStudyTags();
+    await refreshDueCount();
     if (!started) return;
     if (batchEnabled) void startBatch();
     else void loadNext();
@@ -128,14 +148,46 @@
 
   function studyQuery(extra) {
     var params = [];
+    selectedDecks().forEach(function (deck) {
+      params.push('deck_id=' + encodeURIComponent(deck));
+    });
+    selectedTags().forEach(function (tag) { params.push('tag=' + encodeURIComponent(tag)); });
     if (extra) {
       Object.keys(extra).forEach(function (key) {
         params.push(encodeURIComponent(key) + '=' + encodeURIComponent(extra[key]));
       });
     }
-    if (deckSelect.value) params.push('deck_id=' + encodeURIComponent(deckSelect.value));
-    selectedTags().forEach(function (tag) { params.push('tag=' + encodeURIComponent(tag)); });
     return params.length ? '?' + params.join('&') : '';
+  }
+
+  function ratingScale() {
+    var scale = current && current.grading_scale;
+    if (!scale || !scale.max) return {max: 4, labels: {}};
+    return scale;
+  }
+
+  function defaultLevel(scale) {
+    return Math.round((scale || ratingScale()).max / 2);
+  }
+
+  function levelLabel(level) {
+    var labels = ratingScale().labels || {};
+    return labels[level] || labels[String(level)] || '';
+  }
+
+  function ratingText(level) {
+    var label = levelLabel(level);
+    return label ? level + ' (' + label + ')' : String(level);
+  }
+
+  function renderRatingOptions(scale) {
+    var labels = (scale && scale.labels) || {};
+    var html = '';
+    for (var level = 0; level <= scale.max; level++) {
+      var label = labels[level] || labels[String(level)] || '';
+      html += '<option value="' + level + '">' + level + (label ? ' · ' + escapeHtml(label) : '') + '</option>';
+    }
+    ratingInput.innerHTML = html;
   }
 
   function renderTags(el, tags) {
@@ -348,6 +400,7 @@
     submitButton.disabled = false;
     submitButton.textContent = 'Submit answer';
     finalRatingEl.textContent = '';
+    currentLogId = null;
     teacherWrap.hidden = true;
     teacherExplanationEl.textContent = '';
     teacherInfoEl.textContent = '';
@@ -412,6 +465,7 @@
     expectedAnswerEl.textContent = current.card.answer;
     detailsEl.textContent = current.card.details;
     detailsWrap.hidden = !current.card.details;
+    renderRatingOptions(ratingScale());
     renderActiveTags();
     resultEl.hidden = false;
   }
@@ -430,7 +484,7 @@
       var result = await api('/api/study/explain', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({card_id: current.card.id})
+        body: JSON.stringify({card_id: current.card.id, log_id: currentLogId})
       });
       teacherExplanationEl.innerHTML = renderMarkdown(result.explanation);
       teacherInfoEl.textContent = 'Teacher: ' + result.model;
@@ -553,7 +607,7 @@
     showFeedback(result);
     showTeacher();
     judgeInfoEl.textContent = result.judge_model ? 'Judge: ' + result.judge_model : 'Manual fallback required';
-    ratingInput.value = result.rating || '3';
+    ratingInput.value = result.rating != null ? String(result.rating) : String(defaultLevel(ratingScale()));
     correctInput.value = String(result.is_correct === null ? true : result.is_correct);
     var automatic = result.mode === 'ai_assess' && !isFallback;
     ratingControls.hidden = automatic;
@@ -565,7 +619,7 @@
     confirmButton.textContent = isFallback ? 'Save manual review' : 'Confirm review';
     confirmButton.onclick = function () { confirmAssessment(isFallback); };
     finalRatingEl.textContent = automatic
-      ? 'AI rating ' + result.rating + ' · ' + (result.is_correct ? 'correct' : 'incorrect')
+      ? 'AI rating ' + ratingText(result.rating) + ' · ' + (result.is_correct ? 'correct' : 'incorrect')
       : '';
     setStatus(
       isFallback
@@ -580,13 +634,14 @@
 
   function showReviewed(result) {
     pendingResult = null;
+    currentLogId = result.log_id || null;
     studyEl.hidden = true;
     answerInput.disabled = true;
     showCardContext();
     showFeedback(result);
     showTeacher();
     judgeInfoEl.textContent = result.mode === 'self_fallback' ? 'Self fallback (judge failed)' : 'Judge: ' + result.judge_model;
-    finalRatingEl.textContent = 'Saved rating ' + result.rating + ' · ' + (result.is_correct ? 'correct' : 'incorrect') + ' · next due ' + formatDate(result.due);
+    finalRatingEl.textContent = 'Saved rating ' + ratingText(result.rating) + ' · ' + (result.is_correct ? 'correct' : 'incorrect') + ' · next due ' + formatDate(result.due);
     ratingControls.hidden = true;
     confirmButton.hidden = true;
     nextButton.hidden = false;
@@ -691,6 +746,7 @@
     submitButton.disabled = false;
     submitButton.textContent = 'Submit answer';
     finalRatingEl.textContent = '';
+    currentLogId = null;
     teacherWrap.hidden = true;
     teacherExplanationEl.textContent = '';
     teacherInfoEl.textContent = '';
@@ -854,7 +910,10 @@
         var explained = await api('/api/study/explain', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({card_id: record.card.card.id})
+          body: JSON.stringify({
+            card_id: record.card.card.id,
+            log_id: record.saved ? record.saved.log_id : null
+          })
         });
         record.explanation = explained.explanation;
         record.teacherModel = explained.model;
@@ -962,7 +1021,7 @@
     confirmButton.disabled = false;
     confirmButton.textContent = 'Save review';
     confirmButton.onclick = function () { void saveManual(record); };
-    ratingInput.value = record.rating || '3';
+    ratingInput.value = record.rating != null ? String(record.rating) : String(defaultLevel(ratingScale()));
     correctInput.value = 'true';
     finalRatingEl.textContent = '';
   }
@@ -971,6 +1030,8 @@
     expectedAnswerEl.textContent = record.card.card.answer;
     detailsEl.textContent = record.card.card.details;
     detailsWrap.hidden = !record.card.card.details;
+    currentLogId = record.saved ? record.saved.log_id : null;
+    renderRatingOptions(ratingScale());
     renderActiveTags();
     var feedback = record.feedback || (record.saved ? record.saved.feedback : '');
     feedbackEl.innerHTML = feedback ? renderMarkdown(feedback) : '';
@@ -992,7 +1053,7 @@
     ratingControls.hidden = true;
     confirmButton.hidden = true;
     finalRatingEl.textContent = record.saved
-      ? 'Rating ' + record.saved.rating + ' · ' + (record.saved.is_correct ? 'correct' : 'incorrect')
+      ? 'Rating ' + ratingText(record.saved.rating) + ' · ' + (record.saved.is_correct ? 'correct' : 'incorrect')
       : '';
     if (record.audioUrl) playReviewAudio(record.audioUrl);
   }
@@ -1033,9 +1094,10 @@
       });
       record.saved = saved;
       record.manual = false;
+      currentLogId = saved.log_id || null;
       ratingControls.hidden = true;
       confirmButton.hidden = true;
-      finalRatingEl.textContent = 'Saved rating ' + saved.rating + ' · ' + (saved.is_correct ? 'correct' : 'incorrect');
+      finalRatingEl.textContent = 'Saved rating ' + ratingText(saved.rating) + ' · ' + (saved.is_correct ? 'correct' : 'incorrect');
       setStatus('Review saved.');
     } catch (error) {
       setStatus(error.message, true);
@@ -1068,7 +1130,7 @@
     resultEl.hidden = true;
     started = false;
     startPanel.hidden = false;
-    setStatus('Choose a deck and tags, then press Start.');
+    setStatus('Choose one or more decks and tags, then press Start.');
   }
 
   async function submitCurrent() {
@@ -1202,35 +1264,39 @@
     }
   }
 
-  function onKeydown(event) {
-    if (event.key === 'Enter' && recorder && recorder.state === 'recording') {
-      event.preventDefault();
-      toggleRecording();
-      return;
-    }
-    var typing =
-      event.target === answerInput ||
-      event.target === ratingInput ||
-      event.target === correctInput ||
-      event.target === deckSelect;
-    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && event.target === answerInput) {
-      event.preventDefault();
-      void submitCurrent();
-      return;
-    }
-    if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+  function shortcutAction(event) {
     if (event.key === 'Enter') {
       event.preventDefault();
       primaryAction();
-    } else if (event.key >= '1' && event.key <= '4' && !ratingControls.hidden) {
-      ratingInput.value = event.key;
+    } else if (/^[0-9]$/.test(event.key) && !ratingControls.hidden) {
+      var level = Number(event.key);
+      if (level <= ratingScale().max) ratingInput.value = String(level);
     } else if (event.key === 'n' && !nextButton.hidden) {
       if (inReviewPhase()) advanceReview();
       else void nextCard();
     }
   }
 
-  deckSelect.addEventListener('change', function () { void onDeckChange(); });
+  function onKeydown(event) {
+    if (event.key === 'Enter' && recorder && recorder.state === 'recording') {
+      event.preventDefault();
+      toggleRecording();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && event.target === answerInput) {
+      event.preventDefault();
+      void submitCurrent();
+      return;
+    }
+    var tag = event.target && event.target.tagName;
+    var typing =
+      event.target === answerInput || tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA';
+    if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+    shortcutAction(event);
+  }
+
+  deckOptionsEl.addEventListener('change', function () { void onFilterChange(); });
+  tagOptionsEl.addEventListener('change', function () { void refreshDueCount(); });
   submitButton.addEventListener('click', function () { void submitCurrent(); });
   teacherBtn.addEventListener('click', fetchExplanation);
   teacherRegenBtn.addEventListener('click', fetchExplanation);

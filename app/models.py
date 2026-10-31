@@ -60,6 +60,7 @@ class Deck(SQLModel, table=True):
     context: str = ""
     scheduler: str = "fsrs"
     scheduler_params: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    grading_scale: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     eval_mode: str | None = None
     visibility: str = "private"
     source_deck_id: int | None = None
@@ -121,6 +122,7 @@ class AnswerLog(SQLModel, table=True):
     is_correct: bool
     judge_feedback: str = ""
     judge_model: str = ""
+    explanation: str = ""
     reviewed_at: datetime = Field(index=True)
 
 

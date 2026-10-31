@@ -1,9 +1,11 @@
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import func, or_
 from sqlmodel import Session, col, delete, select
 from sqlmodel.sql.expression import SelectOfScalar
 
+from app import grading
 from app.agents import AGENT_STEPS, DEFAULT_AGENT_CONFIGS, AgentStep
 from app.models import (
     AgentConfig,
@@ -128,9 +130,24 @@ def create_deck(session: Session, user: User, data: DeckCreate) -> Deck:
 def update_deck(session: Session, user: User, deck_id: int, data: DeckUpdate) -> Deck:
     deck = _writable_deck(session, user, deck_id)
     values = data.model_dump(exclude_unset=True)
-    for field in ("name", "description", "context", "scheduler", "scheduler_params", "visibility"):
+    for field in (
+        "name",
+        "description",
+        "context",
+        "scheduler",
+        "scheduler_params",
+        "grading_scale",
+        "visibility",
+    ):
         if field in values and values[field] is None:
             raise ValueError(f"{field} cannot be null")
+    if "grading_scale" in values:
+        scale = grading.normalize(values["grading_scale"])
+        if scale != grading.normalize(deck.grading_scale) and deck_has_history(session, deck_id):
+            raise ValueError(
+                "This deck already has answers. Copy the deck to change its grading scale."
+            )
+        values["grading_scale"] = scale
     _check_visibility(session, values.get("visibility"))
     for key, value in values.items():
         setattr(deck, key, value)
@@ -138,6 +155,17 @@ def update_deck(session: Session, user: User, deck_id: int, data: DeckUpdate) ->
     session.commit()
     session.refresh(deck)
     return deck
+
+
+def deck_has_history(session: Session, deck_id: int) -> bool:
+    """True when any learner has an answer log on a card of this deck."""
+    statement = (
+        select(AnswerLog.id)
+        .join(Card, col(Card.id) == col(AnswerLog.card_id))
+        .where(Card.deck_id == deck_id)
+        .limit(1)
+    )
+    return session.exec(statement).first() is not None
 
 
 def _delete_card(session: Session, card: Card) -> None:
@@ -208,6 +236,7 @@ def copy_deck(session: Session, user: User, deck_id: int) -> Deck:
         context=source.context,
         scheduler=source.scheduler,
         scheduler_params=dict(source.scheduler_params),
+        grading_scale=grading.normalize(source.grading_scale),
         eval_mode=source.eval_mode,
         visibility="private",
         source_deck_id=source.id,
@@ -347,7 +376,18 @@ def list_tags(session: Session, user: User) -> list[Tag]:
     return list(session.exec(statement).all())
 
 
-def list_study_tags(session: Session, user: User, deck_id: int | None = None) -> list[str]:
+def _deck_filter(deck_id: int | list[int] | None) -> list[int] | None:
+    """Normalize a single deck ID or a list of them into a deduplicated list."""
+    if deck_id is None:
+        return None
+    if isinstance(deck_id, int):
+        return [deck_id]
+    return list(dict.fromkeys(deck_id))
+
+
+def list_study_tags(
+    session: Session, user: User, deck_id: int | list[int] | None = None
+) -> list[str]:
     """Distinct tag names on cards the user can train on, for the study filter."""
     statement = (
         select(Tag.name)
@@ -357,9 +397,11 @@ def list_study_tags(session: Session, user: User, deck_id: int | None = None) ->
         .distinct()
         .order_by(col(Tag.name))
     )
-    if deck_id is not None:
-        _trainable_deck(session, user, deck_id)
-        statement = statement.where(Card.deck_id == deck_id)
+    deck_ids = _deck_filter(deck_id)
+    if deck_ids is not None:
+        for one in deck_ids:
+            _trainable_deck(session, user, one)
+        statement = statement.where(col(Card.deck_id).in_(deck_ids))
     return list(session.exec(statement).all())
 
 
@@ -538,7 +580,7 @@ def _daily_usage(session: Session, user_id: int, now: datetime) -> tuple[int, in
 def get_due(
     session: Session,
     user: User,
-    deck_id: int | None = None,
+    deck_id: int | list[int] | None = None,
     tags: list[str] | None = None,
     now: datetime | None = None,
 ) -> list[tuple[Card, CardState]]:
@@ -553,9 +595,11 @@ def get_due(
         .where(col(CardState.due) <= current)
         .order_by(col(CardState.due), col(Card.id))
     )
-    if deck_id is not None:
-        _trainable_deck(session, user, deck_id)
-        statement = statement.where(Card.deck_id == deck_id)
+    deck_ids = _deck_filter(deck_id)
+    if deck_ids is not None:
+        for one in deck_ids:
+            _trainable_deck(session, user, one)
+        statement = statement.where(col(Card.deck_id).in_(deck_ids))
     if tags:
         tagged = (
             select(CardTag.card_id)
@@ -604,6 +648,64 @@ def get_last_answer_log(session: Session, user: User, card_id: int) -> AnswerLog
     return session.exec(statement).first()
 
 
+def save_explanation(session: Session, log: AnswerLog, explanation: str) -> None:
+    """Attach the teacher explanation to the answer it was generated for."""
+    log.explanation = explanation
+    session.add(log)
+    session.commit()
+
+
+def _history_filters(user: User, deck_id: int | None) -> list[Any]:
+    filters: list[Any] = [col(AnswerLog.user_id) == uid(user)]
+    if deck_id is not None:
+        filters.append(col(Card.deck_id) == deck_id)
+    return filters
+
+
+def count_history(session: Session, user: User, deck_id: int | None = None) -> int:
+    statement = (
+        select(func.count(col(AnswerLog.id)))
+        .join(Card, col(Card.id) == col(AnswerLog.card_id))
+        .where(*_history_filters(user, deck_id))
+    )
+    return int(session.exec(statement).one())
+
+
+def list_history(
+    session: Session,
+    user: User,
+    deck_id: int | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[tuple[AnswerLog, Card, Deck]]:
+    statement = (
+        select(AnswerLog, Card, Deck)
+        .join(Card, col(Card.id) == col(AnswerLog.card_id))
+        .join(Deck, col(Deck.id) == col(Card.deck_id))
+        .where(*_history_filters(user, deck_id))
+        .order_by(col(AnswerLog.reviewed_at).desc(), col(AnswerLog.id).desc())
+        .offset(max(0, offset))
+        .limit(max(1, min(limit, 200)))
+    )
+    return [(log, card, deck) for log, card, deck in session.exec(statement).all()]
+
+
+def clear_history(session: Session, user: User, deck_id: int | None = None) -> int:
+    """Delete the caller's answer logs, for one deck or everywhere. Cards and
+    scheduling state are untouched."""
+    card_ids = select(Card.id)
+    if deck_id is not None:
+        get_deck(session, user, deck_id)
+        card_ids = card_ids.where(Card.deck_id == deck_id)
+    result = session.exec(
+        delete(AnswerLog).where(
+            col(AnswerLog.user_id) == uid(user), col(AnswerLog.card_id).in_(card_ids)
+        )
+    )
+    session.commit()
+    return int(result.rowcount or 0)
+
+
 def record_review(
     session: Session,
     user: User,
@@ -629,7 +731,12 @@ def record_review(
     if state.scheduler != deck.scheduler:
         state.state = scheduler.init_state(utc_now())
     now = utc_now()
-    new_state, due = scheduler.review(state.state, rating, now, deck.scheduler_params)
+    new_state, due = scheduler.review(
+        state.state,
+        grading.scheduler_rating(deck.grading_scale, rating),
+        now,
+        deck.scheduler_params,
+    )
     if state.last_review is None:
         state.introduced_at = now
     state.scheduler = deck.scheduler

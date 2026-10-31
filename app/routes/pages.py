@@ -1,10 +1,10 @@
 import os
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
-from app import __version__, auth, crud
+from app import __version__, auth, crud, grading
 from app.agents import (
     AGENT_STEPS,
     DEFAULT_AGENT_CONFIGS,
@@ -14,15 +14,19 @@ from app.agents import (
     AgentStep,
 )
 from app.dependencies import AdminUser, AuthConfigDep, CurrentUser, SessionDep
+from app.history import history_page
 from app.schemas import (
     AgentConfigUpdate,
     AppSettingsUpdate,
     CardCreate,
+    CardUpdate,
     DeckCreate,
     DeckUpdate,
+    GradingScale,
     Registration,
     SettingsUpdate,
 )
+from app.stats import get_breakdown
 from app.templating import templates
 
 router = APIRouter(include_in_schema=False)
@@ -80,6 +84,7 @@ def create_deck_form(
 @router.get("/decks/{deck_id}", response_class=HTMLResponse)
 def deck_detail(request: Request, deck_id: int, session: SessionDep, user: CurrentUser) -> Response:
     deck = crud.get_deck(session, user, deck_id)
+    scale = grading.normalize(deck.grading_scale)
     return templates.TemplateResponse(
         request=request,
         name="deck_detail.html",
@@ -89,6 +94,10 @@ def deck_detail(request: Request, deck_id: int, session: SessionDep, user: Curre
             "is_owner": deck.owner_id == user.id,
             "following": crud.is_following(session, user, deck_id),
             "allow_public": crud.get_app_settings(session).allow_public_decks,
+            "grading_max": scale["max"],
+            "grading_labels": ", ".join(
+                f"{level}={text}" for level, text in sorted(scale["labels"].items())
+            ),
         },
     )
 
@@ -101,12 +110,34 @@ def update_deck_form(
     description: Annotated[str, Form()] = "",
     context: Annotated[str, Form()] = "",
     visibility: Annotated[VisibilityForm | None, Form()] = None,
+    grading_max: Annotated[int, Form()] = 4,
+    grading_labels: Annotated[str, Form()] = "",
 ) -> RedirectResponse:
-    data = DeckUpdate(description=description, context=context)
+    data = DeckUpdate(
+        description=description,
+        context=context,
+        grading_scale=GradingScale(
+            max=grading_max, labels=_parse_labels(grading_labels, grading_max)
+        ),
+    )
     if visibility is not None:
         data.visibility = visibility
     crud.update_deck(session, user, deck_id, data)
     return RedirectResponse(_deck_page(deck_id, "deck-saved"), status_code=303)
+
+
+def _parse_labels(raw: str, maximum: int) -> dict[int, str]:
+    """Parse `3=Bad, 5=Average` into level labels; blank entries are skipped."""
+    labels: dict[int, str] = {}
+    for chunk in raw.replace("\n", ",").split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        level, sep, text = chunk.partition("=")
+        if not sep or not level.strip().isdigit():
+            raise ValueError(f"Label {chunk!r} must look like '3=Bad'")
+        labels[int(level.strip())] = text.strip()
+    return labels
 
 
 @router.post("/decks/{deck_id}/delete")
@@ -173,6 +204,35 @@ def delete_card_form(
     return RedirectResponse(_deck_page(deck_id, "card-deleted"), status_code=303)
 
 
+@router.post("/cards/{card_id}/update")
+def update_card_form(
+    card_id: int,
+    session: SessionDep,
+    user: CurrentUser,
+    deck_id: Annotated[int, Form()],
+    question: Annotated[str, Form()],
+    answer: Annotated[str, Form()],
+    details: Annotated[str, Form()] = "",
+    context: Annotated[str, Form()] = "",
+    expected_time_s: Annotated[str, Form()] = "",
+    tags: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    crud.update_card(
+        session,
+        user,
+        card_id,
+        CardUpdate(
+            question=question,
+            answer=answer,
+            details=details,
+            context=context,
+            expected_time_s=int(expected_time_s) if expected_time_s.strip() else None,
+            tags=[tag.strip() for tag in tags.split(",") if tag.strip()],
+        ),
+    )
+    return RedirectResponse(_deck_page(deck_id, "card-saved"), status_code=303)
+
+
 @router.get("/explore", response_class=HTMLResponse)
 def explore_page(request: Request, session: SessionDep, user: CurrentUser) -> Response:
     return templates.TemplateResponse(
@@ -194,18 +254,73 @@ def explore_page(request: Request, session: SessionDep, user: CurrentUser) -> Re
 
 @router.get("/study", response_class=HTMLResponse)
 def study_page(
-    request: Request, session: SessionDep, user: CurrentUser, deck_id: int | None = None
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+    deck_id: Annotated[list[int] | None, Query()] = None,
 ) -> Response:
     return templates.TemplateResponse(
         request=request,
         name="study.html",
         context={
             "decks": crud.list_decks(session, user),
-            "deck_id": deck_id,
+            "deck_ids": deck_id or [],
             "settings": crud.effective_settings(session, user),
             "voice_allowed": crud.get_app_settings(session).voice_allowed,
             "study_tags": crud.list_study_tags(session, user, deck_id),
             "due_count": len(crud.get_due(session, user, deck_id)),
+        },
+    )
+
+
+@router.get("/history", response_class=HTMLResponse)
+def history_view(
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+    deck_id: int | None = None,
+    page: int = 1,
+) -> Response:
+    limit = 50
+    offset = (max(1, page) - 1) * limit
+    return templates.TemplateResponse(
+        request=request,
+        name="history.html",
+        context={
+            "decks": crud.list_decks(session, user),
+            "deck_id": deck_id,
+            "page": max(1, page),
+            "limit": limit,
+            "history": history_page(session, user, deck_id, limit, offset),
+        },
+    )
+
+
+@router.post("/history/clear")
+def clear_history_form(
+    session: SessionDep,
+    user: CurrentUser,
+    deck_id: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    crud.clear_history(session, user, int(deck_id) if deck_id.strip() else None)
+    return RedirectResponse("/history?notice=history-cleared", status_code=303)
+
+
+@router.get("/stats", response_class=HTMLResponse)
+def stats_view(
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+    deck_id: int | None = None,
+) -> Response:
+    return templates.TemplateResponse(
+        request=request,
+        name="stats.html",
+        context={
+            "decks": crud.list_decks(session, user),
+            "deck_id": deck_id,
+            "by_card": get_breakdown(session, user, "card", deck_id).model_dump(),
+            "by_tag": get_breakdown(session, user, "tag", deck_id).model_dump(),
         },
     )
 

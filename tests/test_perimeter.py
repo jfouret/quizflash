@@ -80,6 +80,11 @@ def _resource_calls(v: Victim) -> dict[tuple[str, str], Call]:
         ("POST", "/cards/{card_id}/delete"): Call(
             "POST", f"/cards/{v.card}/delete", data={"deck_id": v.deck}
         ),
+        ("POST", "/cards/{card_id}/update"): Call(
+            "POST",
+            f"/cards/{v.card}/update",
+            data={"deck_id": v.deck, "question": "Q", "answer": "A"},
+        ),
     }
 
 
@@ -91,6 +96,9 @@ EXTRA_PROBES: list[Callable[[Victim], Call]] = [
     lambda v: Call("GET", f"/api/study/next?deck_id={v.deck}"),
     lambda v: Call("GET", f"/api/study/batch?deck_id={v.deck}"),
     lambda v: Call("GET", f"/api/study/tags?deck_id={v.deck}"),
+    lambda v: Call("GET", f"/api/study/due?deck_id={v.deck}"),
+    lambda v: Call("GET", f"/api/stats/breakdown?group=card&deck_id={v.deck}"),
+    lambda v: Call("GET", f"/api/history?deck_id={v.deck}"),
     lambda v: Call("GET", f"/study?deck_id={v.deck}"),
 ]
 
@@ -104,6 +112,10 @@ SELF_SCOPED = {
     ("GET", "/api/study/next"),
     ("GET", "/api/study/batch"),
     ("GET", "/api/study/tags"),
+    ("GET", "/api/study/due"),
+    ("GET", "/api/stats/breakdown"),
+    ("GET", "/api/history"),
+    ("DELETE", "/api/history"),
     ("POST", "/api/study/transcribe"),
     ("POST", "/api/study/speak"),
     ("GET", "/api/settings"),
@@ -116,6 +128,9 @@ SELF_SCOPED = {
     ("POST", "/decks"),
     ("GET", "/explore"),
     ("GET", "/study"),
+    ("GET", "/history"),
+    ("POST", "/history/clear"),
+    ("GET", "/stats"),
     ("GET", "/settings"),
     ("POST", "/settings"),
     ("POST", "/settings/tokens"),

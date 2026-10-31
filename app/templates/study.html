@@ -4,20 +4,24 @@
 <div class="page-head">
   <h1>Study</h1>
   <div class="study-toolbar m-0">
-    <label for="deck-select" class="muted m-0">Deck</label>
-    <select id="deck-select">
-      <option value="">All decks</option>
-      {% for deck in decks %}<option value="{{ deck.id }}" {% if deck_id == deck.id %}selected{% endif %}>{{ deck.name }}</option>{% endfor %}
-    </select>
     <span id="due-count" class="due-pill">{{ due_count }} card{{ 's' if due_count != 1 }} due</span>
   </div>
 </div>
 <p id="status" role="status" aria-live="polite"></p>
 <section id="start-panel" class="card">
   <h2>Start a session</h2>
-  <p class="muted">Choose a deck above, optionally filter by tags, then press Start.</p>
+  <p class="muted">Pick one or more decks, optionally filter by tags, then press Start.</p>
+  <fieldset class="panel" id="deck-panel"{% if not decks %} hidden{% endif %}>
+    <legend>Decks</legend>
+    <p class="muted"><small>Leave all unchecked to study every deck.</small></p>
+    <div class="tag-checks" id="deck-options">
+      {% for deck in decks %}
+      <label class="tag-check"><input type="checkbox" name="study-deck" value="{{ deck.id }}"{% if deck.id in deck_ids %} checked{% endif %}> <span class="tag">{{ deck.name }}</span></label>
+      {% endfor %}
+    </div>
+  </fieldset>
   <fieldset class="panel" id="tag-panel"{% if not study_tags %} hidden{% endif %}>
-    <legend>Tags in the selected deck</legend>
+    <legend>Tags in the selected decks</legend>
     <p class="muted"><small>Leave all unchecked to include every tag. A card is selected when it carries at least one checked tag.</small></p>
     <div class="tag-checks" id="tag-options">
       {% for tag in study_tags %}
@@ -78,10 +82,7 @@
   <div id="rating-controls" class="grid-2 mt-lg" hidden>
     <div>
       <label for="rating">Rating</label>
-      <select id="rating">
-        <option value="1">1 · Again</option><option value="2">2 · Hard</option>
-        <option value="3">3 · Good</option><option value="4">4 · Easy</option>
-      </select>
+      <select id="rating"></select>
     </div>
     <div>
       <label for="correct">Correctness</label>
@@ -95,7 +96,7 @@
   </div>
 </section>
 </div>
-<p class="shortcuts muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> submit · <kbd>Enter</kbd> next / stop recording · <kbd>1</kbd>–<kbd>4</kbd> rating</p>
+<p class="shortcuts muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> submit · <kbd>Enter</kbd> next / stop recording · <kbd>0</kbd>–<kbd>9</kbd> rating</p>
 {% endblock %}
 {% block scripts %}
 <div id="study-config" hidden

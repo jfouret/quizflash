@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Stats · QuizDeck{% endblock %}
+{% block content %}
+{% macro breakdown(title, canvas_id, data) %}
+<section class="card">
+  <h2>{{ title }}</h2>
+  {% if data['items'] %}
+  <div class="chart-wrap"><canvas id="{{ canvas_id }}" height="200" role="img" aria-label="{{ title }}"></canvas></div>
+  <table class="stats-table">
+    <thead><tr><th scope="col">Name</th><th scope="col">Answers</th><th scope="col">Mean</th><th scope="col">Mean / 10</th><th scope="col">Correct</th></tr></thead>
+    <tbody>
+    {% for item in data['items'] %}
+      <tr>
+        <td class="pre">{{ item.label }}</td>
+        <td>{{ item.total }}</td>
+        <td>{% if item.avg_rating is not none %}{{ item.avg_rating | round(2) }}{% else %}—{% endif %}</td>
+        <td>{% if item.avg_normalized is not none %}{{ item.avg_normalized | round(2) }}{% else %}—{% endif %}</td>
+        <td>{{ (item.correct_rate * 100) | round(0) }}%</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No answers yet.</p>
+  {% endif %}
+</section>
+{% endmacro %}
+<div class="page-head">
+  <div>
+    <h1>Stats</h1>
+    <p class="muted">Mean rating (normalized out of 10) and correct rate, per card and per tag.</p>
+  </div>
+  <form method="get" action="/stats" class="study-toolbar m-0">
+    <label for="stats-deck" class="muted m-0">Deck</label>
+    <select id="stats-deck" name="deck_id">
+      <option value="">All decks</option>
+      {% for deck in decks %}<option value="{{ deck.id }}" {% if deck_id == deck.id %}selected{% endif %}>{{ deck.name }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="secondary outline sm">Apply</button>
+  </form>
+</div>
+
+{% if by_card['items'] or by_tag['items'] %}
+<div id="stats-config" hidden
+     data-card="{{ by_card | tojson }}"
+     data-tag="{{ by_tag | tojson }}"
+     data-deck="{{ deck_id or '' }}"></div>
+{{ breakdown('By card', 'chart-card', by_card) }}
+{{ breakdown('By tag', 'chart-tag', by_tag) }}
+{% else %}
+<div class="empty">
+  <h2>No data yet</h2>
+  <p>Answer some cards and your per-card and per-tag scores will show up here.</p>
+  <div class="actions"><a role="button" href="/study">Start studying</a></div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/chart.umd.min.js?v={{ asset_version }}" defer></script>
+<script src="/static/js/stats.js?v={{ asset_version }}" defer></script>
+{% endblock %}

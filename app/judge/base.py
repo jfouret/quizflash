@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class JudgeResult(BaseModel):
     model_config = ConfigDict(strict=True)
 
-    rating: int = Field(ge=1, le=4)
+    rating: int = Field(ge=0, le=100)
     is_correct: bool
     feedback: str
 
@@ -23,6 +23,8 @@ class Judge(Protocol):
         expected_time_s: int | None,
         response_time_ms: int,
         language: str,
+        max_level: int = 4,
+        labels: dict[int, str] | None = None,
     ) -> JudgeResult: ...
 
 

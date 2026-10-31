@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}History · QuizDeck{% endblock %}
+{% block content %}
+{% set csrf %}<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">{% endset %}
+<div class="page-head">
+  <div>
+    <h1>History</h1>
+    <p class="muted">{{ history.total }} answer{{ 's' if history.total != 1 }} recorded.</p>
+  </div>
+  <div class="actions">
+    <form method="get" action="/history" class="study-toolbar m-0">
+      <label for="history-deck" class="muted m-0">Deck</label>
+      <select id="history-deck" name="deck_id">
+        <option value="">All decks</option>
+        {% for deck in decks %}<option value="{{ deck.id }}" {% if deck_id == deck.id %}selected{% endif %}>{{ deck.name }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="secondary outline sm">Filter</button>
+    </form>
+    <form method="post" action="/history/clear" class="actions" data-confirm="{% if deck_id %}Delete your history for this deck?{% else %}Delete all your history? This cannot be undone.{% endif %}">
+      {{ csrf }}
+      <input type="hidden" name="deck_id" value="{{ deck_id or '' }}">
+      <button class="danger outline sm" type="submit">{{ 'Clear this deck' if deck_id else 'Clear all history' }}</button>
+    </form>
+  </div>
+</div>
+
+{% if history.items %}
+<div class="qa-list">
+{% for item in history.items %}
+<details class="qa">
+  <summary>
+    <span class="q pre">{{ item.question }}</span>
+    <span class="badge">{{ item.deck_name }}</span>
+    <span class="badge {{ 'success' if item.is_correct else 'danger' }}">{{ 'Correct' if item.is_correct else 'Incorrect' }}</span>
+    <span class="badge accent">{{ item.rating }}{% if item.rating_label %} · {{ item.rating_label }}{% endif %}</span>
+  </summary>
+  <dl>
+    <dt>Your answer</dt><dd class="pre">{{ item.answer_text or '—' }}</dd>
+    <dt>Expected answer</dt><dd class="pre">{{ item.answer }}</dd>
+    <dt>When</dt><dd class="muted">{{ item.reviewed_at }} · {{ item.input_method }} · {{ item.mode }}{% if item.judge_model %} · {{ item.judge_model }}{% endif %} · {{ (item.response_time_ms / 1000) | round(1) }} s</dd>
+    {% if item.judge_feedback %}<dt>Judge feedback</dt><dd class="pre">{{ item.judge_feedback }}</dd>{% endif %}
+    {% if item.explanation %}<dt>Teacher explanation</dt><dd class="pre">{{ item.explanation }}</dd>{% endif %}
+  </dl>
+</details>
+{% endfor %}
+</div>
+
+{% if history.total > limit %}
+<nav class="actions mt-2" aria-label="History pages">
+  {% if page > 1 %}<a role="button" class="secondary outline sm" href="/history?page={{ page - 1 }}{% if deck_id %}&amp;deck_id={{ deck_id }}{% endif %}">← Newer</a>{% endif %}
+  {% if page * limit < history.total %}<a role="button" class="secondary outline sm" href="/history?page={{ page + 1 }}{% if deck_id %}&amp;deck_id={{ deck_id }}{% endif %}">Older →</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<div class="empty">
+  <h2>No answers yet</h2>
+  <p>Study a deck and your answers, ratings, and teacher explanations will appear here.</p>
+  <div class="actions"><a role="button" href="/study">Start studying</a></div>
+</div>
+{% endif %}
+{% endblock %}
