@@ -19,6 +19,8 @@
   var feedbackEl = document.getElementById('feedback');
   var judgeInfoEl = document.getElementById('judge-info');
   var expectedAnswerEl = document.getElementById('expected-answer');
+  var yourAnswerWrap = document.getElementById('your-answer-wrap');
+  var yourAnswerEl = document.getElementById('your-answer');
   var detailsWrap = document.getElementById('details-wrap');
   var detailsEl = document.getElementById('details');
   var teacherWrap = document.getElementById('teacher-wrap');
@@ -426,6 +428,7 @@
     submitButton.textContent = 'Submit answer';
     finalRatingEl.textContent = '';
     currentLogId = null;
+    renderYourAnswer('', null);
     teacherWrap.hidden = true;
     teacherExplanationEl.textContent = '';
     teacherInfoEl.textContent = '';
@@ -481,6 +484,21 @@
       stt_duration_ms: sttDuration,
       audio_duration_ms: audioDuration
     };
+  }
+
+  function renderYourAnswer(text, isCorrect) {
+    var answer = text || '';
+    yourAnswerWrap.hidden = !answer;
+    yourAnswerEl.textContent = answer;
+    // Green when the judgement says correct, red when it says wrong, neutral
+    // while no judgement exists yet.
+    yourAnswerEl.className = isCorrect === null
+      ? 'pre answer-box'
+      : isCorrect ? 'pre answer-box' : 'pre answer-box wrong';
+  }
+
+  function answerText(payload) {
+    return payload ? payload.answer_text : '';
   }
 
   function showCardContext() {
@@ -627,6 +645,7 @@
     answerInput.disabled = false;
     submitButton.textContent = 'Correct & judge again';
     showCardContext();
+    renderYourAnswer(answerText(lastPayload), isFallback ? null : result.is_correct);
     showFeedback(result);
     showTeacher();
     judgeInfoEl.textContent = result.judge_model ? 'Judge: ' + result.judge_model : 'Manual fallback required';
@@ -661,6 +680,7 @@
     studyEl.hidden = true;
     answerInput.disabled = true;
     showCardContext();
+    renderYourAnswer(answerText(lastPayload), result.is_correct);
     showFeedback(result);
     showTeacher();
     judgeInfoEl.textContent = result.mode === 'self_fallback' ? 'Self fallback (judge failed)' : 'Judge: ' + result.judge_model;
@@ -772,6 +792,7 @@
     submitButton.textContent = 'Submit answer';
     finalRatingEl.textContent = '';
     currentLogId = null;
+    renderYourAnswer('', null);
     teacherWrap.hidden = true;
     teacherExplanationEl.textContent = '';
     teacherInfoEl.textContent = '';
@@ -988,6 +1009,7 @@
 
   function showPendingReview(record, index) {
     currentLogId = null;
+    renderYourAnswer(answerText(record.payload), null);
     expectedAnswerEl.textContent = record.card.card.answer;
     detailsEl.textContent = record.card.card.details;
     detailsWrap.hidden = !record.card.card.details;
@@ -1080,6 +1102,9 @@
     detailsEl.textContent = record.card.card.details;
     detailsWrap.hidden = !record.card.card.details;
     currentLogId = record.saved ? record.saved.log_id : null;
+    var judgment = record.saved ? record.saved.is_correct
+      : (record.preview ? record.preview.is_correct : null);
+    renderYourAnswer(answerText(record.payload), judgment);
     renderRatingOptions(ratingScale());
     renderActiveTags();
     var feedback = record.feedback || (record.saved ? record.saved.feedback : '');
@@ -1148,6 +1173,7 @@
       });
       record.saved = saved;
       record.manual = false;
+      renderYourAnswer(answerText(record.payload), saved.is_correct);
       currentLogId = saved.log_id || null;
       ratingControls.hidden = true;
       confirmButton.hidden = true;

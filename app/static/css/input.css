@@ -446,6 +446,7 @@
   .study-actions #submit { margin-left: auto; }
   #feedback { font-size: 1rem; }
   .answer-box { padding: 0.75rem 1rem; border-radius: var(--radius-md); background: var(--color-ok-soft); color: var(--color-ok); font-weight: 600; }
+  .answer-box.wrong { background: var(--color-danger-soft); color: var(--color-danger); }
   #result h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--color-ink-muted); margin: 1.35rem 0 0.4rem; }
   #teacher-wrap { border-top: 1px solid var(--color-line); margin-top: 1.35rem; }
   #final-rating { font-weight: 600; }
