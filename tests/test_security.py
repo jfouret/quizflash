@@ -436,8 +436,13 @@ def test_security_headers_are_set(client: TestClient) -> None:
 
 def test_api_docs_get_a_relaxed_but_bounded_policy(client: TestClient) -> None:
     csp = client.get("/docs").headers["content-security-policy"]
-    assert "https://cdn.jsdelivr.net" in csp
-    assert "object-src 'none'" in csp
+    directives = {
+        name: set(values.split())
+        for name, _, values in (part.strip().partition(" ") for part in csp.split(";"))
+    }
+    # Exact token match: a substring test would also accept "cdn.jsdelivr.net.evil".
+    assert "https://cdn.jsdelivr.net" in directives["script-src"]
+    assert directives["object-src"] == {"'none'"}
 
 
 INLINE_SCRIPT = r"<script(?![^>]*\bsrc=)"
