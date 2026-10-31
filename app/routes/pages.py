@@ -204,6 +204,7 @@ def study_page(
             "deck_id": deck_id,
             "settings": crud.effective_settings(session, user),
             "voice_allowed": crud.get_app_settings(session).voice_allowed,
+            "study_tags": crud.list_study_tags(session, user),
             "due_count": len(crud.get_due(session, user, deck_id)),
         },
     )
@@ -244,6 +245,8 @@ def update_settings_form(
     tts_enabled: Annotated[bool, Form()] = False,
     question_vocal: Annotated[bool, Form()] = False,
     teacher_vocal: Annotated[bool, Form()] = False,
+    batch_enabled: Annotated[bool, Form()] = False,
+    batch_size: Annotated[int, Form()] = 5,
 ) -> RedirectResponse:
     crud.update_settings(
         session,
@@ -258,6 +261,8 @@ def update_settings_form(
             tts_enabled=tts_enabled,
             question_vocal=question_vocal,
             teacher_vocal=teacher_vocal,
+            batch_enabled=batch_enabled,
+            batch_size=batch_size,
             daily_new_limit=daily_new_limit,
             daily_review_limit=daily_review_limit,
         ),

@@ -135,6 +135,8 @@ class Settings(SQLModel, table=True):
     tts_enabled: bool = False
     question_vocal: bool = False
     teacher_vocal: bool = False
+    batch_enabled: bool = True
+    batch_size: int = 5
     daily_new_limit: int = 0
     daily_review_limit: int = 0
 

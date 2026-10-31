@@ -4,6 +4,28 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-10-31
+
+### Added
+
+- Batch study mode: answer a batch of cards (default size 5) back to back, then
+  review their explanations. Judging, the teacher and speech run in the
+  background, so the next card appears as soon as the current answer is
+  submitted. The batch loops back to the first card for review and advances when
+  the explanation audio ends. Controlled per user in **Settings → Study flow**.
+- The study view waits for a **Start** button, so a deck and tags can be chosen
+  first. Available tags can be checked to filter the queue (a card matches when it
+  carries at least one checked tag), and each card shows its own tags.
+- `GET /api/study/batch` returns up to `size` due cards; `GET /api/study/tags`
+  lists the tags available in the queue; `tag` may be repeated on `/api/study/next`
+  and `/api/study/batch` to filter.
+- `POST /api/study/speak` synthesizes arbitrary text, so a prefetched explanation
+  is not generated twice.
+
+### Changed
+
+- The study view shows batch progress dots and animates card changes.
+
 ## [0.4.1] - 2026-10-31
 
 ### Changed

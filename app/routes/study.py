@@ -3,7 +3,7 @@ import secrets
 import time
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app import crud
@@ -17,6 +17,7 @@ from app.schemas import (
     DueCard,
     ExplainRequest,
     ExplainResponse,
+    SpeakTextRequest,
     TranscribeResponse,
 )
 from app.stt.base import STTError
@@ -30,8 +31,13 @@ MAX_AUDIO_BYTES = 25 * 1024 * 1024
 
 
 @router.get("/next", response_model=DueCard | None)
-def next_card(session: SessionDep, user: CurrentUser, deck_id: int | None = None) -> DueCard | None:
-    due = crud.get_due(session, user, deck_id)
+def next_card(
+    session: SessionDep,
+    user: CurrentUser,
+    deck_id: int | None = None,
+    tag: Annotated[list[str] | None, Query()] = None,
+) -> DueCard | None:
+    due = crud.get_due(session, user, deck_id, tags=tag)
     if not due:
         return None
     card, state = due[0]
@@ -40,6 +46,33 @@ def next_card(session: SessionDep, user: CurrentUser, deck_id: int | None = None
         due=state.due,
         is_new=state.last_review is None,
     )
+
+
+@router.get("/tags", response_model=list[str])
+def study_tags(session: SessionDep, user: CurrentUser) -> list[str]:
+    """Distinct tag names available in the user's study queue."""
+    return crud.list_study_tags(session, user)
+
+
+@router.get("/batch", response_model=list[DueCard])
+def batch_cards(
+    session: SessionDep,
+    user: CurrentUser,
+    size: int = 5,
+    deck_id: int | None = None,
+    tag: Annotated[list[str] | None, Query()] = None,
+) -> list[DueCard]:
+    """Up to `size` due cards, for the batch study flow."""
+    size = max(1, min(size, 50))
+    due = crud.get_due(session, user, deck_id, tags=tag)[:size]
+    return [
+        DueCard(
+            card=CardRead.model_validate(card),
+            due=state.due,
+            is_new=state.last_review is None,
+        )
+        for card, state in due
+    ]
 
 
 @router.post("/transcribe", response_model=TranscribeResponse)
@@ -153,6 +186,20 @@ def speak_explanation(
             detail="Teacher explanation failed; try again",
         ) from exc
     text = _vocal(explanation, settings.judge_language, settings.teacher_vocal, teacher)
+    return _speak(text, settings.judge_language, tts)
+
+
+@router.post("/speak")
+def speak_text(
+    payload: SpeakTextRequest,
+    session: SessionDep,
+    user: CurrentUser,
+    teacher: TeacherDep,
+    tts: TTSDep,
+) -> Response:
+    """Synthesize arbitrary text, so a prefetched explanation is not re-generated."""
+    settings = _check_tts(session, user)
+    text = _vocal(payload.text, settings.judge_language, payload.vocal, teacher)
     return _speak(text, settings.judge_language, tts)
 
 

@@ -121,6 +121,8 @@ class SettingsRead(BaseModel):
     tts_enabled: bool
     question_vocal: bool
     teacher_vocal: bool
+    batch_enabled: bool
+    batch_size: int
     daily_new_limit: int
     daily_review_limit: int
 
@@ -135,6 +137,8 @@ class SettingsUpdate(BaseModel):
     tts_enabled: bool | None = None
     question_vocal: bool | None = None
     teacher_vocal: bool | None = None
+    batch_enabled: bool | None = None
+    batch_size: int | None = Field(default=None, ge=1, le=50)
     daily_new_limit: int | None = Field(default=None, ge=0)
     daily_review_limit: int | None = Field(default=None, ge=0)
 
@@ -164,6 +168,11 @@ class AnswerRequest(BaseModel):
 
 class ExplainRequest(BaseModel):
     card_id: int
+
+
+class SpeakTextRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=MAX_ANSWER)
+    vocal: bool = False
 
 
 class ExplainResponse(BaseModel):
