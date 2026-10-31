@@ -11,6 +11,10 @@ ENV PYTHONUNBUFFERED=1 \
     DATABASE_URL=sqlite:////data/quizdeck.db \
     PATH="/app/.venv/bin:$PATH"
 
+# Shown in the UI footer; CI passes the immutable X.Y.Z-YYYY-MM-DD image tag.
+ARG BUILD_TAG=""
+ENV BUILD_TAG=$BUILD_TAG
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*

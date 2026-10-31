@@ -1,11 +1,14 @@
+import os
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app import __version__, auth, crud
+from app.agents import AGENT_STEPS, ENV_HINTS, PROMPT_VARIABLES, STEP_LABELS, AgentStep
 from app.dependencies import AdminUser, AuthConfigDep, CurrentUser, SessionDep
 from app.schemas import (
+    AgentConfigUpdate,
     AppSettingsUpdate,
     CardCreate,
     DeckCreate,
@@ -340,6 +343,62 @@ def admin_settings_form(
         ),
     )
     return RedirectResponse("/admin?notice=app-settings-saved", status_code=303)
+
+
+@router.get("/admin/agents", response_class=HTMLResponse)
+def agents_page(
+    request: Request, session: SessionDep, _: AdminUser, step: AgentStep = "judge"
+) -> Response:
+    configs = {config.step: config for config in crud.list_agent_configs(session)}
+    return templates.TemplateResponse(
+        request=request,
+        name="agents.html",
+        context={
+            "configs": configs,
+            "steps": AGENT_STEPS,
+            "labels": STEP_LABELS,
+            "prompt_variables": PROMPT_VARIABLES,
+            "env_hints": ENV_HINTS,
+            "key_configured": {
+                key: bool(os.getenv(config.api_key_env) or os.getenv("OPENROUTER_API_KEY"))
+                for key, config in configs.items()
+            },
+            "step": step,
+        },
+    )
+
+
+@router.post("/admin/agents/{step}")
+def update_agent_form(
+    step: AgentStep,
+    session: SessionDep,
+    _: AdminUser,
+    model: Annotated[str, Form()] = "",
+    base_url: Annotated[str, Form()] = "",
+    api_key_env: Annotated[str, Form()] = "OPENROUTER_API_KEY",
+    voice: Annotated[str, Form()] = "",
+    system_prompt: Annotated[str, Form()] = "",
+    prompt_template: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    if step in {"judge", "teacher", "verbalizer"} and not prompt_template.strip():
+        raise ValueError("Prompt template is required")
+    if not (os.getenv(api_key_env) or os.getenv("OPENROUTER_API_KEY")):
+        raise ValueError(
+            f"{api_key_env} must be defined in the environment; API keys are never stored in the UI"
+        )
+    crud.update_agent_config(
+        session,
+        step,
+        AgentConfigUpdate(
+            model=model,
+            base_url=base_url,
+            api_key_env=api_key_env,
+            voice=voice,
+            system_prompt=system_prompt,
+            prompt_template=prompt_template,
+        ),
+    )
+    return RedirectResponse("/admin/agents?step=" + step + "&notice=agent-saved", status_code=303)
 
 
 @router.post("/admin/decks/{deck_id}/unpublish")

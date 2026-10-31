@@ -98,6 +98,8 @@ A card carries `question`, `answer`, optional `details`, optional `expected_time
 
 Admins cannot modify their own account, and the last active admin cannot be removed. `teacher_allowed: false` and `voice_allowed: false` override every user's settings.
 
+Agent models, base URLs, voices and prompts are configured on `/admin/agents` (HTML only). Each step stores the *name* of its API key environment variable; key values are read from the environment at request time and are never stored in the database or shown in the UI. Saving a step fails when neither the named variable nor `OPENROUTER_API_KEY` is set.
+
 ## MCP endpoint
 
 The FastMCP server is mounted at `/mcp` (stateless streamable HTTP, JSON responses). Every request needs a personal token created on `/settings`:

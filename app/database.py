@@ -10,7 +10,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, create_engine
 
-from app.models import AppSettings
+from app.agents import AGENT_STEPS, DEFAULT_AGENT_CONFIGS
+from app.models import AgentConfig, AppSettings
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./quizdeck.db")
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
@@ -47,7 +48,10 @@ def init_db(engine: Engine) -> None:
     with Session(engine) as session:
         if session.get(AppSettings, 1) is None:
             session.add(AppSettings())
-            session.commit()
+        for step in AGENT_STEPS:
+            if session.get(AgentConfig, step) is None:
+                session.add(AgentConfig(step=step, **DEFAULT_AGENT_CONFIGS[step]))
+        session.commit()
 
 
 def get_session(request: Request) -> Generator[Session]:
