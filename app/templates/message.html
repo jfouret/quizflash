@@ -6,8 +6,8 @@
     {% if title %}<h1>{{ title }}</h1>{% endif %}
     <p role="status">{{ message }}</p>
     <div class="actions">
-      {% if request.state.user is defined %}<a role="button" class="secondary outline" href="/">Back to your decks</a>
-      {% else %}<a role="button" class="secondary outline" href="/login">Back to sign in</a>{% endif %}
+      {% if request.state.user is defined %}<a role="button" class="secondary outlined" href="/">Back to your decks</a>
+      {% else %}<a role="button" class="secondary outlined" href="/login">Back to sign in</a>{% endif %}
     </div>
   </section>
 </div>

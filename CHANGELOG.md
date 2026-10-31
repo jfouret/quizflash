@@ -4,6 +4,44 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-10-31
+
+### Added
+
+- Own design system, built with the Tailwind CSS standalone CLI from
+  `app/static/css/input.css` and committed as `app/static/style.css`. Colours,
+  spacing, radii, shadows and motion are semantic tokens; light and dark come from
+  one declaration each through `light-dark()`, so the duplicated palettes are gone.
+- Persistent sidebar on desktop (brand, primary navigation, utility icons, account),
+  which becomes a wrapped top bar below 1024px. One DOM, no drawer script.
+- Real switch control for settings (`role="switch"`), replacing the framework's.
+- `volume` and `close` symbols in the icon sprite, so no emoji remains as an icon.
+- Accessibility pass: focus ring declared outside the cascade layers so nothing can
+  override it, skip link to the content, WCAG 2.2 target sizes, and a global
+  `prefers-reduced-motion` rule.
+
+### Changed
+
+- Every page restyled on the new tokens: quieter badges, hairline borders, measured
+  elevation, one accent colour, larger question type on the study card, and a
+  session start panel aligned with the card column.
+- The charts and the voice meter read their colour from a resolved `color`
+  property: a `light-dark()` token read through `getPropertyValue` came back
+  unresolved.
+- `scripts/build-css.sh` builds the stylesheet; CI rebuilds it and fails on a diff,
+  so the committed file cannot drift from its source.
+
+### Removed
+
+- Pico CSS. Upstream archived the project on 2026-10-04 with v2.1.1 as its final
+  release, and the vendored file shipped 83 KB of unmaintained CSS. Its element
+  styling and the `--pico-*` variables are replaced by `input.css`.
+
+### Fixed
+
+- Navigation no longer drops its labels on tablets, and the current page stays
+  marked with `aria-current` on both layouts.
+
 ## [0.6.2] - 2026-10-31
 
 ### Fixed

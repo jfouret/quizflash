@@ -8,10 +8,10 @@
   <link rel="icon" href="/static/favicon.ico?v={{ asset_version }}" sizes="any">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v={{ asset_version }}">
   <link rel="manifest" href="/static/site.webmanifest?v={{ asset_version }}">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c0e12" media="(prefers-color-scheme: dark)">
   <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
   <script src="/static/js/theme.js?v={{ asset_version }}"></script>
-  <link rel="stylesheet" href="/static/pico.min.css">
   <link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
   <script src="/static/js/htmx.min.js?v={{ asset_version }}" defer></script>
   <script src="/static/js/app.js?v={{ asset_version }}" defer></script>
@@ -21,44 +21,49 @@
 </head>
 <body hx-boost="true"{% if current_user %} hx-headers='{"X-CSRF-Token": "{{ request.state.csrf_token }}"}'{% endif %}>
   {% set path = request.url.path %}
-  <header class="site-header">
-    <nav class="container">
-      <ul class="nav-links">
-        <li><a class="brand" href="/"><span class="brand-mark" aria-hidden="true">Q</span><span class="brand-name">QuizDeck</span></a></li>
-        {% if current_user %}
-        <li><a href="/" {% if path == '/' or path.startswith('/decks') %}aria-current="page"{% endif %}>{{ nav_icon('decks') }}<span class="nav-label">Decks</span></a></li>
-        <li><a href="/study" {% if path.startswith('/study') %}aria-current="page"{% endif %}>{{ nav_icon('study') }}<span class="nav-label">Study</span></a></li>
-        <li><a href="/history" {% if path.startswith('/history') %}aria-current="page"{% endif %}>{{ nav_icon('history') }}<span class="nav-label">History</span></a></li>
-        <li><a href="/stats" {% if path.startswith('/stats') %}aria-current="page"{% endif %}>{{ nav_icon('stats') }}<span class="nav-label">Stats</span></a></li>
-        <li><a href="/explore" {% if path.startswith('/explore') %}aria-current="page"{% endif %}>{{ nav_icon('explore') }}<span class="nav-label">Explore</span></a></li>
-        {% endif %}
-      </ul>
-      <ul class="nav-actions">
-        {% if current_user %}
-        {% if current_user.role == 'admin' %}
-        <li><a class="icon-btn" href="/admin" title="Admin" aria-label="Admin" {% if path == '/admin' or path.startswith('/admin/users') or path.startswith('/admin/settings') or path.startswith('/admin/decks') %}aria-current="page"{% endif %}>{{ nav_icon('admin') }}</a></li>
-        <li><a class="icon-btn" href="/admin/agents" title="Agent models" aria-label="Agent models" {% if path.startswith('/admin/agents') %}aria-current="page"{% endif %}>{{ nav_icon('agents') }}</a></li>
-        {% endif %}
-        <li><a class="icon-btn" href="/settings" title="Settings" aria-label="Settings" {% if path.startswith('/settings') %}aria-current="page"{% endif %}>{{ nav_icon('settings') }}</a></li>
-        <li><button id="theme-toggle" type="button" class="secondary outline icon-btn" aria-label="Switch color theme" title="Theme: system">{{ nav_icon('theme') }}</button></li>
-        <li class="nav-user">
-          <span class="avatar" aria-hidden="true">{{ (current_user.display_name or current_user.email)[:1] }}</span>
-          <span class="who muted"><small>{{ current_user.display_name or current_user.email }}</small></span>
-        </li>
-        <li>
-          <form method="post" action="/logout" class="actions">
+  <a class="skip-link" href="#main">Skip to content</a>
+  {% if current_user %}
+  <div class="app-shell">
+    <header class="app-bar">
+      <div class="app-bar-top">
+        <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">Q</span><span class="brand-name">QuizDeck</span></a>
+        <div class="app-bar-utility">
+          {% if current_user.role == 'admin' %}
+          <a class="icon-btn" href="/admin" title="Admin" aria-label="Admin" {% if path == '/admin' or path.startswith('/admin/users') or path.startswith('/admin/settings') or path.startswith('/admin/decks') %}aria-current="page"{% endif %}>{{ nav_icon('admin') }}</a>
+          <a class="icon-btn" href="/admin/agents" title="Agent models" aria-label="Agent models" {% if path.startswith('/admin/agents') %}aria-current="page"{% endif %}>{{ nav_icon('agents') }}</a>
+          {% endif %}
+          <a class="icon-btn" href="/settings" title="Settings" aria-label="Settings" {% if path.startswith('/settings') %}aria-current="page"{% endif %}>{{ nav_icon('settings') }}</a>
+          <button id="theme-toggle" type="button" class="icon-btn" aria-label="Switch color theme" title="Theme: system">{{ nav_icon('theme') }}</button>
+          <form method="post" action="/logout">
             <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-            <button type="submit" class="secondary outline icon-btn" title="Log out ({{ current_user.email }})" aria-label="Log out">{{ nav_icon('logout') }}</button>
+            <button type="submit" class="icon-btn" title="Log out ({{ current_user.email }})" aria-label="Log out">{{ nav_icon('logout') }}</button>
           </form>
-        </li>
-        {% endif %}
-      </ul>
-    </nav>
-  </header>
-  {% set notice = notices.get(request.query_params.get('notice', '')) %}
-  {% if notice %}<div class="toast" role="status">{{ notice }}</div>{% endif %}
-  <main class="container">{% block content %}{% endblock %}</main>
-  <footer class="container"><small class="muted">QuizDeck v{{ app_version }}{% if build_tag %} · build {{ build_tag }}{% endif %} · self-hosted spaced-repetition quizzes</small></footer>
+        </div>
+      </div>
+      <nav class="app-nav" aria-label="Main">
+        <a href="/" {% if path == '/' or path.startswith('/decks') %}aria-current="page"{% endif %}>{{ nav_icon('decks') }}<span>Decks</span></a>
+        <a href="/study" {% if path.startswith('/study') %}aria-current="page"{% endif %}>{{ nav_icon('study') }}<span>Study</span></a>
+        <a href="/history" {% if path.startswith('/history') %}aria-current="page"{% endif %}>{{ nav_icon('history') }}<span>History</span></a>
+        <a href="/stats" {% if path.startswith('/stats') %}aria-current="page"{% endif %}>{{ nav_icon('stats') }}<span>Stats</span></a>
+        <a href="/explore" {% if path.startswith('/explore') %}aria-current="page"{% endif %}>{{ nav_icon('explore') }}<span>Explore</span></a>
+      </nav>
+      <div class="app-foot">
+        <div class="app-user">
+          <span class="avatar" aria-hidden="true">{{ (current_user.display_name or current_user.email)[:1] }}</span>
+          <span class="who"><small>{{ current_user.display_name or current_user.email }}</small></span>
+        </div>
+      </div>
+    </header>
+  {% endif %}
+    <div class="shell-main">
+      {% set notice = notices.get(request.query_params.get('notice', '')) %}
+      {% if notice %}<div class="toast" role="status">{{ notice }}</div>{% endif %}
+      <main id="main" class="container">{% block content %}{% endblock %}</main>
+      <footer class="container"><small class="muted">QuizDeck v{{ app_version }}{% if build_tag %} · build {{ build_tag }}{% endif %} · self-hosted spaced-repetition quizzes</small></footer>
+    </div>
+  {% if current_user %}
+  </div>
+  {% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

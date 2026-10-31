@@ -356,7 +356,8 @@
       var barWidth = eqCanvas.width / eqData.length;
       for (var i = 0; i < eqData.length; i++) {
         var height = (eqData[i] / 255) * eqCanvas.height;
-        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--pico-primary') || '#3b82f6';
+        // Resolved colour: the canvas inherits the accent from #eq's own style.
+        ctx.fillStyle = getComputedStyle(eqCanvas).color || '#3b82f6';
         ctx.fillRect(i * barWidth, eqCanvas.height - height, barWidth - 1, height);
       }
     }
