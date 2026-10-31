@@ -1,7 +1,10 @@
-"""Retry helper for remote AI calls: providers answer 429 under load."""
+"""Queueing and retries for remote AI calls: providers answer 429 under load."""
 
 import logging
+import threading
 import time
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 
 import httpx
 
@@ -10,8 +13,8 @@ logger = logging.getLogger(__name__)
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 # shortcut: fixed waits, and only the plain `Retry-After` seconds form; make them
 # configurable per step if a provider needs longer or per-endpoint waits.
-RETRY_DELAYS_SECONDS: tuple[float, ...] = (1.0, 3.0)
-MAX_RETRY_AFTER_SECONDS = 10.0
+RETRY_DELAYS_SECONDS: tuple[float, ...] = (2.0, 5.0, 15.0)
+MAX_RETRY_AFTER_SECONDS = 30.0
 
 
 def _wait_seconds(response: httpx.Response | None, attempt: int) -> float:
@@ -53,3 +56,37 @@ def send_with_retries(
         response.read()
         failed_response = response
     raise AssertionError("unreachable")
+
+
+class UpstreamGate:
+    """One call at a time per step, spaced by a minimum interval.
+
+    Batch study fires several calls of the same step at once (a voice answer per
+    card, one speech request per explanation), which is what a provider answers
+    with 429. Calls queue here instead: the interval spaces their starts, and the
+    next call waits for the running one, retries included.
+    """
+
+    def __init__(
+        self,
+        min_interval_seconds: float = 0.0,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        self.min_interval_seconds = min_interval_seconds
+        self._clock = clock
+        self._sleep = sleep
+        self._lock = threading.Lock()
+        self._next_start = 0.0
+
+    @contextmanager
+    def slot(self) -> Iterator[None]:
+        with self._lock:
+            now = self._clock()
+            delay = self._next_start - now
+            if delay > 0:
+                self._sleep(delay)
+                now = self._clock()
+            self._next_start = now + self.min_interval_seconds
+            yield

@@ -1,5 +1,6 @@
 """Retry behaviour of the shared upstream helper: 429 and 5xx get another chance."""
 
+import threading
 import time
 from collections.abc import Callable
 
@@ -7,7 +8,7 @@ import httpx
 import pytest
 
 from app import retry
-from app.retry import send_with_retries
+from app.retry import UpstreamGate, send_with_retries
 
 
 def _call(
@@ -141,3 +142,46 @@ def test_a_streamed_audio_answer_is_retried_too(monkeypatch: pytest.MonkeyPatch)
         response.close()
 
     assert calls == 2
+
+
+def test_the_gate_spaces_the_start_of_each_call() -> None:
+    slept: list[float] = []
+    now = [0.0]
+
+    def clock() -> float:
+        return now[0]
+
+    def sleep(seconds: float) -> None:
+        slept.append(seconds)
+        now[0] += seconds
+
+    gate = UpstreamGate(2.0, clock=clock, sleep=sleep)
+
+    with gate.slot():
+        now[0] += 1.0  # the call itself takes a second
+    with gate.slot():
+        pass
+
+    assert slept == [1.0]
+
+
+def test_the_gate_never_runs_two_calls_at_once() -> None:
+    gate = UpstreamGate(0.0)
+    active = 0
+    peak = 0
+
+    def worker() -> None:
+        nonlocal active, peak
+        with gate.slot():
+            active += 1
+            peak = max(peak, active)
+            time.sleep(0.01)
+            active -= 1
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert peak == 1

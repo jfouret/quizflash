@@ -12,7 +12,7 @@ from app.agents import (
 )
 from app.config import api_key_env, base_url_env
 from app.models import AgentConfig
-from app.retry import send_with_retries
+from app.retry import UpstreamGate, send_with_retries
 from app.tts.base import TTSError, TTSResult, TTSStream
 
 
@@ -35,6 +35,9 @@ class OpenRouterTTS:
         self.timeout = timeout
         self.transport = transport
         self.api_key_env = api_key_env
+        # A batch prefetches one clip per card at once; the provider rate-limits
+        # that burst, so the calls queue and start a second apart.
+        self.gate = UpstreamGate(min_interval_seconds=1.0)
 
     @classmethod
     def from_env(cls) -> "OpenRouterTTS":
@@ -98,15 +101,16 @@ class OpenRouterTTS:
         client = httpx.Client(timeout=self.timeout, transport=self.transport)
         try:
             request = client.build_request("POST", endpoint, headers=headers, json=payload)
-            response = send_with_retries(client, request, stream=True)
-            response.raise_for_status()
-            content_type = response.headers.get("content-type", "").split(";")[0].strip()
-            if content_type and not content_type.startswith("audio/"):
-                raise TTSError(f"TTS answered {content_type}, not audio")
-            chunks = response.iter_bytes()
-            first = next((chunk for chunk in chunks if chunk), b"")
-            if not first:
-                raise TTSError("TTS returned an empty response")
+            with self.gate.slot():
+                response = send_with_retries(client, request, stream=True)
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "").split(";")[0].strip()
+                if content_type and not content_type.startswith("audio/"):
+                    raise TTSError(f"TTS answered {content_type}, not audio")
+                chunks = response.iter_bytes()
+                first = next((chunk for chunk in chunks if chunk), b"")
+                if not first:
+                    raise TTSError("TTS returned an empty response")
         except httpx.HTTPError as exc:
             client.close()
             raise TTSError(f"TTS request failed: {exc}") from exc

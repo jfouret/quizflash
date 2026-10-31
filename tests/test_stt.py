@@ -1,9 +1,12 @@
 import io
+import threading
+import time
 import wave
 
 import httpx
 import pytest
 
+from app.retry import UpstreamGate
 from app.stt.base import STTError
 from app.stt.openai_compat import OpenAICompatibleSTT
 
@@ -125,3 +128,27 @@ def test_http_api_error_is_wrapped(status_code: int) -> None:
 
     with pytest.raises(STTError, match="STT request failed"):
         stt.transcribe(_wav_bytes(), "auto")
+
+
+def test_voice_answers_queue_instead_of_bursting() -> None:
+    """Batch mode submits several recordings at once; the provider rate-limits bursts."""
+    active = 0
+    peak = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        time.sleep(0.02)
+        active -= 1
+        return httpx.Response(200, json={"text": "Bonjour"})
+
+    stt = _make_stt(httpx.MockTransport(handler))
+    stt.gate = UpstreamGate(0.0)  # the real two-second interval stays out of the test's way
+    threads = [threading.Thread(target=stt.transcribe, args=(_wav_bytes(), "fr")) for _ in range(3)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert peak == 1
