@@ -8,6 +8,7 @@ Create Date: 2026-10-31 12:00:00.000000
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+import sqlmodel
 from alembic import op
 
 revision: str = "0003"
@@ -19,14 +20,14 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.create_table(
         "agentconfig",
-        sa.Column("step", sa.String(), nullable=False),
-        sa.Column("model", sa.String(), nullable=False),
-        sa.Column("base_url", sa.String(), nullable=False),
-        sa.Column("api_key_env", sa.String(), nullable=False),
-        sa.Column("voice", sa.String(), nullable=False),
-        sa.Column("system_prompt", sa.String(), nullable=False),
-        sa.Column("prompt_template", sa.String(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("step", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("model", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("base_url", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("api_key_env", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("voice", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("system_prompt", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("prompt_template", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("updated_at", sqlmodel.sql.sqltypes.UTCDateTime(), nullable=False),
         sa.PrimaryKeyConstraint("step"),
     )
 
