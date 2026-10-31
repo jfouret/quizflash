@@ -3,6 +3,7 @@
 [![ci](https://github.com/jfouret/quizflash/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jfouret/quizflash/actions/workflows/ci.yml?query=branch%3Amain)
 [![image scan](https://github.com/jfouret/quizflash/actions/workflows/scan.yml/badge.svg?branch=main)](https://github.com/jfouret/quizflash/security)
 [![CodeQL](https://github.com/jfouret/quizflash/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)](https://github.com/jfouret/quizflash/security)
+[![CodeFactor](https://www.codefactor.io/repository/github/jfouret/quizflash/badge)](https://www.codefactor.io/repository/github/jfouret/quizflash)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/jfouret/quizflash/badge)](https://scorecard.dev/viewer/?uri=github.com/jfouret/quizflash)
 [![release](https://img.shields.io/github/v/release/jfouret/quizflash)](https://github.com/jfouret/quizflash/releases/latest)
 [![ghcr](https://img.shields.io/badge/ghcr.io-jfouret%2Fquizflash-blue?logo=docker&logoColor=white)](https://github.com/jfouret/quizflash/pkgs/container/quizflash)
