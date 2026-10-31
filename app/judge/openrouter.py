@@ -17,6 +17,7 @@ from app.config import api_key_env, base_url_env
 from app.grading import DEFAULT_MAX
 from app.judge.base import JudgeError, JudgeResult
 from app.models import AgentConfig
+from app.retry import send_with_retries
 
 RATING_INSTRUCTIONS = (
     "Rate recall quality independently of correctness, using the response time and "
@@ -128,7 +129,8 @@ class OpenRouterJudge:
 
         with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
             try:
-                response = client.post(
+                request = client.build_request(
+                    "POST",
                     endpoint,
                     headers=headers,
                     json={
@@ -160,6 +162,7 @@ class OpenRouterJudge:
                         },
                     },
                 )
+                response = send_with_retries(client, request)
                 response.raise_for_status()
             except httpx.HTTPError as exc:
                 raise JudgeError(f"Judge request failed: {exc}") from exc

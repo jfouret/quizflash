@@ -8,7 +8,7 @@ from httpx2 import Response
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
-from app import auth
+from app import auth, retry
 from app.auth import AuthConfig
 from app.dependencies import get_judge, get_stt, get_teacher, get_tts
 from app.judge.base import JudgeError, JudgeResult
@@ -164,6 +164,12 @@ def fake_tts() -> FakeTTS:
 
 PASSWORD = "correct horse battery staple"
 BASE_URL = "https://testserver"
+
+
+@pytest.fixture(autouse=True)
+def fast_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Upstream retries keep their logic but wait nothing, so the suite stays quick."""
+    monkeypatch.setattr(retry, "RETRY_DELAYS_SECONDS", (0.0,))
 
 
 @pytest.fixture

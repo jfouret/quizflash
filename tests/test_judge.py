@@ -4,6 +4,7 @@ from typing import Any
 import httpx
 import pytest
 
+from app import retry
 from app.judge.base import JudgeError, JudgeResult
 from app.judge.openrouter import OpenRouterJudge
 
@@ -125,7 +126,8 @@ def test_invalid_output_fails_without_retry() -> None:
     assert calls == 1
 
 
-def test_http_error_is_wrapped_without_retry() -> None:
+def test_a_retryable_error_is_retried_then_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(retry, "RETRY_DELAYS_SECONDS", (0.0, 0.0))
     calls = 0
 
     def handler(_: httpx.Request) -> httpx.Response:
@@ -137,10 +139,27 @@ def test_http_error_is_wrapped_without_retry() -> None:
 
     with pytest.raises(JudgeError, match="Judge request failed"):
         _evaluate(judge)
+    assert calls == 3
+
+
+def test_a_bad_request_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(retry, "RETRY_DELAYS_SECONDS", (0.0, 0.0))
+    calls = 0
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(400, json={"error": "bad model"})
+
+    judge = _make_judge(httpx.MockTransport(handler))
+
+    with pytest.raises(JudgeError, match="Judge request failed"):
+        _evaluate(judge)
     assert calls == 1
 
 
-def test_timeout_is_wrapped_without_retry() -> None:
+def test_a_timeout_is_retried_then_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(retry, "RETRY_DELAYS_SECONDS", (0.0, 0.0))
     calls = 0
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -152,7 +171,7 @@ def test_timeout_is_wrapped_without_retry() -> None:
 
     with pytest.raises(JudgeError, match="Judge request failed"):
         _evaluate(judge)
-    assert calls == 1
+    assert calls == 3
 
 
 @pytest.mark.parametrize("choice", ["6", 4, None, "-1", "1.5"])

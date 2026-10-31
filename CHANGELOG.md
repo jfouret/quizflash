@@ -4,6 +4,21 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.6] - 2026-10-31
+
+### Fixed
+
+- Transient upstream failures no longer fail an answer outright. A rate-limited
+  or overloaded provider (429, 5xx) or a dropped connection used to lose the
+  review: the judge, the teacher, the verbalizer, speech-to-text and speech
+  synthesis now retry twice, waiting 1 s then 3 s, and wait longer when the
+  provider sends a short `Retry-After`. A four-hundred answer is never retried.
+- The batch review no longer blocks on a card whose judging, transcription or
+  explanation is still running: **Next** moves on, and the card fills in when the
+  background work lands, if the user is still on it. Previously the review waited
+  with the button disabled, which looked like a hang after a rate-limited
+  transcription.
+
 ## [0.7.5] - 2026-10-31
 
 ### Fixed
