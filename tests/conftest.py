@@ -36,7 +36,7 @@ class FakeJudge:
         expected_time_s: int | None,
         response_time_ms: int,
         language: str,
-        max_level: int = 4,
+        max_level: int = 5,
         labels: dict[int, str] | None = None,
     ) -> JudgeResult:
         self.calls.append(

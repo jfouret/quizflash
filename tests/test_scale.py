@@ -1,5 +1,6 @@
 """Per-deck grading scale: API round trip, judging, and the change guard."""
 
+import re
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -41,9 +42,48 @@ def test_deck_scale_round_trips(client: TestClient) -> None:
     assert stored["labels"]["7"] == "Good"
 
 
-def test_default_scale_is_four(client: TestClient) -> None:
+def test_default_scale_is_the_five_level_notation(client: TestClient) -> None:
     deck = response_dict(client.post("/api/decks", json={"name": "Plain"}))
-    assert deck["grading_scale"] == {"max": 4, "labels": {}}
+
+    assert deck["grading_scale"]["max"] == 5
+    assert deck["grading_scale"]["labels"] == {
+        "0": "False or absent",
+        "1": "Bad",
+        "2": "Average",
+        "3": "Better than average",
+        "4": "Good",
+        "5": "Perfect",
+    }
+
+
+def test_default_notation_reaches_the_deck_page(client: TestClient) -> None:
+    deck = response_dict(client.post("/api/decks", json={"name": "Plain"}))
+
+    page = client.get(f"/decks/{deck['id']}").text
+
+    assert re.search(r'name="grading_max"[^>]*value="5"', page)
+    assert "0=False or absent" in page
+    assert "5=Perfect" in page
+
+
+def test_default_notation_is_what_the_rating_list_receives(
+    client: TestClient, fake_judge: FakeJudge
+) -> None:
+    """The study view builds its rating list from the scale the batch reports."""
+    deck = response_dict(client.post("/api/decks", json={"name": "Plain"}))
+    card = make_card(client, deck["id"])
+
+    client.post("/api/study/answer", json=answer_payload(card["id"]))
+
+    assert fake_judge.calls[-1]["max_level"] == 5
+    assert fake_judge.calls[-1]["labels"] == {
+        0: "False or absent",
+        1: "Bad",
+        2: "Average",
+        3: "Better than average",
+        4: "Good",
+        5: "Perfect",
+    }
 
 
 def test_judge_receives_the_deck_scale(client: TestClient, fake_judge: FakeJudge) -> None:

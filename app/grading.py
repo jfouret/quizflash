@@ -8,15 +8,33 @@ mapped to that range before it reaches a scheduler.
 
 from typing import Any
 
-DEFAULT_MAX = 4
+DEFAULT_MAX = 5
 MAX_MAX = 100
-DEFAULT_GRADING: dict[str, Any] = {"max": DEFAULT_MAX, "labels": {}}
+
+# The notation decks are created with: 0 means the answer was absent or false,
+# 5 means perfect. Labels are advisory, the judge receives them with the scale.
+DEFAULT_LABELS: dict[int, str] = {
+    0: "False or absent",
+    1: "Bad",
+    2: "Average",
+    3: "Better than average",
+    4: "Good",
+    5: "Perfect",
+}
+
+
+def default_scale() -> dict[str, Any]:
+    """A fresh copy of the default scale, so callers cannot mutate module state."""
+    return {"max": DEFAULT_MAX, "labels": dict(DEFAULT_LABELS)}
+
+
+DEFAULT_GRADING: dict[str, Any] = default_scale()
 
 
 def normalize(raw: dict[str, Any] | None) -> dict[str, Any]:
     """Return a valid scale, tolerant of empty or malformed stored values."""
     if not raw:
-        return dict(DEFAULT_GRADING)
+        return default_scale()
     maximum = raw.get("max", DEFAULT_MAX)
     if isinstance(maximum, bool) or not isinstance(maximum, int) or not 1 <= maximum <= MAX_MAX:
         maximum = DEFAULT_MAX
@@ -54,8 +72,10 @@ def scheduler_rating(scale: dict[str, Any], level: int) -> int:
 
 __all__ = [
     "DEFAULT_GRADING",
+    "DEFAULT_LABELS",
     "DEFAULT_MAX",
     "MAX_MAX",
+    "default_scale",
     "label",
     "levels",
     "normalize",

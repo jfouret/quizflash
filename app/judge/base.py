@@ -2,6 +2,8 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.grading import DEFAULT_MAX
+
 
 class JudgeResult(BaseModel):
     model_config = ConfigDict(strict=True)
@@ -23,7 +25,7 @@ class Judge(Protocol):
         expected_time_s: int | None,
         response_time_ms: int,
         language: str,
-        max_level: int = 4,
+        max_level: int = DEFAULT_MAX,
         labels: dict[int, str] | None = None,
     ) -> JudgeResult: ...
 

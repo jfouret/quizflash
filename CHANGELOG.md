@@ -4,6 +4,16 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.2] - 2026-10-31
+
+### Changed
+
+- New decks start on a shipped notation: level `0` to `5`, labelled
+  `0=False or absent, 1=Bad, 2=Average, 3=Better than average, 4=Good, 5=Perfect`.
+  The maximum and the labels stay editable per deck, and existing decks keep the
+  scale they were created with. The new-deck dialog says so, the study rating list
+  shows the labels, and the judge's fallback scale follows the same default.
+
 ## [0.7.1] - 2026-10-31
 
 ### Fixed

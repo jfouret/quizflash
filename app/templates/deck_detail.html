@@ -60,8 +60,8 @@
     <label for="deck-grading-max">Rating scale maximum</label>
     <input id="deck-grading-max" name="grading_max" type="number" min="1" max="100" value="{{ grading_max }}" aria-describedby="grading-hint">
     <label for="deck-grading-labels">Level labels (optional)</label>
-    <input id="deck-grading-labels" name="grading_labels" value="{{ grading_labels }}" placeholder="3=Bad, 5=Average, 7=Good, 10=Perfect">
-    <small id="grading-hint" class="hint">Answers are graded from 0 to the maximum, using the time taken. A deck that already has answers cannot change its scale: copy the deck first.</small>
+    <input id="deck-grading-labels" name="grading_labels" value="{{ grading_labels }}" placeholder="2=Average, 3=Better than average, 5=Perfect">
+    <small id="grading-hint" class="hint">Answers are graded from 0 to the maximum, using the time taken. Leave empty for unlabelled levels. A deck that already has answers cannot change its scale: copy the deck first.</small>
     <button type="submit">Save deck</button>
   </form>
 </details>

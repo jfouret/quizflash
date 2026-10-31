@@ -118,7 +118,7 @@ def update_deck_form(
     description: Annotated[str, Form()] = "",
     context: Annotated[str, Form()] = "",
     visibility: Annotated[VisibilityForm | None, Form()] = None,
-    grading_max: Annotated[int, Form()] = 4,
+    grading_max: Annotated[int, Form()] = grading.DEFAULT_MAX,
     grading_labels: Annotated[str, Form()] = "",
 ) -> RedirectResponse:
     data = DeckUpdate(
