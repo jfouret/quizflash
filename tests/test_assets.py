@@ -59,6 +59,15 @@ def test_pages_need_no_inline_script_or_style(client: TestClient) -> None:
         assert "file://" not in page, f"{path} links to a file:// URL"
 
 
+def test_study_result_shows_the_answer_box(client: TestClient) -> None:
+    """The review panel shows the answer that was judged, coloured by the judgement."""
+    page = client.get("/study").text
+
+    assert 'id="your-answer-wrap"' in page
+    assert 'id="your-answer"' in page
+    assert ".answer-box.wrong" in client.get("/static/style.css").text
+
+
 def test_htmx_does_not_inject_indicator_styles(client: TestClient) -> None:
     page = client.get("/").text
 

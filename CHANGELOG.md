@@ -4,6 +4,16 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-10-31
+
+### Added
+
+- The study result panel shows **Your answer** in a box above the expected answer,
+  green when the judgement says the answer was correct and red when it says it was
+  wrong (neutral while no judgement exists yet, for example after a judge failure
+  awaiting a manual rating). The box is filled from the answer that was judged, so
+  it also shows a transcribed voice answer.
+
 ## [0.7.6] - 2026-10-31
 
 ### Fixed
