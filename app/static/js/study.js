@@ -91,6 +91,74 @@
     return data;
   }
 
+  function escapeHtml(text) {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function renderInline(text) {
+    var out = escapeHtml(text);
+    out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
+    out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    out = out.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
+    out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    return out;
+  }
+
+  // Minimal, escaping-first Markdown subset: headings, lists, code, bold, italic, links.
+  function renderMarkdown(source) {
+    if (!source) return '';
+    var lines = String(source).replace(/\r\n/g, '\n').split('\n');
+    var html = [];
+    var list = null;
+    var inCode = false;
+    var code = [];
+
+    function closeList() {
+      if (list) { html.push('</' + list + '>'); list = null; }
+    }
+
+    lines.forEach(function (line) {
+      if (/^\s*```/.test(line)) {
+        if (inCode) {
+          html.push('<pre><code>' + escapeHtml(code.join('\n')) + '</code></pre>');
+          code = [];
+          inCode = false;
+        } else {
+          closeList();
+          inCode = true;
+        }
+        return;
+      }
+      if (inCode) { code.push(line); return; }
+
+      var heading = line.match(/^(#{1,6})\s+(.*)$/);
+      if (heading) {
+        closeList();
+        var level = heading[1].length;
+        html.push('<h' + level + '>' + renderInline(heading[2]) + '</h' + level + '>');
+        return;
+      }
+      var ul = line.match(/^\s*[-*+]\s+(.*)$/);
+      if (ul) {
+        if (list !== 'ul') { closeList(); html.push('<ul>'); list = 'ul'; }
+        html.push('<li>' + renderInline(ul[1]) + '</li>');
+        return;
+      }
+      var ol = line.match(/^\s*\d+[.)]\s+(.*)$/);
+      if (ol) {
+        if (list !== 'ol') { closeList(); html.push('<ol>'); list = 'ol'; }
+        html.push('<li>' + renderInline(ol[1]) + '</li>');
+        return;
+      }
+      if (!line.trim()) { closeList(); return; }
+      closeList();
+      html.push('<p>' + renderInline(line) + '</p>');
+    });
+    if (inCode) html.push('<pre><code>' + escapeHtml(code.join('\n')) + '</code></pre>');
+    closeList();
+    return html.join('');
+  }
+
   function setTextMode() {
     inputMethod = 'text';
     sttDuration = null;
@@ -250,7 +318,7 @@
   }
 
   function showFeedback(result) {
-    feedbackEl.textContent = result.feedback;
+    feedbackEl.innerHTML = result.feedback ? renderMarkdown(result.feedback) : '';
     feedbackEl.hidden = !result.feedback;
   }
 
@@ -265,7 +333,7 @@
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({card_id: current.card.id})
       });
-      teacherExplanationEl.textContent = result.explanation;
+      teacherExplanationEl.innerHTML = renderMarkdown(result.explanation);
       teacherInfoEl.textContent = 'Teacher: ' + result.model;
       setStatus('Teacher explanation ready.');
     } catch (error) {
@@ -283,6 +351,63 @@
     if (teacherEnabled) void fetchExplanation();
   }
 
+  function stopSpoken() {
+    if (spokenAudio) {
+      spokenAudio.pause();
+      spokenAudio = null;
+    }
+  }
+
+  function appendBuffer(buffer, data) {
+    return new Promise(function (resolve, reject) {
+      function onEnd() { buffer.removeEventListener('error', onError); resolve(); }
+      function onError() { buffer.removeEventListener('updateend', onEnd); reject(new Error('audio buffer error')); }
+      buffer.addEventListener('updateend', onEnd, {once: true});
+      buffer.addEventListener('error', onError, {once: true});
+      try { buffer.appendBuffer(data); } catch (error) { onError(); }
+    });
+  }
+
+  async function playBlob(response) {
+    var blob = await response.blob();
+    if (spokenAudio) spokenAudio.pause();
+    spokenAudio = new Audio(URL.createObjectURL(blob));
+    await spokenAudio.play();
+  }
+
+  // Start playback before the whole clip is generated, when the browser can stream it.
+  async function playResponse(response) {
+    var type = (response.headers.get('Content-Type') || 'audio/mpeg').split(';')[0].trim();
+    if (spokenAudio) spokenAudio.pause();
+    spokenAudio = null;
+    if (!window.MediaSource || !window.MediaSource.isTypeSupported(type) || !response.body) {
+      await playBlob(response);
+      return;
+    }
+    var source = new MediaSource();
+    var audio = new Audio(URL.createObjectURL(source));
+    spokenAudio = audio;
+    await new Promise(function (resolve) { source.addEventListener('sourceopen', resolve, {once: true}); });
+    var buffer;
+    try {
+      buffer = source.addSourceBuffer(type);
+    } catch (error) {
+      stopSpoken();
+      await playBlob(response);
+      return;
+    }
+    var reader = response.body.getReader();
+    var started = false;
+    while (true) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+      await appendBuffer(buffer, chunk.value);
+      if (!started) { started = true; void audio.play().catch(function () {}); }
+    }
+    try { source.endOfStream(); } catch (error) { /* source already closed */ }
+    if (!started) await audio.play();
+  }
+
   async function speak(endpoint, button) {
     if (!current || !ttsEnabled) return;
     button.disabled = true;
@@ -298,10 +423,7 @@
         var data = await response.json();
         throw new Error(typeof data.detail === 'string' ? data.detail : 'Speech synthesis failed');
       }
-      var blob = await response.blob();
-      if (spokenAudio) spokenAudio.pause();
-      spokenAudio = new Audio(URL.createObjectURL(blob));
-      await spokenAudio.play();
+      await playResponse(response);
       setStatus('Playing.');
     } catch (error) {
       setStatus(error.message, true);

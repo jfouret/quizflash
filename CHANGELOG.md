@@ -4,6 +4,20 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-10-31
+
+### Changed
+
+- Teacher default prompt now asks for a short Markdown answer (at most two
+  sentences), so a review round stays fast. Study explanations render Markdown.
+- TTS audio streams from OpenRouter to the browser and playback starts before the
+  clip is fully generated, with a buffered fallback when the browser cannot stream
+  MP3.
+- The Verbalizer prompts are optional: its pass only runs when a user enables a
+  vocal-ready setting, and empty prompts no longer block saving.
+- The Agents page uses monospace prompt fields that keep line breaks, and adds a
+  **Restore default prompts** button for the current step.
+
 ## [0.4.0] - 2026-10-31
 
 ### Added
