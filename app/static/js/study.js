@@ -1264,21 +1264,7 @@
     }
   }
 
-  function onKeydown(event) {
-    if (event.key === 'Enter' && recorder && recorder.state === 'recording') {
-      event.preventDefault();
-      toggleRecording();
-      return;
-    }
-    var tag = event.target && event.target.tagName;
-    var typing =
-      event.target === answerInput || tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA';
-    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && event.target === answerInput) {
-      event.preventDefault();
-      void submitCurrent();
-      return;
-    }
-    if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+  function shortcutAction(event) {
     if (event.key === 'Enter') {
       event.preventDefault();
       primaryAction();
@@ -1289,6 +1275,24 @@
       if (inReviewPhase()) advanceReview();
       else void nextCard();
     }
+  }
+
+  function onKeydown(event) {
+    if (event.key === 'Enter' && recorder && recorder.state === 'recording') {
+      event.preventDefault();
+      toggleRecording();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && event.target === answerInput) {
+      event.preventDefault();
+      void submitCurrent();
+      return;
+    }
+    var tag = event.target && event.target.tagName;
+    var typing =
+      event.target === answerInput || tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA';
+    if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+    shortcutAction(event);
   }
 
   deckOptionsEl.addEventListener('change', function () { void onFilterChange(); });

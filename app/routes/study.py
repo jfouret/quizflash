@@ -268,6 +268,40 @@ def _record_answer(
     )
 
 
+def _record_self_fallback(
+    request: Request, payload: AnswerRequest, session: SessionDep, user: CurrentUser
+) -> AnswerResponse:
+    """Save a manual rating after a judge failure, guarded by a one-use token."""
+    tokens: dict[str, tuple[int, int, float]] = request.app.state.fallback_tokens
+    token = payload.fallback_token or ""
+    token_user_id, token_card_id, expires = tokens.get(token, (0, 0, 0.0))
+    if token_user_id != user.id or token_card_id != payload.card_id or expires < time.monotonic():
+        raise HTTPException(
+            status_code=400,
+            detail="Self fallback requires a recent AI judge failure",
+        )
+    if payload.rating is None or payload.is_correct is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Fallback requires both rating and is_correct",
+        )
+    feedback = "AI judge failed; manual self-assessment fallback used."
+    if payload.judge_feedback:
+        feedback += f" {payload.judge_feedback}"
+    response = _record_answer(
+        session,
+        user,
+        payload,
+        mode="self_fallback",
+        rating=payload.rating,
+        is_correct=payload.is_correct,
+        feedback=feedback,
+        judge_model=payload.judge_model,
+    )
+    tokens.pop(token, None)
+    return response
+
+
 @router.post("/answer", response_model=AnswerResponse)
 def answer(
     request: Request,
@@ -288,38 +322,7 @@ def answer(
         )
 
     if payload.self_fallback:
-        tokens: dict[str, tuple[int, int, float]] = request.app.state.fallback_tokens
-        token = payload.fallback_token or ""
-        token_user_id, token_card_id, expires = tokens.get(token, (0, 0, 0.0))
-        if (
-            token_user_id != user.id
-            or token_card_id != payload.card_id
-            or expires < time.monotonic()
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail="Self fallback requires a recent AI judge failure",
-            )
-        if payload.rating is None or payload.is_correct is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Fallback requires both rating and is_correct",
-            )
-        feedback = "AI judge failed; manual self-assessment fallback used."
-        if payload.judge_feedback:
-            feedback += f" {payload.judge_feedback}"
-        response = _record_answer(
-            session,
-            user,
-            payload,
-            mode="self_fallback",
-            rating=payload.rating,
-            is_correct=payload.is_correct,
-            feedback=feedback,
-            judge_model=payload.judge_model,
-        )
-        tokens.pop(token, None)
-        return response
+        return _record_self_fallback(request, payload, session, user)
 
     if payload.confirmed:
         if payload.rating is None or payload.is_correct is None:
