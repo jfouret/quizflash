@@ -347,6 +347,19 @@ def list_tags(session: Session, user: User) -> list[Tag]:
     return list(session.exec(statement).all())
 
 
+def list_study_tags(session: Session, user: User) -> list[str]:
+    """Distinct tag names on cards the user can train on, for the study filter."""
+    statement = (
+        select(Tag.name)
+        .join(CardTag, col(CardTag.tag_id) == col(Tag.id))
+        .join(Card, col(Card.id) == col(CardTag.card_id))
+        .where(col(Card.deck_id).in_(trainable_deck_ids(uid(user))))
+        .distinct()
+        .order_by(col(Tag.name))
+    )
+    return list(session.exec(statement).all())
+
+
 def delete_tag(session: Session, user: User, tag_id: int) -> None:
     tag = session.get(Tag, tag_id)
     if tag is None or tag.owner_id != uid(user):
@@ -455,6 +468,8 @@ def update_settings(session: Session, user: User, data: SettingsUpdate) -> Setti
         "tts_enabled",
         "question_vocal",
         "teacher_vocal",
+        "batch_enabled",
+        "batch_size",
         "daily_new_limit",
         "daily_review_limit",
     )
@@ -518,7 +533,11 @@ def _daily_usage(session: Session, user_id: int, now: datetime) -> tuple[int, in
 
 
 def get_due(
-    session: Session, user: User, deck_id: int | None = None, now: datetime | None = None
+    session: Session,
+    user: User,
+    deck_id: int | None = None,
+    tags: list[str] | None = None,
+    now: datetime | None = None,
 ) -> list[tuple[Card, CardState]]:
     user_id = uid(user)
     _ensure_states(session, user_id)
@@ -534,6 +553,13 @@ def get_due(
     if deck_id is not None:
         _trainable_deck(session, user, deck_id)
         statement = statement.where(Card.deck_id == deck_id)
+    if tags:
+        tagged = (
+            select(CardTag.card_id)
+            .join(Tag, col(Tag.id) == col(CardTag.tag_id))
+            .where(col(Tag.name).in_(tags))
+        )
+        statement = statement.where(col(Card.id).in_(tagged))
     rows = list(session.exec(statement).all())
     settings = get_settings(session, user)
     new_used, review_used = _daily_usage(session, user_id, current)

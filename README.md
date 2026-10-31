@@ -19,6 +19,7 @@ Self-hosted, multi-user spaced-repetition quiz application. Each user owns their
 - Per-user settings; per-user permanent MCP tokens managed from `/settings`.
 - Decks, cards, and first-class tags with full CRUD.
 - Continuous review queue (`due <= now`), ordered by due date, with optional daily new/review limits.
+- Batch study mode (on by default, batch size 5): answer a batch of cards back to back, then review their explanations. Judging, the teacher and speech are prefetched in the background, so the next card appears as soon as the answer is submitted and the batch advances when the explanation audio ends. Sessions start on a **Start** button, so a deck and tags can be chosen first; each card shows its tags.
 - Evaluation modes:
   - `ai_preselect`: the AI proposes a rating and feedback; the user confirms or overrides.
   - `ai_assess`: the AI decides and the review is saved immediately.
@@ -139,7 +140,7 @@ Then open:
 - `/explore` — public decks to follow or copy
 - `/admin` — administration (admins only)
 - `/study` — continuous study queue
-- `/settings` — evaluation mode, voice auto-judging, languages, and daily limits
+- `/settings` — evaluation mode, batch size, voice auto-judging, languages, and daily limits
 - `/docs` — generated OpenAPI documentation
 
 ## Tests and quality checks

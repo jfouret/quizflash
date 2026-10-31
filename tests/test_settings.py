@@ -12,6 +12,8 @@ def test_settings_defaults_and_update(client: TestClient) -> None:
     assert defaults["tts_enabled"] is False
     assert defaults["question_vocal"] is False
     assert defaults["teacher_vocal"] is False
+    assert defaults["batch_enabled"] is True
+    assert defaults["batch_size"] == 5
     assert defaults["daily_new_limit"] == 0
     assert defaults["daily_review_limit"] == 0
 
@@ -27,6 +29,8 @@ def test_settings_defaults_and_update(client: TestClient) -> None:
                 "tts_enabled": True,
                 "question_vocal": True,
                 "teacher_vocal": True,
+                "batch_enabled": False,
+                "batch_size": 8,
                 "daily_new_limit": 5,
                 "daily_review_limit": 20,
             },
@@ -40,6 +44,8 @@ def test_settings_defaults_and_update(client: TestClient) -> None:
     assert updated["tts_enabled"] is True
     assert updated["question_vocal"] is True
     assert updated["teacher_vocal"] is True
+    assert updated["batch_enabled"] is False
+    assert updated["batch_size"] == 8
     assert updated["daily_new_limit"] == 5
     assert updated["daily_review_limit"] == 20
 
@@ -65,6 +71,8 @@ def test_settings_form_updates_voice_auto_judge(client: TestClient) -> None:
             "tts_enabled": "true",
             "question_vocal": "true",
             "teacher_vocal": "true",
+            "batch_enabled": "true",
+            "batch_size": "7",
             "daily_new_limit": "0",
             "daily_review_limit": "0",
         },
@@ -78,3 +86,5 @@ def test_settings_form_updates_voice_auto_judge(client: TestClient) -> None:
     assert settings["tts_enabled"] is True
     assert settings["question_vocal"] is True
     assert settings["teacher_vocal"] is True
+    assert settings["batch_enabled"] is True
+    assert settings["batch_size"] == 7

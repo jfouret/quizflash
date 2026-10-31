@@ -72,6 +72,18 @@
   </fieldset>
 
   <fieldset class="panel">
+    <legend>Study flow</legend>
+    <label>
+      <input name="batch_enabled" type="checkbox" role="switch" value="true" {% if settings.batch_enabled %}checked{% endif %}>
+      Answer by batch
+      <small class="hint">Answer several cards in a row, then review their explanations together. Judging, the teacher and speech run in the background, so the next card appears immediately.</small>
+    </label>
+    <label for="batch-size">Batch size</label>
+    <input id="batch-size" name="batch_size" type="number" min="1" max="50" value="{{ settings.batch_size }}" required>
+    <small class="hint">Number of cards per batch. Default 5.</small>
+  </fieldset>
+
+  <fieldset class="panel">
     <legend>Daily limits</legend>
     <div class="grid-2">
       <div>

@@ -236,6 +236,19 @@ kbd { font-size: .75rem; padding: .1rem .35rem; }
 .study-toolbar { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-bottom: 1.25rem; }
 .study-toolbar select { width: auto; min-width: 14rem; margin: 0; }
 .due-pill { padding: .35rem .8rem; border-radius: 999px; background: var(--accent-soft); color: var(--pico-primary); font-weight: 600; font-size: .9rem; }
+.batch-progress { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; margin: 0 0 1rem; }
+.card-tags { display: flex; flex-wrap: wrap; gap: .3rem; margin: .25rem 0 .75rem; }
+.tag-checks { display: flex; flex-wrap: wrap; gap: .5rem 1.1rem; }
+.tag-check { display: inline-flex; align-items: center; gap: .35rem; margin: 0; font-weight: 500; }
+.tag-check input { margin: 0; }
+.batch-progress .batch-label { font-size: .85rem; font-weight: 600; color: var(--pico-muted-color); }
+.batch-progress .dot { width: .6rem; height: .6rem; border-radius: 999px; background: var(--pico-muted-border-color); transition: transform .2s ease, background .2s ease; }
+.batch-progress .dot.done { background: var(--pico-primary); opacity: .5; }
+.batch-progress .dot.current { background: var(--pico-primary); transform: scale(1.4); }
+.batch-out { opacity: 0; transition: opacity .17s ease; }
+.batch-in { animation: batchIn .32s ease; }
+@keyframes batchIn { from { opacity: 0; transform: translateX(2rem); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .batch-out { transition: none; } .batch-in { animation: none; } }
 .flip { display: grid; perspective: 1400px; max-width: 760px; margin: 0 auto; }
 .flip > section { grid-area: 1 / 1; backface-visibility: hidden; transition: transform .55s cubic-bezier(.4, .1, .2, 1); }
 #result { transform: rotateY(180deg); }
