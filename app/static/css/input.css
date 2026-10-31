@@ -232,7 +232,12 @@
   .danger.outlined:hover { background: var(--color-danger-soft); }
   button.link { min-height: 0; padding: 0; color: var(--color-accent); background: none; border: 0; font-weight: 500; text-decoration: underline; }
   .sm { min-height: 2rem; padding: 0.3rem 0.7rem; font-size: 0.85rem; }
-  .icon-btn { min-width: 2.5rem; min-height: 2.5rem; padding: 0; border-radius: var(--radius-md); }
+  /* Anchors are inline by default, so min-width/height would be ignored: an icon
+   * link would shrink to its glyph and sit off-centre. */
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 2.5rem; min-height: 2.5rem; padding: 0; border-radius: var(--radius-md);
+  }
   .icon-btn .icon { margin: 0; }
   .icon { width: 1.1em; height: 1.1em; flex: none; vertical-align: -0.15em; }
 

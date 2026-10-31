@@ -4,6 +4,19 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.1] - 2026-10-31
+
+### Fixed
+
+- Icon-only links in the sidebar (admin, agents, settings) rendered as inline
+  anchors, so their size was ignored: the glyphs sat off-centre, unevenly spaced,
+  and under the 24 px minimum target size. An `.icon-btn` is a flex box now, like
+  the icon buttons beside it.
+- The theme button gave no clue which of its three states was in force: it kept one
+  icon and only changed its tooltip. The icon now shows the state (sun, moon, or
+  half sun/moon for "follow the system") and the label names the current state and
+  what a click does next.
+
 ## [0.7.0] - 2026-10-31
 
 ### Added

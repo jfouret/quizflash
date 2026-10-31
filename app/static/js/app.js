@@ -1,10 +1,17 @@
 // Shared UI behaviour: theme toggle, dialogs, copy buttons, confirm prompts.
 (function () {
   var order = ['auto', 'light', 'dark'];
-  var labels = {auto: 'Theme: system', light: 'Theme: light', dark: 'Theme: dark'};
+  var names = {auto: 'system', light: 'light', dark: 'dark'};
+  // The icon shows the state in force: sun and moon for a forced theme, the
+  // half sun/moon for "follow the system".
+  var icons = {auto: 'theme', light: 'sun', dark: 'moon'};
 
   function current() {
     return localStorage.getItem('quizdeck-theme') || 'auto';
+  }
+
+  function nextState(theme) {
+    return order[(order.indexOf(theme) + 1) % order.length];
   }
 
   function apply() {
@@ -14,13 +21,18 @@
     // The button is re-rendered on every hx-boost navigation, so look it up now.
     var button = document.getElementById('theme-toggle');
     if (!button) return;
-    button.title = labels[theme];
-    button.setAttribute('aria-label', labels[theme] + ' (click to change)');
+    var icon = button.querySelector('use');
+    if (icon) {
+      // Keep whatever path the template used (it carries the asset version).
+      icon.setAttribute('href', (icon.getAttribute('href') || '').split('#')[0] + '#' + icons[theme]);
+    }
+    var label = 'Colour theme: ' + names[theme] + '. Click for ' + names[nextState(theme)] + '.';
+    button.title = label;
+    button.setAttribute('aria-label', label);
   }
 
   function cycle() {
-    var next = order[(order.indexOf(current()) + 1) % order.length];
-    localStorage.setItem('quizdeck-theme', next);
+    localStorage.setItem('quizdeck-theme', nextState(current()));
     apply();
   }
 
