@@ -160,7 +160,7 @@ Changing a deck's scheduler resets that card's scheduler state on its next revie
 ## Deployment notes
 
 - Serve over HTTPS. Behind a TLS-terminating reverse proxy, keep the original `Host` header and run uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy ip>` so OIDC redirect URIs use `https`.
-- Every response carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `Permissions-Policy`, `Strict-Transport-Security` (when `COOKIE_SECURE=1`) and a strict `Content-Security-Policy` (`script-src 'self'`; no inline script or style). The generated docs at `/docs` and `/redoc` get a relaxed policy because Swagger UI loads from a CDN.
+- Every response carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `Permissions-Policy`, `Strict-Transport-Security` (when `COOKIE_SECURE=1`) and a strict `Content-Security-Policy` (`script-src 'self'`, `style-src 'self'`; no inline script, style or event handler). htmx's indicator styles are disabled through the `htmx-config` meta tag and live in `style.css`, so htmx injects nothing. The generated docs at `/docs` and `/redoc` get a relaxed policy because Swagger UI loads from a CDN.
 - `GET /healthz` is public and returns `{"status": "ok", "version": "x.y.z"}`; the image uses it for its `HEALTHCHECK`. It is the only unauthenticated application route besides login, signup, the OIDC endpoints and the API docs.
 - The container runs as uid 1000 and can run with a read-only root filesystem:
 

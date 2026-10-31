@@ -25,6 +25,27 @@ def test_nav_uses_the_icon_sprite(client: TestClient) -> None:
     assert 'rel="manifest"' in page
 
 
+def test_pages_need_no_inline_script_or_style(client: TestClient) -> None:
+    """The strict CSP (script-src/style-src 'self') forbids anything inline."""
+    for path in ("/", "/study", "/history", "/stats", "/settings"):
+        page = client.get(path).text
+        inline_scripts = re.findall(r"<script(?![^>]*\bsrc=)[^>]*>", page, re.I)
+        assert inline_scripts == [], f"{path} has an inline script: {inline_scripts}"
+        assert "<style" not in page.lower(), f"{path} has an inline style element"
+        handlers = re.findall(
+            r"\son(?:click|change|submit|input|load|error|focus|blur|keyup|keydown)=", page, re.I
+        )
+        assert handlers == [], f"{path} has an inline event handler"
+        assert "file://" not in page, f"{path} links to a file:// URL"
+
+
+def test_htmx_does_not_inject_indicator_styles(client: TestClient) -> None:
+    page = client.get("/").text
+
+    assert 'name="htmx-config"' in page
+    assert '"includeIndicatorStyles": false' in page
+
+
 def test_stats_config_is_valid_json(client: TestClient) -> None:
     """The chart reads its data from a data attribute: it must survive escaping."""
     deck = client.post("/api/decks", json={"name": "D", "grading_scale": {"max": 10}}).json()
