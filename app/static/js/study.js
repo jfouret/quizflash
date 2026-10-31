@@ -53,6 +53,18 @@
   var batchSize = Number(config.batchSize) || 5;
   var batchProgressEl = document.getElementById('batch-progress');
 
+  // Focusing the answer field on a touch device raises the on-screen keyboard, which
+  // then hides the card at every new question. Autofocus only where a mouse or
+  // trackpad exists: a phone or tablet has no fine pointer at all, while a
+  // touch-screen laptop still counts as a keyboard device.
+  var touchOnly =
+    window.matchMedia('(any-pointer: coarse)').matches &&
+    !window.matchMedia('(any-pointer: fine)').matches;
+
+  function focusAnswer() {
+    if (!touchOnly) answerInput.focus();
+  }
+
   var current = null;
   var startedAt = 0;
   var currentLogId = null;
@@ -386,6 +398,7 @@
 
   function resetPanels() {
     cancelRecording();
+    answerInput.blur();
     current = null;
     setFlipped(false);
     studyEl.hidden = true;
@@ -443,7 +456,7 @@
       renderActiveTags();
       studyEl.hidden = false;
       startedAt = Date.now();
-      answerInput.focus();
+      focusAnswer();
       setStatus('Timer started.');
       maybeAutoRecord();
     } catch (error) {
@@ -739,6 +752,7 @@
 
   function prepareAnswerCard() {
     cancelRecording();
+    answerInput.blur();
     stopSpoken();
     setFlipped(false);
     resultEl.hidden = true;
@@ -807,7 +821,7 @@
     setStatus('Card ' + (index + 1) + ' of ' + batch.records.length + '. Record or type your answer.');
     studyEl.classList.add('batch-in');
     setTimeout(function () { studyEl.classList.remove('batch-in'); }, 320);
-    answerInput.focus();
+    focusAnswer();
     maybeAutoRecord();
   }
 
@@ -1135,6 +1149,9 @@
   }
 
   async function submitCurrent() {
+    // Drop focus with the answer: the keyboard must not cover the result on a phone,
+    // and the result shortcuts (Enter, digits) ignore keys typed into a field.
+    answerInput.blur();
     if (batchEnabled && batch && batch.phase === 'answer') {
       await submitBatch();
       return;
@@ -1159,7 +1176,7 @@
         await submitCurrent();
       } else {
         setStatus('Transcript ready. Edit it if needed, then submit.');
-        answerInput.focus();
+        focusAnswer();
       }
     } catch (error) {
       setTextMode();
