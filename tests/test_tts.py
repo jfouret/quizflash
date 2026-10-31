@@ -59,6 +59,30 @@ def test_speak_accepts_a_base_that_already_ends_in_api_v1() -> None:
     assert str(requests[0].url) == "https://openrouter.ai/api/v1/audio/speech"
 
 
+def test_speak_stream_yields_audio_chunks() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"MP3DATA", headers={"Content-Type": "audio/mpeg"})
+
+    chunks = list(_make_tts(httpx.MockTransport(handler)).speak_stream("Bonjour", "fr"))
+
+    assert b"".join(chunks) == b"MP3DATA"
+
+
+def test_speak_stream_validates_before_any_http_call() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, content=b"x")
+
+    tts = OpenRouterTTS(base_url="", model="", transport=httpx.MockTransport(handler))
+    with pytest.raises(TTSError, match="must be configured"):
+        tts.speak_stream("hello", "auto")
+
+    assert calls == 0
+
+
 def test_speak_requires_model_and_base_url() -> None:
     transport = httpx.MockTransport(lambda r: httpx.Response(200))
     tts = OpenRouterTTS(base_url="", model="", transport=transport)

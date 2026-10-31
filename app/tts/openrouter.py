@@ -1,4 +1,5 @@
 import os
+from collections.abc import Iterator
 
 import httpx
 
@@ -54,6 +55,11 @@ class OpenRouterTTS:
         )
 
     def speak(self, text: str, language: str) -> TTSResult:
+        audio = b"".join(self.speak_stream(text, language))
+        return TTSResult(audio=audio, content_type="audio/mpeg")
+
+    def speak_stream(self, text: str, language: str) -> Iterator[bytes]:
+        """Yield audio chunks as OpenRouter produces them, for early playback."""
         if not self.base_url or not self.model:
             raise TTSError("TTS_BASE_URL and TTS_MODEL must be configured")
         if not self.api_key:
@@ -63,13 +69,6 @@ class OpenRouterTTS:
             )
         if not text.strip():
             raise TTSError("Nothing to speak")
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        endpoint = self.base_url
-        if not endpoint.endswith("/audio/speech"):
-            if endpoint.endswith(("/api/v1", "/v1")):
-                endpoint += "/audio/speech"
-            else:
-                endpoint += "/api/v1/audio/speech"
         # The speech endpoint takes no language parameter; the vocal pass already
         # rewrites the text in the target language, so `language` is unused here.
         payload: dict[str, object] = {
@@ -78,16 +77,29 @@ class OpenRouterTTS:
             "input": text,
             "response_format": "mp3",
         }
+        return self._stream(self._endpoint(), payload)
 
+    def _endpoint(self) -> str:
+        endpoint = self.base_url
+        if not endpoint.endswith("/audio/speech"):
+            if endpoint.endswith(("/api/v1", "/v1")):
+                endpoint += "/audio/speech"
+            else:
+                endpoint += "/api/v1/audio/speech"
+        return endpoint
+
+    def _stream(self, endpoint: str, payload: dict[str, object]) -> Iterator[bytes]:
+        headers = {"Authorization": f"Bearer {self.api_key}"}
         with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
             try:
-                response = client.post(endpoint, headers=headers, json=payload)
-                response.raise_for_status()
+                with client.stream("POST", endpoint, headers=headers, json=payload) as response:
+                    response.raise_for_status()
+                    yielded = False
+                    for chunk in response.iter_bytes():
+                        if chunk:
+                            yielded = True
+                            yield chunk
+                    if not yielded:
+                        raise TTSError("TTS returned an empty response")
             except httpx.HTTPError as exc:
                 raise TTSError(f"TTS request failed: {exc}") from exc
-        if not response.content:
-            raise TTSError("TTS returned an empty response")
-        return TTSResult(
-            audio=response.content,
-            content_type=response.headers.get("Content-Type", "audio/mpeg").split(";")[0].strip(),
-        )

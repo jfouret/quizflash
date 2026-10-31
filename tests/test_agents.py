@@ -16,8 +16,9 @@ def test_agent_defaults_are_seeded(admin_client: TestClient, app: FastAPI) -> No
         configs = {config.step: config for config in crud.list_agent_configs(session)}
 
     assert set(configs) == {"judge", "teacher", "tts", "verbalizer", "stt"}
-    assert "person who answered it" in configs["teacher"].system_prompt
+    assert "person who just attempted this flash card" in configs["teacher"].system_prompt
     assert "may or may not be the card's author" in configs["teacher"].system_prompt
+    assert "at most two short sentences" in configs["teacher"].system_prompt
     assert "Respect the requested language" in configs["teacher"].system_prompt
     assert "do not over-translate them" in configs["teacher"].system_prompt
     assert "{{ card.question }}" in configs["teacher"].prompt_template
@@ -33,6 +34,45 @@ def test_agent_page_lists_every_step_and_no_secret_field(admin_client: TestClien
         assert label in response.text
     assert "OPENROUTER_API_KEY" in response.text
     assert 'type="password"' not in response.text
+    assert "data-restore-defaults" in response.text
+    assert "Restore default prompts" in response.text
+
+
+def test_agent_page_keeps_line_breaks_in_prompt_fields(admin_client: TestClient) -> None:
+    for step in ("judge", "teacher", "verbalizer"):
+        response = admin_client.get(f"/admin/agents?step={step}")
+
+        assert response.status_code == 200
+        assert "<textarea" in response.text
+        assert 'name="system_prompt"' in response.text
+        assert 'name="prompt_template"' in response.text
+        assert "data-default-prompt" in response.text
+
+    teacher_page = admin_client.get("/admin/agents?step=teacher")
+    assert "at most two short sentences" in teacher_page.text
+
+
+def test_verbalizer_prompt_is_optional(
+    admin_client: TestClient, app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    response = admin_client.post(
+        "/admin/agents/verbalizer",
+        data={
+            "model": "",
+            "base_url": "",
+            "api_key_env": "OPENROUTER_API_KEY",
+            "voice": "",
+            "system_prompt": "",
+            "prompt_template": "",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    with Session(app.state.engine) as session:
+        config = crud.get_agent_config(session, "verbalizer")
+    assert config.prompt_template == ""
 
 
 def test_agent_page_is_admin_only(client: TestClient) -> None:

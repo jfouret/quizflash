@@ -121,6 +121,10 @@ class FakeTTS:
             raise self.error
         return self.result
 
+    def speak_stream(self, text: str, language: str) -> Iterator[bytes]:
+        audio = self.speak(text, language).audio
+        return iter([audio])
+
 
 def response_dict(response: Response) -> dict[str, Any]:
     data = response.json()
