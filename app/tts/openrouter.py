@@ -12,6 +12,7 @@ from app.agents import (
 )
 from app.config import api_key_env, base_url_env
 from app.models import AgentConfig
+from app.retry import send_with_retries
 from app.tts.base import TTSError, TTSResult, TTSStream
 
 
@@ -97,7 +98,7 @@ class OpenRouterTTS:
         client = httpx.Client(timeout=self.timeout, transport=self.transport)
         try:
             request = client.build_request("POST", endpoint, headers=headers, json=payload)
-            response = client.send(request, stream=True)
+            response = send_with_retries(client, request, stream=True)
             response.raise_for_status()
             content_type = response.headers.get("content-type", "").split(";")[0].strip()
             if content_type and not content_type.startswith("audio/"):

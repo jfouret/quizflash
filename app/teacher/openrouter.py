@@ -15,6 +15,7 @@ from app.agents import (
 )
 from app.config import api_key_env, base_url_env
 from app.models import AgentConfig
+from app.retry import send_with_retries
 from app.teacher.base import TeacherError, TeacherResult
 
 
@@ -203,7 +204,8 @@ class OpenRouterTeacher:
             endpoint += "/api/v1/chat/completions"
         with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
             try:
-                response = client.post(
+                request = client.build_request(
+                    "POST",
                     endpoint,
                     headers=headers,
                     json={
@@ -214,6 +216,7 @@ class OpenRouterTeacher:
                         ],
                     },
                 )
+                response = send_with_retries(client, request)
                 response.raise_for_status()
             except httpx.HTTPError as exc:
                 raise TeacherError(f"Teacher request failed: {exc}") from exc

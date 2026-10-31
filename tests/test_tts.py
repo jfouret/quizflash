@@ -98,6 +98,22 @@ def test_speak_keeps_the_provider_content_type() -> None:
     assert result.content_type == "audio/ogg"
 
 
+def test_speak_stream_retries_a_rate_limited_provider() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(429, json={"error": "rate limited"})
+        return httpx.Response(200, content=b"MP3DATA", headers={"Content-Type": "audio/mpeg"})
+
+    stream = _make_tts(httpx.MockTransport(handler)).speak_stream("hello", "auto")
+
+    assert b"".join(stream.chunks) == b"MP3DATA"
+    assert calls == 2
+
+
 def test_speak_stream_validates_before_any_http_call() -> None:
     calls = 0
 

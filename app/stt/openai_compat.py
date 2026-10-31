@@ -7,6 +7,7 @@ import httpx
 from app.agents import agent_api_key, agent_base_url, agent_model, api_key_env_name
 from app.config import api_key_env, base_url_env
 from app.models import AgentConfig
+from app.retry import send_with_retries
 from app.stt.base import STTError, STTResult, measure_audio_duration
 
 
@@ -68,12 +69,14 @@ class OpenAICompatibleSTT:
         start = perf_counter()
         try:
             with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
-                response = client.post(
+                request = client.build_request(
+                    "POST",
                     endpoint,
                     headers=headers,
                     data=data,
                     files={"file": ("audio.webm", audio, "audio/webm")},
                 )
+                response = send_with_retries(client, request)
                 response.raise_for_status()
         except httpx.HTTPError as exc:
             raise STTError(f"STT request failed: {exc}") from exc

@@ -986,7 +986,31 @@
     showReviewCard(0);
   }
 
-  async function showReviewCard(index) {
+  function showPendingReview(record, index) {
+    currentLogId = null;
+    expectedAnswerEl.textContent = record.card.card.answer;
+    detailsEl.textContent = record.card.card.details;
+    detailsWrap.hidden = !record.card.card.details;
+    feedbackEl.innerHTML = '';
+    feedbackEl.hidden = true;
+    judgeInfoEl.textContent = 'Preparing…';
+    teacherWrap.hidden = !teacherEnabled;
+    teacherExplanationEl.textContent = teacherEnabled ? 'Preparing explanation…' : '';
+    teacherInfoEl.textContent = '';
+    ratingControls.hidden = true;
+    confirmButton.hidden = true;
+    nextButton.hidden = false;
+    nextButton.disabled = false;
+    nextButton.textContent = 'Next';
+    finalRatingEl.textContent = '';
+    resultEl.hidden = false;
+    setStatus(
+      'Card ' + (index + 1) + ' of ' + batch.records.length +
+      '. Still working in the background; Next moves on without waiting.'
+    );
+  }
+
+  function showReviewCard(index) {
     reviewIndex = index;
     var record = batch.records[index];
     if (!record) {
@@ -996,26 +1020,19 @@
     current = record.card;
     stopSpoken();
     updateBatchProgress();
-    setStatus('Reviewing card ' + (index + 1) + ' of ' + batch.records.length + '.');
     if (record.status === 'processing' || record.status === 'unseen') {
-      expectedAnswerEl.textContent = record.card.card.answer;
-      detailsEl.textContent = record.card.card.details;
-      detailsWrap.hidden = !record.card.card.details;
-      feedbackEl.innerHTML = '';
-      feedbackEl.hidden = true;
-      judgeInfoEl.textContent = 'Preparing…';
-      teacherWrap.hidden = !teacherEnabled;
-      teacherExplanationEl.textContent = 'Preparing explanation…';
-      teacherInfoEl.textContent = '';
-      ratingControls.hidden = true;
-      confirmButton.hidden = true;
-      nextButton.hidden = false;
-      nextButton.disabled = true;
-      nextButton.textContent = 'Next';
-      finalRatingEl.textContent = '';
-      resultEl.hidden = false;
-      await record.promise;
+      showPendingReview(record, index);
+      // Fill the card in when its background work lands, unless the user moved on.
+      if (record.promise) {
+        record.promise.then(function () {
+          if (batch.phase === 'review' && batch.records[reviewIndex] === record) {
+            renderReview(record);
+          }
+        });
+      }
+      return;
     }
+    setStatus('Reviewing card ' + (index + 1) + ' of ' + batch.records.length + '.');
     renderReview(record);
   }
 
