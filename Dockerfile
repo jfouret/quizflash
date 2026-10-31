@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
-FROM ghcr.io/astral-sh/uv:0.13.6 AS uv
-FROM python:3.15-slim AS base
+FROM ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
+FROM python:3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913 AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -18,7 +18,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=uv /uv /uvx /bin/
 # No lockfile in the repo: dependencies resolve at build time (see docs/release.md).
-COPY pyproject.toml ./
+COPY pyproject.toml LICENSE ./
 COPY app ./app
 
 # Test stage: the same interpreter, dependency set and ffmpeg as the runtime image.

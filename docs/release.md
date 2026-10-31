@@ -66,8 +66,17 @@ HIGH/CRITICAL vulnerability.
 ## Verifying an image
 
 ```bash
-gh attestation verify oci://ghcr.io/jfouret/quizflash:0.2.0 --repo jfouret/quizflash
-docker run --rm ghcr.io/jfouret/quizflash:0.2.0 cat /app/pyproject.toml | grep ^version
+gh attestation verify oci://ghcr.io/jfouret/quizflash:0.2.2 --repo jfouret/quizflash
+docker run --rm ghcr.io/jfouret/quizflash:0.2.2 cat /app/pyproject.toml | grep ^version
+```
+
+Each release also carries `quizflash.intoto.jsonl`, the same SLSA provenance
+bundle, so the image digest can be checked offline:
+
+```bash
+gh release download v0.2.2 -p quizflash.intoto.jsonl
+slsa-verifier verify-image ghcr.io/jfouret/quizflash:0.2.2 \
+  --provenance-path quizflash.intoto.jsonl --source-uri github.com/jfouret/quizflash
 ```
 
 ## Renovate policy

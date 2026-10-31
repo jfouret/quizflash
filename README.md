@@ -161,3 +161,12 @@ merged by Renovate and release a patch version each time. See
 - [`docs/operations.md`](docs/operations.md) — HTTP API, MCP endpoint, study flow, and deployment notes.
 - [`docs/release.md`](docs/release.md) — versioning, image tags, release and refresh flow, Renovate policy, required checks.
 - [`SECURITY.md`](SECURITY.md) — how to report a vulnerability and what is in place.
+
+## Licence
+
+QuizDeck is distributed under the [European Union Public Licence v. 1.2](LICENSE)
+(`EUPL-1.2`), the European Commission's own open-source licence. You may use, modify
+and redistribute it, including commercially; if you distribute a modified version,
+that version stays under the EUPL. Running it as a service creates no obligation to
+publish your changes. The licence text is available in 23 languages from
+[joinup.ec.europa.eu](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12).
