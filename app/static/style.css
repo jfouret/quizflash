@@ -278,3 +278,9 @@ fieldset[role=group] button { white-space: nowrap; }
   table.stack td:first-child::before { display: none; }
   table.stack td .actions { margin-top: .4rem; }
 }
+
+/* ---- Utility classes (kept in CSS so no inline style attribute is needed) ---- */
+.m-0 { margin: 0; }
+.mt-lg { margin-top: 1.25rem; }
+.w-full { width: 100%; }
+.danger-zone.mt-2 { margin-top: 2rem; }

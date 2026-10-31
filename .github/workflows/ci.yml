@@ -1,0 +1,206 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: Rebuild the current version with fresh dependencies (date tag only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  scan:
+    name: scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan repository (secrets, Dockerfile, workflow config)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret,misconfig
+          format: sarif
+          output: trivy-fs.sarif
+          exit-code: "0"
+
+      - name: Upload repository scan
+        if: always()
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      - name: Gate on high-severity repository findings
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret,misconfig
+          severity: HIGH,CRITICAL
+          format: table
+          exit-code: "1"
+
+  version:
+    name: version
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check version bump and changelog
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          ./scripts/check-version.sh origin/main
+
+  build:
+    name: build
+    needs: scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # tag and release
+      packages: write # push the image
+      id-token: write # build provenance attestation
+      attestations: write
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read version and decide what to publish
+        id: release
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)"
+          [ -n "$version" ] || { echo "::error::no version in pyproject.toml"; exit 1; }
+          date="$(date -u +%Y-%m-%d)"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null 2>&1; then
+            tagged=true
+          else
+            tagged=false
+          fi
+          publish=false
+          if [ "$tagged" = false ]; then
+            publish=true
+          elif [ "${{ inputs.refresh }}" = "true" ]; then
+            publish=true
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "date=$date" >> "$GITHUB_OUTPUT"
+          echo "tagged=$tagged" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "Version $version, tag exists: $tagged, publish: $publish"
+
+      - name: Run tests, lint and type checks
+        run: docker build --target test .
+
+      - name: Build runtime image
+        run: docker build --target runtime -t "$IMAGE:ci" .
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE }}:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-image.sarif
+          exit-code: "1"
+
+      - name: Upload image scan
+        if: always()
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+      - name: Smoke test container
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: ./scripts/smoke-test.sh "$IMAGE:ci" "$VERSION"
+
+      - name: Log in to GHCR
+        if: steps.release.outputs.publish == 'true'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image tags
+        id: push
+        if: steps.release.outputs.publish == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          DATE: ${{ steps.release.outputs.date }}
+          TAGGED: ${{ steps.release.outputs.tagged }}
+        run: |
+          # X.Y.Z-YYYY-MM-DD is the immutable build tag; X.Y.Z never moves once released.
+          tags=("$VERSION-$DATE" "${VERSION%.*}" "latest")
+          if [ "$TAGGED" = "false" ]; then
+            tags+=("$VERSION" "sha-${GITHUB_SHA::7}")
+          fi
+          for tag in "${tags[@]}"; do
+            docker tag "$IMAGE:ci" "$IMAGE:$tag"
+            docker push "$IMAGE:$tag"
+          done
+          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE:$VERSION-$DATE" | cut -d@ -f2)"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          printf 'Pushed: %s\n' "${tags[*]}"
+
+      - name: Attest build provenance
+        if: steps.release.outputs.publish == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Tag and publish the release
+        if: steps.release.outputs.publish == 'true' && steps.release.outputs.tagged == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "QuizDeck v$VERSION"
+          # Checkout keeps no credentials (persist-credentials: false): push with the token.
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "v$VERSION"
+          if [ -s release-notes.md ]; then
+            notes=(--notes-file release-notes.md)
+          else
+            # Dependency-only releases have no changelog entry: list the merged PRs.
+            notes=(--generate-notes)
+          fi
+          gh release create "v$VERSION" --title "v$VERSION" "${notes[@]}" --verify-tag

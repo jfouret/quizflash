@@ -24,9 +24,7 @@ def get_deck(deck_id: int, session: SessionDep, user: CurrentUser) -> DeckRead:
 
 
 @router.patch("/{deck_id}", response_model=DeckRead)
-def update_deck(
-    deck_id: int, data: DeckUpdate, session: SessionDep, user: CurrentUser
-) -> DeckRead:
+def update_deck(deck_id: int, data: DeckUpdate, session: SessionDep, user: CurrentUser) -> DeckRead:
     return DeckRead.model_validate(crud.update_deck(session, user, deck_id, data))
 
 

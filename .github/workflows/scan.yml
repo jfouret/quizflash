@@ -1,0 +1,53 @@
+name: scan
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  image:
+    name: published image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: write # trigger a refresh rebuild
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan the published image
+        id: scan
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE }}:latest
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-scheduled.sarif
+          exit-code: "1"
+
+      - name: Upload scan
+        if: always()
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
+        with:
+          sarif_file: trivy-scheduled.sarif
+          category: trivy-scheduled
+
+      - name: Refresh the image with fixed dependencies
+        if: steps.scan.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fixable vulnerabilities found in :latest; rebuilding with fresh dependencies."
+          gh workflow run ci.yml --ref main -f refresh=true

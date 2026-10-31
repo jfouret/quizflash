@@ -96,7 +96,7 @@
 {% endif %}
 
 {% if is_owner %}
-<section class="card danger-zone" style="margin-top: 2rem">
+<section class="card danger-zone mt-2">
   <h3>Delete deck</h3>
   <p class="muted">Deletes every card and all review history, including followers' progress. This cannot be undone.</p>
   <form method="post" action="/decks/{{ deck.id }}/delete" class="actions" data-confirm="Delete “{{ deck.name }}” and all its reviews? This cannot be undone.">

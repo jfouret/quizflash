@@ -56,9 +56,7 @@ def trainable_deck_ids(user_id: int) -> SelectOfScalar[int] | SelectOfScalar[Non
         .join(Deck, col(Deck.id) == col(DeckFollow.deck_id))
         .where(DeckFollow.user_id == user_id, Deck.visibility == "public")
     )
-    return select(Deck.id).where(
-        or_(col(Deck.owner_id) == user_id, col(Deck.id).in_(followed))
-    )
+    return select(Deck.id).where(or_(col(Deck.owner_id) == user_id, col(Deck.id).in_(followed)))
 
 
 def get_deck(session: Session, user: User, deck_id: int) -> Deck:
@@ -92,9 +90,7 @@ def _trainable_deck(session: Session, user: User, deck_id: int) -> Deck:
 
 def list_decks(session: Session, user: User) -> list[Deck]:
     statement = (
-        select(Deck)
-        .where(col(Deck.id).in_(trainable_deck_ids(uid(user))))
-        .order_by(col(Deck.id))
+        select(Deck).where(col(Deck.id).in_(trainable_deck_ids(uid(user)))).order_by(col(Deck.id))
     )
     return list(session.exec(statement).all())
 
@@ -170,9 +166,7 @@ def delete_deck(session: Session, user: User, deck_id: int) -> None:
 
 def list_public_decks(session: Session) -> list[tuple[Deck, str, int]]:
     card_count = (
-        select(func.count(col(Card.id)))
-        .where(col(Card.deck_id) == col(Deck.id))
-        .scalar_subquery()
+        select(func.count(col(Card.id))).where(col(Card.deck_id) == col(Deck.id)).scalar_subquery()
     )
     statement = (
         select(Deck, User.display_name, card_count)
@@ -516,9 +510,7 @@ def get_due(
     settings = get_settings(session, user)
     new_used, review_used = _daily_usage(session, user_id, current)
     new_remaining = (
-        None
-        if settings.daily_new_limit == 0
-        else max(0, settings.daily_new_limit - new_used)
+        None if settings.daily_new_limit == 0 else max(0, settings.daily_new_limit - new_used)
     )
     review_remaining = (
         None
@@ -650,8 +642,10 @@ def admin_update_user(
         raise PermissionDeniedError("Administrators cannot change their own account")
     if role is not None and oidc_enabled:
         raise PermissionDeniedError("Roles are managed by the identity provider")
-    removes_admin = target.role == "admin" and target.status == "active" and (
-        (status is not None and status != "active") or role == "user"
+    removes_admin = (
+        target.role == "admin"
+        and target.status == "active"
+        and ((status is not None and status != "active") or role == "user")
     )
     if removes_admin and _active_admin_count(session) <= 1:
         raise PermissionDeniedError("Cannot remove the last active administrator")

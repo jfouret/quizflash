@@ -59,9 +59,7 @@ class Deck(SQLModel, table=True):
     description: str = ""
     context: str = ""
     scheduler: str = "fsrs"
-    scheduler_params: dict[str, Any] = Field(
-        default_factory=dict, sa_column=Column(JSON)
-    )
+    scheduler_params: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     eval_mode: str | None = None
     visibility: str = "private"
     source_deck_id: int | None = None

@@ -1,5 +1,11 @@
 # QuizDeck
 
+[![ci](https://github.com/jfouret/quizflash/actions/workflows/ci.yml/badge.svg)](https://github.com/jfouret/quizflash/actions/workflows/ci.yml)
+[![image scan](https://github.com/jfouret/quizflash/actions/workflows/scan.yml/badge.svg)](https://github.com/jfouret/quizflash/actions/workflows/scan.yml)
+[![CodeQL](https://github.com/jfouret/quizflash/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/jfouret/quizflash/security/code-scanning)
+[![OpenSSF Scorecard](https://github.com/jfouret/quizflash/actions/workflows/scorecard.yml/badge.svg)](https://github.com/jfouret/quizflash/actions/workflows/scorecard.yml)
+[![release](https://img.shields.io/github/v/release/jfouret/quizflash)](https://github.com/jfouret/quizflash/releases)
+
 Self-hosted, multi-user spaced-repetition quiz application. Each user owns their decks, cards, settings, and progress; decks can be published to a public space where others follow or copy them. Answers are evaluated by a remote AI judge (written or voice), and an external AI agent can act on a user's account through MCP with a personal token.
 
 ## Features
@@ -109,7 +115,12 @@ Then open:
 uv run pytest
 uv run mypy --strict
 uv run ruff check .
+uv run ruff format --check .
 ```
+
+The same commands run inside the production image on every pull request
+(`docker build --target test .`). `tests/test_security.py` asserts that no HTTP route
+and no MCP method accepts an unauthenticated request, in local and OIDC mode.
 
 ## Docker
 
@@ -121,8 +132,30 @@ docker run --rm -p 8000:8000 \
   quizdeck
 ```
 
-The image runs as a non-root user, stores the database under `/data`, and includes `ffmpeg` for audio duration measurement. No model downloads occur at build time.
+The image runs as uid 1000, stores the database under `/data`, includes `ffmpeg` for
+audio duration measurement, and exposes `/healthz` for its `HEALTHCHECK`. No model
+downloads occur at build time.
+
+Published images live on GHCR:
+
+```bash
+docker run --rm -p 8000:8000 --env-file .env -v quizdeck-data:/data \
+  ghcr.io/jfouret/quizflash:0.2.0
+```
+
+| Tag | Meaning |
+|---|---|
+| `0.2.0-2026-10-31` | Version 0.2.0, built on that date (never moves) |
+| `0.2.0` | Newest build of 0.2.0 (moves on refresh) |
+| `0.2`, `latest` | Newest 0.2.x / newest release |
+| `sha-<commit>` | First build of that commit |
+
+Releases are cut by CI when a version bump reaches `main`; dependency updates are
+merged by Renovate and release a patch version each time. See
+[`docs/release.md`](docs/release.md) for the full flow and how to verify an image.
 
 ## Further documentation
 
 - [`docs/operations.md`](docs/operations.md) — HTTP API, MCP endpoint, study flow, and deployment notes.
+- [`docs/release.md`](docs/release.md) — versioning, image tags, release and refresh flow, Renovate policy, required checks.
+- [`SECURITY.md`](SECURITY.md) — how to report a vulnerability and what is in place.

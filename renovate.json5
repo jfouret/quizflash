@@ -2,13 +2,48 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
     "config:recommended",
-    "group:all"
+    "group:all",
+    // Pin Docker base images and GitHub Actions to immutable digests.
+    "docker:pinDigests",
+    "helpers:pinGitHubActionDigests"
+  ],
+  // The repo is public: GitHub auto-merge waits for the required checks.
+  platformAutomerge: true,
+  // Dependency CVEs get a PR even when no version bump is scheduled.
+  osvVulnerabilityAlerts: true,
+  // Every dependency PR bumps the patch version, so merging it releases a new image.
+  bumpVersions: [
+    {
+      name: "bump the application patch version",
+      filePatterns: ["pyproject.toml"],
+      matchStrings: ['\\nversion = "(?<version>\\d+\\.\\d+\\.\\d+)"'],
+      bumpType: "patch"
+    }
   ],
   packageRules: [
     {
-      // python:3.12-slim in the Dockerfile is tracked by the dockerfile manager
+      // python:3.15-slim in the Dockerfile is tracked by the dockerfile manager.
       matchDatasources: ["python-version"],
       enabled: false
+    },
+    {
+      // Major updates and Python minor versions get their own PR and wait for review.
+      matchUpdateTypes: ["major"],
+      groupName: "major updates",
+      groupSlug: "major",
+      automerge: false
+    },
+    {
+      matchPackageNames: ["python"],
+      matchUpdateTypes: ["minor"],
+      groupName: "major updates",
+      groupSlug: "major",
+      automerge: false
+    },
+    {
+      // PyPI releases settle for a few days first; security fixes skip this wait.
+      matchDatasources: ["pypi"],
+      minimumReleaseAge: "3 days"
     }
   ],
   prConcurrentLimit: 15,
@@ -19,10 +54,8 @@
   ],
   rebaseWhen: "behind-base-branch",
   automerge: true,
-  // private repo on GitHub Free: platform auto-merge unavailable, let Renovate merge directly
-  platformAutomerge: false,
-  // versions stay pinned in the repo files: Dockerfile FROM lines, pyproject.toml, workflow action tags
-  // (uv.lock is gitignored, so there is no lockfile for Renovate to update)
+  // Versions stay pinned in the repo files: Dockerfile FROM lines, pyproject.toml,
+  // workflow action SHAs. uv.lock is gitignored, so dependencies resolve at build time.
   enabledManagers: [
     "dockerfile",
     "github-actions",

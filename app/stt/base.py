@@ -22,6 +22,16 @@ class STTError(RuntimeError):
     pass
 
 
+# Uploaded audio is untrusted: only local files in known audio containers may be parsed.
+ALLOWED_FORMATS = "matroska,webm,mov,mp4,m4a,ogg,wav,mp3"
+INPUT_FLAGS = [
+    "-protocol_whitelist",
+    "file",
+    "-format_whitelist",
+    ALLOWED_FORMATS,
+]
+
+
 def measure_audio_duration(audio: bytes) -> int:
     """Measure duration from the uploaded container, including browser WebM audio."""
     if not audio:
@@ -44,6 +54,7 @@ def _ffprobe_duration(path: str) -> float | None:
                 "ffprobe",
                 "-v",
                 "error",
+                *INPUT_FLAGS,
                 "-show_entries",
                 "format=duration",
                 "-of",
@@ -69,7 +80,7 @@ def _ffprobe_duration(path: str) -> float | None:
 def _ffmpeg_duration(path: str) -> float | None:
     try:
         result = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-i", path, "-f", "null", "-"],
+            ["ffmpeg", "-hide_banner", "-nostdin", *INPUT_FLAGS, "-i", path, "-f", "null", "-"],
             capture_output=True,
             text=True,
             timeout=30,

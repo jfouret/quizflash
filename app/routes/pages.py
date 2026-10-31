@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
-from app import auth, crud
+from app import __version__, auth, crud
 from app.dependencies import AdminUser, AuthConfigDep, CurrentUser, SessionDep
 from app.schemas import (
     AppSettingsUpdate,
@@ -20,6 +20,12 @@ EvalModeForm = Literal["ai_preselect", "ai_assess"]
 SchedulerForm = Literal["fsrs", "sm2"]
 VisibilityForm = Literal["private", "public"]
 UserAction = Literal["approve", "suspend", "reactivate", "promote", "demote", "delete"]
+
+
+@router.get("/healthz", include_in_schema=False)
+def healthz() -> dict[str, str]:
+    """Liveness probe for the container healthcheck; no session required."""
+    return {"status": "ok", "version": __version__}
 
 
 @router.get("/", response_class=HTMLResponse)

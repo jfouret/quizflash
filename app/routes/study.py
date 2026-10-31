@@ -20,6 +20,7 @@ from app.schemas import (
 )
 from app.stt.base import STTError
 from app.teacher.base import TeacherError
+from app.teacher.service import explain_card
 from app.tts.base import TTSError
 
 router = APIRouter(prefix="/api/study", tags=["study"])
@@ -28,9 +29,7 @@ MAX_AUDIO_BYTES = 25 * 1024 * 1024
 
 
 @router.get("/next", response_model=DueCard | None)
-def next_card(
-    session: SessionDep, user: CurrentUser, deck_id: int | None = None
-) -> DueCard | None:
+def next_card(session: SessionDep, user: CurrentUser, deck_id: int | None = None) -> DueCard | None:
     due = crud.get_due(session, user, deck_id)
     if not due:
         return None
@@ -77,26 +76,15 @@ def explain(
 ) -> ExplainResponse:
     if not crud.get_app_settings(session).teacher_allowed:
         raise HTTPException(status_code=403, detail="Teacher explanations are disabled")
-    card, deck = crud.get_trainable_card(session, user, payload.card_id)
-    settings = crud.get_settings(session, user)
-    log = crud.get_last_answer_log(session, user, payload.card_id)
     try:
-        result = teacher.explain(
-            deck_context=deck.context,
-            card_context=card.context,
-            question=card.question,
-            expected_answer=card.answer,
-            user_answer=log.answer_text if log else "",
-            is_correct=log.is_correct if log else None,
-            language=settings.judge_language,
-        )
+        explanation = explain_card(session, user, payload.card_id, teacher)
     except TeacherError as exc:
         logger.warning("Teacher explanation failed: %s", exc)
         raise HTTPException(
             status_code=502,
             detail="Teacher explanation failed; try again",
         ) from exc
-    return ExplainResponse(explanation=result.explanation, model=teacher.model)
+    return ExplainResponse(explanation=explanation, model=teacher.model)
 
 
 def _check_tts(session: SessionDep, user: CurrentUser) -> Settings:
@@ -114,9 +102,7 @@ def _speak(text: str, language: str, tts: TTSDep) -> Response:
         result = tts.speak(text, language)
     except TTSError as exc:
         logger.warning("TTS request failed: %s", exc)
-        raise HTTPException(
-            status_code=502, detail="Speech synthesis failed; try again"
-        ) from exc
+        raise HTTPException(status_code=502, detail="Speech synthesis failed; try again") from exc
     return Response(content=result.audio, media_type=result.content_type)
 
 
@@ -127,9 +113,7 @@ def _vocal(text: str, language: str, vocal: bool, teacher: TeacherDep) -> str:
         return teacher.to_vocal(text, language=language)
     except TeacherError as exc:
         logger.warning("Vocal pass failed: %s", exc)
-        raise HTTPException(
-            status_code=502, detail="Vocal rewrite failed; try again"
-        ) from exc
+        raise HTTPException(status_code=502, detail="Vocal rewrite failed; try again") from exc
 
 
 @router.post("/speak-question")
@@ -154,28 +138,20 @@ def speak_explanation(
     teacher: TeacherDep,
     tts: TTSDep,
 ) -> Response:
-    card, deck = crud.get_trainable_card(session, user, payload.card_id)
+    # Perimeter first: an outsider must get 404, never a 403 that confirms the ID exists.
+    crud.get_trainable_card(session, user, payload.card_id)
     settings = _check_tts(session, user)
     if not crud.get_app_settings(session).teacher_allowed:
         raise HTTPException(status_code=403, detail="Teacher explanations are disabled")
-    log = crud.get_last_answer_log(session, user, payload.card_id)
     try:
-        result = teacher.explain(
-            deck_context=deck.context,
-            card_context=card.context,
-            question=card.question,
-            expected_answer=card.answer,
-            user_answer=log.answer_text if log else "",
-            is_correct=log.is_correct if log else None,
-            language=settings.judge_language,
-        )
+        explanation = explain_card(session, user, payload.card_id, teacher)
     except TeacherError as exc:
         logger.warning("Teacher explanation failed: %s", exc)
         raise HTTPException(
             status_code=502,
             detail="Teacher explanation failed; try again",
         ) from exc
-    text = _vocal(result.explanation, settings.judge_language, settings.teacher_vocal, teacher)
+    text = _vocal(explanation, settings.judge_language, settings.teacher_vocal, teacher)
     return _speak(text, settings.judge_language, tts)
 
 

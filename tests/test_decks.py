@@ -43,9 +43,7 @@ def test_deck_crud(client: TestClient, deck: dict[str, Any]) -> None:
     assert saved["description"] == "Form description"
     assert saved["context"] == "Form context"
 
-    cleared = response_dict(
-        client.patch(f"/api/decks/{deck['id']}", json={"eval_mode": None})
-    )
+    cleared = response_dict(client.patch(f"/api/decks/{deck['id']}", json={"eval_mode": None}))
     assert cleared["eval_mode"] is None
 
     assert client.delete(f"/api/decks/{deck['id']}").status_code == 204

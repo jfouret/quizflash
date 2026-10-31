@@ -1,18 +1,18 @@
 [project]
 name = "quizdeck"
-version = "0.1.1"
+version = "0.2.0"
 description = "Self-hosted AI-evaluated spaced-repetition quizzes"
 requires-python = ">=3.12"
 dependencies = [
-    "alembic>=1.20.1",
-    "authlib>=1.9.1",
+    "alembic>=1.20.1,<2",
+    "authlib>=1.9.1,<2",
     "fastapi>=0.116,<1",
     "fastmcp>=4.1,<5",
     "fsrs>=6.3,<7",
     "httpx>=0.28,<1",
-    "itsdangerous>=2.2.0",
+    "itsdangerous>=2.2.0,<3",
     "jinja2>=3.1,<4",
-    "python-dotenv>=1.2.4",
+    "python-dotenv>=1.2.4,<2",
     "python-multipart>=0.0.20,<1",
     "sqlmodel>=0.0.24,<1",
     "uvicorn[standard]>=0.35,<1",
@@ -20,6 +20,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    # Starlette 1.10's test client returns httpx2 responses; tests type against them.
+    "httpx2>=2.16,<3",
     "mypy>=2.4,<3",
     "pytest>=8,<10",
     "ruff>=0.11,<1",
@@ -42,6 +44,8 @@ ignore_missing_imports = true
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Generated Alembic revisions keep their own layout.
+extend-exclude = ["app/migrations/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

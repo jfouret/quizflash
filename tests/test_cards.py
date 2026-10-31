@@ -39,9 +39,7 @@ def test_card_crud_and_filters(client: TestClient, card: dict[str, Any]) -> None
 
 
 def test_card_validation_and_initial_state(client: TestClient, deck: dict[str, Any]) -> None:
-    missing_deck = client.post(
-        "/api/cards", json={"deck_id": 999, "question": "Q", "answer": "A"}
-    )
+    missing_deck = client.post("/api/cards", json={"deck_id": 999, "question": "Q", "answer": "A"})
     assert missing_deck.status_code == 404
     blank_tag = client.post(
         "/api/cards",

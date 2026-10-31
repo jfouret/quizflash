@@ -11,6 +11,7 @@ from sqlmodel import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
+from app import __version__
 from app.auth import ApiTokenVerifier, AuthConfig, LoginThrottle
 from app.crud import NotFoundError, PermissionDeniedError
 from app.database import DATABASE_URL, create_db_engine, init_db
@@ -39,12 +40,26 @@ ROUTERS = (
 
 ERROR_TITLES = {400: "Invalid request", 403: "Not allowed", 404: "Not found"}
 
+# Strict policy: every script and stylesheet is served by the app itself.
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+    "media-src 'self' blob:; connect-src 'self'; font-src 'self'; object-src 'none'; "
+    "base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+)
+# The generated API docs load Swagger UI / ReDoc from a CDN and use inline bootstrap code.
+DOCS_PATHS = {"/docs", "/redoc", "/docs/oauth2-redirect"}
+DOCS_CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "img-src 'self' data: https://fastapi.tiangolo.com; "
+    "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+)
+
 SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "same-origin",
-    # Inline scripts and the htmx CDN are still used; only framing and form targets are locked.
-    "Content-Security-Policy": "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+    "Permissions-Policy": "microphone=(self), camera=(), geolocation=(), payment=()",
 }
 
 
@@ -67,7 +82,7 @@ def create_app(
 
     app = FastAPI(
         title="QuizDeck",
-        version="0.1.1",
+        version=__version__,
         lifespan=app_lifespan,
     )
     app.state.engine = engine
@@ -112,6 +127,16 @@ def create_app(
         response = await call_next(request)
         for name, value in SECURITY_HEADERS.items():
             response.headers.setdefault(name, value)
+        docs = request.url.path in DOCS_PATHS
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            DOCS_CONTENT_SECURITY_POLICY if docs else CONTENT_SECURITY_POLICY,
+        )
+        if config.cookie_secure:
+            # Only sent over HTTPS, so plain-HTTP local development is unaffected.
+            response.headers.setdefault(
+                "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+            )
         if not request.url.path.startswith("/static"):
             response.headers.setdefault("Cache-Control", "no-store")
         return response

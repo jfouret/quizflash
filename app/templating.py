@@ -2,7 +2,12 @@ from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
 
+from app import __version__
+
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+# Cache-busting suffix for static assets, so browsers pick up new JS after an upgrade.
+templates.env.globals["asset_version"] = __version__
 
 # Fixed messages shown after a redirect (`?notice=<key>`); never echo user input.
 NOTICES = {

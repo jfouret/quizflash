@@ -26,18 +26,15 @@ def enable_ai_assess(client: TestClient) -> None:
     assert response.status_code == 200
 
 
-def test_ai_preselect_requires_confirmation(
-    client: TestClient, card: dict[str, Any]
-) -> None:
-    proposed = response_dict(
-        client.post("/api/study/answer", json=answer_payload(card["id"]))
-    )
+def test_ai_preselect_requires_confirmation(client: TestClient, card: dict[str, Any]) -> None:
+    proposed = response_dict(client.post("/api/study/answer", json=answer_payload(card["id"])))
     assert proposed["status"] == "pending"
     assert proposed["rating"] == 3
     assert proposed["is_correct"] is True
-    assert response_dict(
-        client.get("/api/stats", params={"scope": "card", "id": card["id"]})
-    )["total"] == 0
+    assert (
+        response_dict(client.get("/api/stats", params={"scope": "card", "id": card["id"]}))["total"]
+        == 0
+    )
 
     confirmed_payload = answer_payload(
         card["id"],
@@ -53,9 +50,7 @@ def test_ai_preselect_requires_confirmation(
     assert confirmed["rating"] == 2
     assert confirmed["is_correct"] is False
     assert confirmed["due"] is not None
-    stats = response_dict(
-        client.get("/api/stats", params={"scope": "card", "id": card["id"]})
-    )
+    stats = response_dict(client.get("/api/stats", params={"scope": "card", "id": card["id"]}))
     assert stats["total"] == 1
     assert stats["incorrect"] == 1
     assert stats["by_mode"] == {"ai_preselect": 1}
@@ -126,9 +121,10 @@ def test_ai_assess_preview_can_be_corrected_before_saving(
     )
     assert first["status"] == "pending"
     assert first["mode"] == "ai_assess"
-    assert response_dict(
-        client.get("/api/stats", params={"scope": "card", "id": card["id"]})
-    )["total"] == 0
+    assert (
+        response_dict(client.get("/api/stats", params={"scope": "card", "id": card["id"]}))["total"]
+        == 0
+    )
 
     fake_judge.result = JudgeResult(rating=4, is_correct=True, feedback="")
     corrected = response_dict(
@@ -170,15 +166,14 @@ def test_judge_failure_uses_flagged_self_fallback(
 ) -> None:
     enable_ai_assess(client)
     fake_judge.error = JudgeError("timeout")
-    failed = response_dict(
-        client.post("/api/study/answer", json=answer_payload(card["id"]))
-    )
+    failed = response_dict(client.post("/api/study/answer", json=answer_payload(card["id"])))
     assert failed["status"] == "fallback_required"
     assert failed["mode"] == "self_fallback"
     assert failed["fallback_token"] is not None
-    assert response_dict(
-        client.get("/api/stats", params={"scope": "card", "id": card["id"]})
-    )["total"] == 0
+    assert (
+        response_dict(client.get("/api/stats", params={"scope": "card", "id": card["id"]}))["total"]
+        == 0
+    )
 
     fallback = response_dict(
         client.post(
@@ -207,14 +202,13 @@ def test_self_fallback_cannot_be_selected_without_judge_failure(
 ) -> None:
     response = client.post(
         "/api/study/answer",
-        json=answer_payload(
-            card["id"], self_fallback=True, rating=1, is_correct=False
-        ),
+        json=answer_payload(card["id"], self_fallback=True, rating=1, is_correct=False),
     )
     assert response.status_code == 400
-    assert response_dict(
-        client.get("/api/stats", params={"scope": "card", "id": card["id"]})
-    )["total"] == 0
+    assert (
+        response_dict(client.get("/api/stats", params={"scope": "card", "id": card["id"]}))["total"]
+        == 0
+    )
 
 
 def test_stt_failure_still_allows_text_answer(
@@ -229,20 +223,17 @@ def test_stt_failure_still_allows_text_answer(
     assert response.status_code == 502
     assert "type the answer instead" in response_dict(response)["detail"]
 
-    answered = response_dict(
-        client.post("/api/study/answer", json=answer_payload(card["id"]))
-    )
+    answered = response_dict(client.post("/api/study/answer", json=answer_payload(card["id"])))
     assert answered["status"] == "reviewed"
     assert answered["mode"] == "ai_assess"
 
 
 def test_deck_evaluation_mode_override(client: TestClient, card: dict[str, Any]) -> None:
-    assert client.patch(
-        f"/api/decks/{card['deck_id']}", json={"eval_mode": "ai_assess"}
-    ).status_code == 200
-    result = response_dict(
-        client.post("/api/study/answer", json=answer_payload(card["id"]))
+    assert (
+        client.patch(f"/api/decks/{card['deck_id']}", json={"eval_mode": "ai_assess"}).status_code
+        == 200
     )
+    result = response_dict(client.post("/api/study/answer", json=answer_payload(card["id"])))
     assert result["status"] == "reviewed"
     assert result["mode"] == "ai_assess"
 
@@ -251,9 +242,7 @@ def test_sm2_deck_scheduler_reschedules_low_rating(
     client: TestClient, db_session: Session, fake_judge: FakeJudge, alice: User
 ) -> None:
     enable_ai_assess(client)
-    deck = response_dict(
-        client.post("/api/decks", json={"name": "SM2", "scheduler": "sm2"})
-    )
+    deck = response_dict(client.post("/api/decks", json={"name": "SM2", "scheduler": "sm2"}))
     card = response_dict(
         client.post(
             "/api/cards",
@@ -262,9 +251,7 @@ def test_sm2_deck_scheduler_reschedules_low_rating(
     )
     before = datetime.now(UTC)
     fake_judge.result = JudgeResult(rating=1, is_correct=False, feedback="Again")
-    result = response_dict(
-        client.post("/api/study/answer", json=answer_payload(card["id"]))
-    )
+    result = response_dict(client.post("/api/study/answer", json=answer_payload(card["id"])))
     due = datetime.fromisoformat(result["due"].replace("Z", "+00:00"))
     assert before + timedelta(hours=23) < due < before + timedelta(hours=25)
     state = db_session.get(CardState, (alice.id, card["id"]))

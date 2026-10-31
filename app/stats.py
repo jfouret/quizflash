@@ -16,9 +16,7 @@ def _visible_tag_ids(user: User) -> SelectOfScalar[int] | SelectOfScalar[None]:
         col(Card.deck_id).in_(crud.trainable_deck_ids(crud.uid(user)))
     )
     linked = select(CardTag.tag_id).where(col(CardTag.card_id).in_(trainable_cards))
-    return select(Tag.id).where(
-        or_(col(Tag.owner_id) == crud.uid(user), col(Tag.id).in_(linked))
-    )
+    return select(Tag.id).where(or_(col(Tag.owner_id) == crud.uid(user), col(Tag.id).in_(linked)))
 
 
 def _target_ids(
@@ -56,9 +54,7 @@ def get_stats(
         filters.append(col(Card.id).in_(target_ids))
     else:
         filters.append(
-            col(Card.id).in_(
-                select(CardTag.card_id).where(col(CardTag.tag_id).in_(target_ids))
-            )
+            col(Card.id).in_(select(CardTag.card_id).where(col(CardTag.tag_id).in_(target_ids)))
         )
 
     statement = (

@@ -11,9 +11,7 @@ router = APIRouter(prefix="/api/cards", tags=["cards"])
 def list_cards(
     session: SessionDep, user: CurrentUser, deck_id: int | None = None, tag: str | None = None
 ) -> list[CardRead]:
-    return [
-        CardRead.model_validate(card) for card in crud.list_cards(session, user, deck_id, tag)
-    ]
+    return [CardRead.model_validate(card) for card in crud.list_cards(session, user, deck_id, tag)]
 
 
 @router.post("", response_model=CardRead, status_code=status.HTTP_201_CREATED)
@@ -27,9 +25,7 @@ def get_card(card_id: int, session: SessionDep, user: CurrentUser) -> CardRead:
 
 
 @router.patch("/{card_id}", response_model=CardRead)
-def update_card(
-    card_id: int, data: CardUpdate, session: SessionDep, user: CurrentUser
-) -> CardRead:
+def update_card(card_id: int, data: CardUpdate, session: SessionDep, user: CurrentUser) -> CardRead:
     return CardRead.model_validate(crud.update_card(session, user, card_id, data))
 
 

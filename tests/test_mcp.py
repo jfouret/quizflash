@@ -110,7 +110,6 @@ def test_all_mcp_tools_via_http(
     assert call("list_decks", {}) == []
 
 
-
 def test_mcp_requires_valid_token(
     app: FastAPI, client: TestClient, client_b: TestClient, bob: User
 ) -> None:

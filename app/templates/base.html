@@ -4,16 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}QuizDeck{% endblock %}</title>
-  <script>
-    // Apply saved theme before first paint: no attribute = follow system.
-    (function () {
-      var theme = localStorage.getItem('quizdeck-theme') || 'auto';
-      if (theme !== 'auto') document.documentElement.setAttribute('data-theme', theme);
-    })();
-  </script>
+  <script src="/static/js/theme.js?v={{ asset_version }}"></script>
   <link rel="stylesheet" href="/static/pico.min.css">
-  <link rel="stylesheet" href="/static/style.css">
-  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
+  <script src="/static/js/htmx.min.js?v={{ asset_version }}" defer></script>
+  <script src="/static/js/app.js?v={{ asset_version }}" defer></script>
   {% set current_user = request.state.user if request.state.user is defined else none %}
   {% if current_user %}<meta name="csrf-token" content="{{ request.state.csrf_token }}">{% endif %}
 </head>
@@ -64,47 +59,5 @@
   <main class="container">{% block content %}{% endblock %}</main>
   <footer class="container"><small class="muted">QuizDeck · self-hosted spaced-repetition quizzes</small></footer>
   {% block scripts %}{% endblock %}
-  <script>
-    (function () {
-      var button = document.getElementById('theme-toggle');
-      var order = ['auto', 'light', 'dark'];
-      var labels = {auto: 'Theme: system', light: 'Theme: light', dark: 'Theme: dark'};
-      function current() {
-        return localStorage.getItem('quizdeck-theme') || 'auto';
-      }
-      function apply() {
-        var theme = current();
-        if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
-        else document.documentElement.setAttribute('data-theme', theme);
-        button.title = labels[theme];
-        button.setAttribute('aria-label', labels[theme] + ' (click to change)');
-      }
-      button.addEventListener('click', function () {
-        var next = order[(order.indexOf(current()) + 1) % order.length];
-        localStorage.setItem('quizdeck-theme', next);
-        apply();
-      });
-      apply();
-      // Body scripts re-run on hx-boost navigation: bind document handlers once.
-      if (window.quizdeckUiBound) return;
-      window.quizdeckUiBound = true;
-      document.addEventListener('click', function (event) {
-        var opener = event.target.closest('[data-open]');
-        if (opener) document.getElementById(opener.dataset.open).showModal();
-        var closer = event.target.closest('[data-close]');
-        if (closer) closer.closest('dialog').close();
-        var copy = event.target.closest('[data-copy]');
-        if (copy) {
-          navigator.clipboard.writeText(document.getElementById(copy.dataset.copy).textContent);
-          copy.textContent = 'Copied';
-        }
-      });
-      document.addEventListener('submit', function (event) {
-        var source = event.submitter && event.submitter.dataset.confirm ? event.submitter : event.target;
-        var message = source.dataset.confirm;
-        if (message && !confirm(message)) { event.preventDefault(); event.stopPropagation(); }
-      }, true);
-    })();
-  </script>
 </body>
 </html>

@@ -38,23 +38,7 @@
 {% endfor %}
 </div>
 <p id="no-match" class="empty" hidden>No public deck matches your search.</p>
-<script>
-  (function () {
-    var input = document.getElementById('deck-search');
-    var cards = document.querySelectorAll('#public-decks [data-search]');
-    var none = document.getElementById('no-match');
-    input.addEventListener('input', function () {
-      var term = input.value.trim().toLowerCase();
-      var shown = 0;
-      cards.forEach(function (card) {
-        var match = card.dataset.search.indexOf(term) !== -1;
-        card.hidden = !match;
-        if (match) shown += 1;
-      });
-      none.hidden = shown !== 0;
-    });
-  })();
-</script>
+<script src="/static/js/explore.js?v={{ asset_version }}" defer></script>
 {% else %}
 <div class="empty">
   <h2>No public decks yet</h2>

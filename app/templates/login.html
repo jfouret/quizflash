@@ -7,7 +7,7 @@
     <h1>Welcome back</h1>
     {% if error %}<p class="callout danger" role="alert">{{ error }}</p>{% endif %}
     {% if oidc_enabled %}
-    <a role="button" href="/auth/oidc/login" hx-boost="false" style="width: 100%">Sign in with single sign-on</a>
+    <a role="button" href="/auth/oidc/login" hx-boost="false" class="w-full">Sign in with single sign-on</a>
     {% else %}
     <form method="post" action="/login">
       <label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required autofocus>

@@ -1,7 +1,14 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+# Bounds on free text: the database is user-writable and LLM calls are billed per token.
+MAX_TEXT = 10_000
+MAX_ANSWER = 20_000
+MAX_TAG = 50
+MAX_TAGS = 50
+TAG = Annotated[str, Field(min_length=1, max_length=MAX_TAG)]
 
 EvalMode = Literal["ai_preselect", "ai_assess"]
 SchedulerName = Literal["fsrs", "sm2"]
@@ -21,9 +28,9 @@ class TagRead(BaseModel):
 
 
 class DeckCreate(BaseModel):
-    name: str = Field(min_length=1)
-    description: str = ""
-    context: str = ""
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=MAX_TEXT)
+    context: str = Field(default="", max_length=MAX_TEXT)
     scheduler: SchedulerName = "fsrs"
     scheduler_params: dict[str, Any] = Field(default_factory=dict)
     eval_mode: EvalMode | None = None
@@ -31,9 +38,9 @@ class DeckCreate(BaseModel):
 
 
 class DeckUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1)
-    description: str | None = None
-    context: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=MAX_TEXT)
+    context: str | None = Field(default=None, max_length=MAX_TEXT)
     scheduler: SchedulerName | None = None
     scheduler_params: dict[str, Any] | None = None
     eval_mode: EvalMode | None = None
@@ -64,22 +71,22 @@ class PublicDeckRead(DeckRead):
 
 class CardCreate(BaseModel):
     deck_id: int
-    question: str = Field(min_length=1)
-    answer: str = Field(min_length=1)
-    details: str = ""
-    context: str = ""
+    question: str = Field(min_length=1, max_length=MAX_TEXT)
+    answer: str = Field(min_length=1, max_length=MAX_TEXT)
+    details: str = Field(default="", max_length=MAX_TEXT)
+    context: str = Field(default="", max_length=MAX_TEXT)
     expected_time_s: int | None = Field(default=None, ge=1)
-    tags: list[str] = Field(default_factory=list)
+    tags: list[TAG] = Field(default_factory=list, max_length=MAX_TAGS)
 
 
 class CardUpdate(BaseModel):
     deck_id: int | None = None
-    question: str | None = Field(default=None, min_length=1)
-    answer: str | None = Field(default=None, min_length=1)
-    details: str | None = None
-    context: str | None = None
+    question: str | None = Field(default=None, min_length=1, max_length=MAX_TEXT)
+    answer: str | None = Field(default=None, min_length=1, max_length=MAX_TEXT)
+    details: str | None = Field(default=None, max_length=MAX_TEXT)
+    context: str | None = Field(default=None, max_length=MAX_TEXT)
     expected_time_s: int | None = Field(default=None, ge=1)
-    tags: list[str] | None = None
+    tags: list[TAG] | None = Field(default=None, max_length=MAX_TAGS)
 
 
 class CardRead(BaseModel):
@@ -120,8 +127,8 @@ class SettingsRead(BaseModel):
 
 class SettingsUpdate(BaseModel):
     eval_mode: EvalMode | None = None
-    judge_language: str | None = Field(default=None, min_length=1)
-    stt_language: str | None = Field(default=None, min_length=1)
+    judge_language: str | None = Field(default=None, min_length=1, max_length=35)
+    stt_language: str | None = Field(default=None, min_length=1, max_length=35)
     voice_auto_judge: bool | None = None
     auto_confirm: bool | None = None
     teacher_enabled: bool | None = None
@@ -140,7 +147,7 @@ class TranscribeResponse(BaseModel):
 
 class AnswerRequest(BaseModel):
     card_id: int
-    answer_text: str = ""
+    answer_text: str = Field(default="", max_length=MAX_ANSWER)
     input_method: InputMethod
     response_time_ms: int = Field(ge=0)
     stt_duration_ms: int | None = Field(default=None, ge=0)
@@ -151,8 +158,8 @@ class AnswerRequest(BaseModel):
     fallback_token: str | None = None
     rating: int | None = Field(default=None, ge=1, le=4)
     is_correct: bool | None = None
-    judge_feedback: str = ""
-    judge_model: str = ""
+    judge_feedback: str = Field(default="", max_length=MAX_TEXT)
+    judge_model: str = Field(default="", max_length=200)
 
 
 class ExplainRequest(BaseModel):

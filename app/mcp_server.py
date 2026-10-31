@@ -24,6 +24,7 @@ from app.schemas import (
 )
 from app.stats import get_stats as calculate_stats
 from app.teacher.base import Teacher
+from app.teacher.service import explain_card as teacher_explanation
 
 
 def create_mcp(
@@ -186,19 +187,8 @@ def create_mcp(
             user = current_user(session)
             if not crud.get_app_settings(session).teacher_allowed:
                 raise ToolError("Teacher explanations are disabled")
-            card, deck = crud.get_trainable_card(session, user, card_id)
-            settings = crud.get_settings(session, user)
-            log = crud.get_last_answer_log(session, user, card_id)
-            result = teacher.explain(
-                deck_context=deck.context,
-                card_context=card.context,
-                question=card.question,
-                expected_answer=card.answer,
-                user_answer=log.answer_text if log else "",
-                is_correct=log.is_correct if log else None,
-                language=settings.judge_language,
-            )
-            return {"explanation": result.explanation, "model": teacher.model}
+            explanation = teacher_explanation(session, user, card_id, teacher)
+            return {"explanation": explanation, "model": teacher.model}
 
     @mcp.tool
     def list_public_decks() -> list[dict[str, Any]]:
