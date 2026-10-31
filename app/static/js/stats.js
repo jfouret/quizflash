@@ -11,7 +11,7 @@
     var canvas = document.getElementById(canvasId);
     if (!canvas || !data || !data.items.length) return;
     var items = data.items;
-    var color = getComputedStyle(document.body).getPropertyValue('--pico-primary') || '#3b82f6';
+    var color = (getComputedStyle(document.body).getPropertyValue('--pico-primary') || '').trim() || '#4f46e5';
     new Chart(canvas, {
       type: 'bar',
       data: {

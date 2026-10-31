@@ -209,5 +209,6 @@ publish your changes. The licence text is available in 23 languages from
 [joinup.ec.europa.eu](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12).
 
 Bundled third-party assets keep their own licences: [Pico CSS](https://picocss.com)
-(MIT), [htmx](https://htmx.org) (BSD-2-Clause) and [Chart.js](https://www.chartjs.org)
-(MIT), all vendored under `app/static/` so the browser never leaves the site.
+(MIT), [htmx](https://htmx.org) (BSD-2-Clause), [Chart.js](https://www.chartjs.org)
+(MIT) and [Lucide](https://lucide.dev) icons (ISC), all vendored under `app/static/`
+so the browser never leaves the site.

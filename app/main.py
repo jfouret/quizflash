@@ -1,3 +1,4 @@
+import mimetypes
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -24,6 +25,8 @@ from app.teacher.base import Teacher
 from app.teacher.openrouter import OpenRouterTeacher
 from app.templating import templates
 from app.tts.openrouter import OpenRouterTTS
+
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 ROUTERS = (
     auth.router,
