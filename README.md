@@ -1,10 +1,11 @@
 # QuizDeck
 
-[![ci](https://github.com/jfouret/quizflash/actions/workflows/ci.yml/badge.svg)](https://github.com/jfouret/quizflash/actions/workflows/ci.yml)
-[![image scan](https://github.com/jfouret/quizflash/actions/workflows/scan.yml/badge.svg)](https://github.com/jfouret/quizflash/actions/workflows/scan.yml)
-[![CodeQL](https://github.com/jfouret/quizflash/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/jfouret/quizflash/security/code-scanning)
-[![OpenSSF Scorecard](https://github.com/jfouret/quizflash/actions/workflows/scorecard.yml/badge.svg)](https://github.com/jfouret/quizflash/actions/workflows/scorecard.yml)
-[![release](https://img.shields.io/github/v/release/jfouret/quizflash)](https://github.com/jfouret/quizflash/releases)
+[![ci](https://github.com/jfouret/quizflash/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jfouret/quizflash/actions/workflows/ci.yml?query=branch%3Amain)
+[![image scan](https://github.com/jfouret/quizflash/actions/workflows/scan.yml/badge.svg?branch=main)](https://github.com/jfouret/quizflash/security)
+[![CodeQL](https://github.com/jfouret/quizflash/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)](https://github.com/jfouret/quizflash/security)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/jfouret/quizflash/badge)](https://scorecard.dev/viewer/?uri=github.com/jfouret/quizflash)
+[![release](https://img.shields.io/github/v/release/jfouret/quizflash)](https://github.com/jfouret/quizflash/releases/latest)
+[![ghcr](https://img.shields.io/badge/ghcr.io-jfouret%2Fquizflash-blue?logo=docker&logoColor=white)](https://github.com/jfouret/quizflash/pkgs/container/quizflash)
 
 Self-hosted, multi-user spaced-repetition quiz application. Each user owns their decks, cards, settings, and progress; decks can be published to a public space where others follow or copy them. Answers are evaluated by a remote AI judge (written or voice), and an external AI agent can act on a user's account through MCP with a personal token.
 
