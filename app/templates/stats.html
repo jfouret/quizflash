@@ -42,8 +42,8 @@
 
 {% if by_card['items'] or by_tag['items'] %}
 <div id="stats-config" hidden
-     data-card="{{ by_card | tojson }}"
-     data-tag="{{ by_tag | tojson }}"
+     data-card="{{ by_card | tojson | forceescape }}"
+     data-tag="{{ by_tag | tojson | forceescape }}"
      data-deck="{{ deck_id or '' }}"></div>
 {{ breakdown('By card', 'chart-card', by_card) }}
 {{ breakdown('By tag', 'chart-tag', by_tag) }}

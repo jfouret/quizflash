@@ -1,8 +1,9 @@
 import os
+from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Form, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 
 from app import __version__, auth, crud, grading
 from app.agents import (
@@ -30,6 +31,7 @@ from app.stats import get_breakdown
 from app.templating import templates
 
 router = APIRouter(include_in_schema=False)
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 EvalModeForm = Literal["ai_preselect", "ai_assess"]
 SchedulerForm = Literal["fsrs", "sm2"]
 VisibilityForm = Literal["private", "public"]
@@ -50,6 +52,12 @@ def _deck_page(deck_id: int, notice: str) -> str:
 def healthz() -> dict[str, str]:
     """Liveness probe for the container healthcheck; no session required."""
     return {"status": "ok", "version": __version__}
+
+
+@router.get("/favicon.ico", include_in_schema=False)
+def favicon() -> FileResponse:
+    """Serve the icon at the root path browsers request by convention."""
+    return FileResponse(STATIC_DIR / "favicon.ico", media_type="image/x-icon")
 
 
 @router.get("/", response_class=HTMLResponse)

@@ -4,6 +4,26 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] - 2026-10-31
+
+### Fixed
+
+- The stats charts rendered nothing: the data attribute was written with raw
+  quotes, so the browser truncated it and `JSON.parse` failed. The JSON is now
+  escaped for the attribute, and the chart colour is read correctly.
+
+### Changed
+
+- Nav is slimmer: primary links keep an icon and label, while settings, admin,
+  agents, theme and logout are icon-only buttons with accessible labels and
+  tooltips. Icons come from a vendored [Lucide](https://lucide.dev) sprite
+  (`app/static/icons.svg`, ISC).
+
+### Added
+
+- Favicon and app icons: `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`,
+  a web app manifest, a `/favicon.ico` route, and the matching `<link>` tags.
+
 ## [0.6.0] - 2026-10-31
 
 ### Added

@@ -1,0 +1,15 @@
+{
+  "name": "QuizDeck",
+  "short_name": "QuizDeck",
+  "description": "Self-hosted spaced-repetition quizzes.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f7fb",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "/static/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/static/favicon-32.png", "sizes": "32x32", "type": "image/png" },
+    { "src": "/static/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

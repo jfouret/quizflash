@@ -37,6 +37,7 @@ PASSWORD = "correct horse battery staple"
 # Routes that must work without a session. Everything else must refuse anonymous calls.
 PUBLIC_ROUTES = {
     ("GET", "/healthz"),
+    ("GET", "/favicon.ico"),
     ("GET", "/login"),
     ("POST", "/login"),
     ("GET", "/signup"),
