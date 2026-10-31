@@ -4,6 +4,15 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] - 2026-10-31
+
+### Fixed
+
+- Deck form redirects build their target with a literal prefix instead of an
+  f-string, so CodeQL can prove they never leave the site (`py/url-redirection`).
+- The API docs CSP test compares exact directive tokens instead of searching the
+  header for a URL substring (`py/incomplete-url-substring-sanitization`).
+
 ## [0.2.0] - 2026-10-31
 
 ### Added
