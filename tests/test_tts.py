@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.teacher.base import TeacherError
-from app.tts.base import TTSError
+from app.tts.base import TTSError, TTSResult
 from app.tts.openrouter import OpenRouterTTS
 from tests.conftest import FakeTeacher, FakeTTS, response_dict
 
@@ -63,9 +63,39 @@ def test_speak_stream_yields_audio_chunks() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=b"MP3DATA", headers={"Content-Type": "audio/mpeg"})
 
-    chunks = list(_make_tts(httpx.MockTransport(handler)).speak_stream("Bonjour", "fr"))
+    stream = _make_tts(httpx.MockTransport(handler)).speak_stream("Bonjour", "fr")
 
-    assert b"".join(chunks) == b"MP3DATA"
+    assert stream.content_type == "audio/mpeg"
+    assert b"".join(stream.chunks) == b"MP3DATA"
+
+
+def test_speak_stream_fails_before_the_caller_sends_anything() -> None:
+    """A provider error must reach the route before it commits to a 200 response."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"error": "nope"})
+
+    with pytest.raises(TTSError, match="TTS request failed"):
+        _make_tts(httpx.MockTransport(handler)).speak_stream("hello", "auto")
+
+
+def test_speak_stream_refuses_a_non_audio_answer() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, content=b'{"error": "bad voice"}', headers={"Content-Type": "application/json"}
+        )
+
+    with pytest.raises(TTSError, match="not audio"):
+        _make_tts(httpx.MockTransport(handler)).speak_stream("hello", "auto")
+
+
+def test_speak_keeps_the_provider_content_type() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"OGGDATA", headers={"Content-Type": "audio/ogg"})
+
+    result = _make_tts(httpx.MockTransport(handler)).speak("hello", "auto")
+
+    assert result.content_type == "audio/ogg"
 
 
 def test_speak_stream_validates_before_any_http_call() -> None:
@@ -146,6 +176,17 @@ def test_speak_question_returns_audio(
     assert response.headers["Content-Type"].startswith("audio/mpeg")
     assert fake_tts.calls == [("Capital of France?", "auto")]
     assert fake_teacher.vocal_calls == []
+
+
+def test_speak_question_uses_the_provider_content_type(
+    client: TestClient, card: dict[str, Any], fake_tts: FakeTTS
+) -> None:
+    _enable_tts(client)
+    fake_tts.result = TTSResult(audio=b"OGGDATA", content_type="audio/ogg")
+    response = client.post("/api/study/speak-question", json={"card_id": card["id"]})
+    assert response.status_code == 200
+    assert response.content == b"OGGDATA"
+    assert response.headers["Content-Type"].startswith("audio/ogg")
 
 
 def test_speak_question_with_vocal_pass(

@@ -16,7 +16,7 @@ from app.main import create_app
 from app.models import User
 from app.stt.base import STTError, STTResult
 from app.teacher.base import TeacherError, TeacherResult
-from app.tts.base import TTSError, TTSResult
+from app.tts.base import TTSError, TTSResult, TTSStream
 
 
 class FakeJudge:
@@ -125,9 +125,9 @@ class FakeTTS:
             raise self.error
         return self.result
 
-    def speak_stream(self, text: str, language: str) -> Iterator[bytes]:
-        audio = self.speak(text, language).audio
-        return iter([audio])
+    def speak_stream(self, text: str, language: str) -> TTSStream:
+        result = self.speak(text, language)
+        return TTSStream(content_type=result.content_type, chunks=iter([result.audio]))
 
 
 def response_dict(response: Response) -> dict[str, Any]:
