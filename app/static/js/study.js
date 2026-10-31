@@ -433,10 +433,7 @@
     teacherRegenBtn.disabled = false;
     speakQuestionBtn.disabled = false;
     speakExplanationBtn.disabled = false;
-    if (spokenAudio) {
-      spokenAudio.pause();
-      spokenAudio = null;
-    }
+    stopSpoken();
     pendingResult = null;
     lastPayload = null;
     setTextMode();
@@ -532,6 +529,8 @@
   function stopSpoken() {
     if (spokenAudio) {
       spokenAudio.pause();
+      // The blob is never played again after this: release it instead of leaking it.
+      if (spokenAudio.src.indexOf('blob:') === 0) URL.revokeObjectURL(spokenAudio.src);
       spokenAudio = null;
     }
   }
@@ -556,8 +555,7 @@
   // Start playback before the whole clip is generated, when the browser can stream it.
   async function playResponse(response) {
     var type = (response.headers.get('Content-Type') || 'audio/mpeg').split(';')[0].trim();
-    if (spokenAudio) spokenAudio.pause();
-    spokenAudio = null;
+    stopSpoken();
     if (!window.MediaSource || !window.MediaSource.isTypeSupported(type) || !response.body) {
       await playBlob(response);
       return;
@@ -961,12 +959,19 @@
         credentials: 'same-origin',
         body: JSON.stringify({text: record.explanation, vocal: teacherVocal})
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        record.audioUnavailable = true;
+        return;
+      }
       var blob = await response.blob();
+      if (!blob.size) {
+        record.audioUnavailable = true;
+        return;
+      }
       if (record.audioUrl) URL.revokeObjectURL(record.audioUrl);
       record.audioUrl = URL.createObjectURL(blob);
     } catch (error) {
-      // Audio prefetch is best effort; the review falls back to the next button.
+      record.audioUnavailable = true;
     }
   }
 
@@ -1083,6 +1088,11 @@
       ? 'Rating ' + ratingText(record.saved.rating) + ' · ' + (record.saved.is_correct ? 'correct' : 'incorrect')
       : '';
     if (record.audioUrl) playReviewAudio(record.audioUrl);
+    else if (record.audioUnavailable && teacherEnabled) {
+      teacherInfoEl.textContent =
+        (record.teacherModel ? 'Teacher: ' + record.teacherModel + ' · ' : '') +
+        'explanation audio unavailable';
+    }
   }
 
   function playReviewAudio(url) {

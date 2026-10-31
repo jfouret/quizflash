@@ -4,6 +4,24 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.5] - 2026-10-31
+
+### Fixed
+
+- Speech synthesis failures now surface as an error instead of silent silence.
+  The TTS provider call ran inside the streamed response, so a provider failure
+  (wrong model or voice, expired key, timeout) was raised only after the `200 OK`
+  header had left: the browser received an empty body labelled `audio/mpeg`,
+  refused to decode it (`Media resource blob:… could not be decoded`) and the
+  study view gave no clue. The call and its first chunk now happen before the
+  response starts, so the route answers `502` with the usual message, and the
+  content type the provider actually answered is passed on to the browser
+  instead of a hardcoded `audio/mpeg`. A non-audio answer (for example an error
+  body labelled `application/json`) is refused the same way.
+- A failed explanation-audio prefetch is visible during the batch review
+  (**explanation audio unavailable**) instead of leaving the card silent, and the
+  study view releases the audio blobs it no longer plays.
+
 ## [0.7.4] - 2026-10-31
 
 ### Fixed
