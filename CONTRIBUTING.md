@@ -36,7 +36,8 @@ image (same Python, same dependencies, same ffmpeg), which is what CI does.
 - New behaviour needs a test. Security-relevant behaviour belongs in
   `tests/test_security.py`.
 - `main` is protected: pull requests are required, history is linear, and commits
-  must be signed. Squash or rebase when merging.
+  must be signed. Squash or rebase when merging. Repository admins can merge without
+  a review with `gh pr merge --admin`.
 
 ## Reporting a vulnerability
 
