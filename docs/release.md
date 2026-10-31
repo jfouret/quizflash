@@ -35,6 +35,10 @@ Use patch for a fix, minor for a feature, major for a breaking change.
 The image that was scanned and smoke-tested is the one that gets pushed: the job
 builds once and retags locally, so no second dependency resolution can change it.
 
+On a pull request the same `build` job still runs the tests, the image scan and the
+smoke test, but it never pushes an image, attests, tags or creates a release:
+publishing is gated to `main` pushes and manual `refresh` runs.
+
 ## Image tags
 
 | Tag | Meaning | Moves? |

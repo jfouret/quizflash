@@ -90,6 +90,7 @@ EXTRA_PROBES: list[Callable[[Victim], Call]] = [
     lambda v: Call("GET", f"/api/stats?scope=tag&id={v.tag}"),
     lambda v: Call("GET", f"/api/study/next?deck_id={v.deck}"),
     lambda v: Call("GET", f"/api/study/batch?deck_id={v.deck}"),
+    lambda v: Call("GET", f"/api/study/tags?deck_id={v.deck}"),
     lambda v: Call("GET", f"/study?deck_id={v.deck}"),
 ]
 

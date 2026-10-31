@@ -36,9 +36,13 @@
   var nextButton = document.getElementById('next');
   var startPanel = document.getElementById('start-panel');
   var startButton = document.getElementById('start-study');
-  var tagInputs = document.querySelectorAll('input[name="study-tag"]');
+  var tagPanelEl = document.getElementById('tag-panel');
+  var tagOptionsEl = document.getElementById('tag-options');
   var cardTagsEl = document.getElementById('card-tags');
   var reviewTagsEl = document.getElementById('review-tags');
+  var batchDoneEl = document.getElementById('batch-done');
+  var batchContinueBtn = document.getElementById('batch-continue');
+  var batchMenuBtn = document.getElementById('batch-menu');
   var voiceAutoJudge = config.voiceAutoJudge === 'true';
   var autoConfirm = config.autoConfirm === 'true';
   var teacherEnabled = config.teacherEnabled === 'true';
@@ -87,10 +91,39 @@
 
   function selectedTags() {
     var tags = [];
-    Array.prototype.forEach.call(tagInputs, function (input) {
+    var inputs = document.querySelectorAll('input[name="study-tag"]');
+    Array.prototype.forEach.call(inputs, function (input) {
       if (input.checked) tags.push(input.value);
     });
     return tags;
+  }
+
+  function tagCheckbox(tag, checked) {
+    return '<label class="tag-check"><input type="checkbox" name="study-tag" value="' +
+      escapeHtml(tag) + '"' + (checked ? ' checked' : '') + '> <span class="tag">' +
+      escapeHtml(tag) + '</span></label>';
+  }
+
+  async function refreshStudyTags() {
+    var preserved = selectedTags();
+    var query = deckSelect.value ? '?deck_id=' + encodeURIComponent(deckSelect.value) : '';
+    var tags;
+    try {
+      tags = await api('/api/study/tags' + query);
+    } catch (error) {
+      return;
+    }
+    tagOptionsEl.innerHTML = tags.map(function (tag) {
+      return tagCheckbox(tag, preserved.indexOf(tag) !== -1);
+    }).join('');
+    tagPanelEl.hidden = !tags.length;
+  }
+
+  async function onDeckChange() {
+    await refreshStudyTags();
+    if (!started) return;
+    if (batchEnabled) void startBatch();
+    else void loadNext();
   }
 
   function studyQuery(extra) {
@@ -128,6 +161,7 @@
     started = true;
     startPanel.hidden = true;
     emptyEl.hidden = true;
+    batchDoneEl.hidden = true;
     flipEl.hidden = false;
     if (batchEnabled) void startBatch();
     else void loadNext();
@@ -689,6 +723,7 @@
         batchProgressEl.hidden = true;
         emptyEl.hidden = false;
         startPanel.hidden = false;
+        batchDoneEl.hidden = true;
         flipEl.hidden = true;
         started = false;
         studyEl.hidden = true;
@@ -731,6 +766,33 @@
     animateAdvance(advanceBatch);
   }
 
+  async function submitBatchVoice(blob) {
+    var record = batch.records[batch.pos];
+    if (!record || record.status !== 'unseen') return;
+    record.blob = blob;
+    record.response_time_ms = Date.now() - startedAt;
+    record.status = 'processing';
+    record.promise = processRecord(record);
+    void record.promise;
+    submitButton.disabled = true;
+    recordButton.disabled = true;
+    animateAdvance(advanceBatch);
+  }
+
+  async function transcribePayload(record) {
+    var form = new FormData();
+    form.append('audio', record.blob, 'answer.webm');
+    var result = await api('/api/study/transcribe', {method: 'POST', body: form});
+    return {
+      card_id: record.card.card.id,
+      answer_text: result.text,
+      input_method: 'voice',
+      response_time_ms: record.response_time_ms || 0,
+      stt_duration_ms: result.stt_duration_ms,
+      audio_duration_ms: result.audio_duration_ms
+    };
+  }
+
   function advanceBatch() {
     var next = batch.pos + 1;
     if (next < batch.records.length) {
@@ -742,6 +804,16 @@
 
   async function processRecord(record) {
     var payload = record.payload;
+    if (!payload && record.blob) {
+      try {
+        payload = await transcribePayload(record);
+        record.payload = payload;
+      } catch (error) {
+        record.error = error.message;
+        record.status = 'error';
+        return;
+      }
+    }
     try {
       var preview = await api('/api/study/answer', {
         method: 'POST',
@@ -909,6 +981,10 @@
     nextButton.hidden = false;
     nextButton.disabled = false;
     nextButton.textContent = 'Next';
+    setStatus(
+      'Card ' + (reviewIndex + 1) + ' of ' + batch.records.length +
+      '. Press Next (or Enter) to continue.'
+    );
     if (record.manual) {
       showManualReview(record);
       return;
@@ -924,7 +1000,6 @@
   function playReviewAudio(url) {
     stopSpoken();
     spokenAudio = new Audio(url);
-    spokenAudio.onended = function () { advanceReview(); };
     spokenAudio.play().catch(function () {
       // Autoplay may be blocked; the Next button still works.
     });
@@ -971,8 +1046,29 @@
   function finishBatch() {
     stopSpoken();
     batchProgressEl.hidden = true;
+    studyEl.hidden = true;
+    resultEl.hidden = true;
+    flipEl.hidden = true;
+    batchDoneEl.hidden = false;
     setStatus('Batch complete.');
+  }
+
+  function continueBatch() {
+    batchDoneEl.hidden = true;
+    flipEl.hidden = false;
     void startBatch();
+  }
+
+  function backToMenu() {
+    stopSpoken();
+    batchDoneEl.hidden = true;
+    emptyEl.hidden = true;
+    flipEl.hidden = true;
+    studyEl.hidden = true;
+    resultEl.hidden = true;
+    started = false;
+    startPanel.hidden = false;
+    setStatus('Choose a deck and tags, then press Start.');
   }
 
   async function submitCurrent() {
@@ -1044,7 +1140,11 @@
         chunks = [];
         stopRecordingCounter();
         recordButton.textContent = 'Record voice';
-        void transcribeAudio(blob);
+        if (batchEnabled && batch && batch.phase === 'answer' && voiceAutoJudge) {
+          void submitBatchVoice(blob);
+        } else {
+          void transcribeAudio(blob);
+        }
       };
       activeRecorder.start();
       recordingStartedAt = Date.now();
@@ -1130,11 +1230,7 @@
     }
   }
 
-  deckSelect.addEventListener('change', function () {
-    if (!started) return;
-    if (batchEnabled) void startBatch();
-    else void loadNext();
-  });
+  deckSelect.addEventListener('change', function () { void onDeckChange(); });
   submitButton.addEventListener('click', function () { void submitCurrent(); });
   teacherBtn.addEventListener('click', fetchExplanation);
   teacherRegenBtn.addEventListener('click', fetchExplanation);
@@ -1149,5 +1245,7 @@
   answerInput.addEventListener('input', invalidateAssessment);
   document.addEventListener('keydown', onKeydown);
   startButton.addEventListener('click', startSession);
+  batchContinueBtn.addEventListener('click', continueBatch);
+  batchMenuBtn.addEventListener('click', backToMenu);
   void watchMicrophonePermission();
 })();

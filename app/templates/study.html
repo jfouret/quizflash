@@ -16,17 +16,15 @@
 <section id="start-panel" class="card">
   <h2>Start a session</h2>
   <p class="muted">Choose a deck above, optionally filter by tags, then press Start.</p>
-  {% if study_tags %}
-  <fieldset class="panel">
-    <legend>Tags</legend>
+  <fieldset class="panel" id="tag-panel"{% if not study_tags %} hidden{% endif %}>
+    <legend>Tags in the selected deck</legend>
     <p class="muted"><small>Leave all unchecked to include every tag. A card is selected when it carries at least one checked tag.</small></p>
-    <div class="tag-checks">
+    <div class="tag-checks" id="tag-options">
       {% for tag in study_tags %}
       <label class="tag-check"><input type="checkbox" name="study-tag" value="{{ tag }}"> <span class="tag">{{ tag }}</span></label>
       {% endfor %}
     </div>
   </fieldset>
-  {% endif %}
   <button id="start-study" type="button">Start</button>
 </section>
 <div id="batch-progress" class="batch-progress" hidden></div>
@@ -34,6 +32,14 @@
   <h2>All caught up</h2>
   <p>No cards are due under your current limits.</p>
   <div class="actions"><a role="button" class="secondary outline" href="/">Back to decks</a><a role="button" class="secondary outline" href="/explore">Explore decks</a></div>
+</section>
+<section id="batch-done" class="card" hidden>
+  <h2>Batch complete</h2>
+  <p class="muted">You reviewed every card in this batch.</p>
+  <div class="actions">
+    <button id="batch-continue" type="button">Continue</button>
+    <button id="batch-menu" type="button" class="secondary outline">Back to menu</button>
+  </div>
 </section>
 <div id="flip" class="flip" hidden>
 <section id="study-card" class="card" hidden>

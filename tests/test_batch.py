@@ -83,6 +83,9 @@ def test_study_page_exposes_batch_config(client: TestClient) -> None:
     assert 'id="batch-progress"' in html
     assert 'id="start-panel"' in html
     assert 'id="start-study"' in html
+    assert 'id="batch-done"' in html
+    assert 'id="batch-continue"' in html
+    assert 'id="batch-menu"' in html
 
 
 def test_study_tags_lists_available_tags(client: TestClient, deck: dict[str, Any]) -> None:
@@ -92,6 +95,21 @@ def test_study_tags_lists_available_tags(client: TestClient, deck: dict[str, Any
         json={"deck_id": deck["id"], "question": "T", "answer": "A", "tags": ["alpha", "beta"]},
     )
 
+    assert client.get("/api/study/tags").json() == ["alpha", "beta"]
+
+
+def test_study_tags_filter_by_deck(client: TestClient, deck: dict[str, Any]) -> None:
+    other = response_dict(client.post("/api/decks", json={"name": "Other"}))
+    client.post(
+        "/api/cards",
+        json={"deck_id": deck["id"], "question": "Q", "answer": "A", "tags": ["alpha"]},
+    )
+    client.post(
+        "/api/cards",
+        json={"deck_id": other["id"], "question": "Q", "answer": "A", "tags": ["beta"]},
+    )
+
+    assert client.get(f"/api/study/tags?deck_id={deck['id']}").json() == ["alpha"]
     assert client.get("/api/study/tags").json() == ["alpha", "beta"]
 
 

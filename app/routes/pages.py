@@ -204,7 +204,7 @@ def study_page(
             "deck_id": deck_id,
             "settings": crud.effective_settings(session, user),
             "voice_allowed": crud.get_app_settings(session).voice_allowed,
-            "study_tags": crud.list_study_tags(session, user),
+            "study_tags": crud.list_study_tags(session, user, deck_id),
             "due_count": len(crud.get_due(session, user, deck_id)),
         },
     )
