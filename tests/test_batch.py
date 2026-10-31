@@ -83,6 +83,9 @@ def test_study_page_exposes_batch_config(client: TestClient) -> None:
     assert 'id="batch-progress"' in html
     assert 'id="start-panel"' in html
     assert 'id="start-study"' in html
+    assert 'id="batch-done"' in html
+    assert 'id="batch-continue"' in html
+    assert 'id="batch-menu"' in html
 
 
 def test_study_tags_lists_available_tags(client: TestClient, deck: dict[str, Any]) -> None:
