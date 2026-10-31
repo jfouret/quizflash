@@ -856,6 +856,45 @@
     renderReview(record);
   }
 
+  function renderReviewJudgeInfo(record) {
+    if (record.manual) {
+      judgeInfoEl.textContent = 'Automatic judging failed; rate this answer manually.';
+      return;
+    }
+    if (record.error) {
+      judgeInfoEl.textContent = record.error;
+      return;
+    }
+    var model =
+      (record.saved && record.saved.judge_model) ||
+      (record.preview && record.preview.judge_model) ||
+      '';
+    judgeInfoEl.textContent = model ? 'Judge: ' + model : '';
+  }
+
+  function renderReviewTeacher(record) {
+    if (!teacherEnabled) {
+      teacherWrap.hidden = true;
+      return;
+    }
+    teacherWrap.hidden = false;
+    if (record.explanation) teacherExplanationEl.innerHTML = renderMarkdown(record.explanation);
+    else if (record.explanationError) teacherExplanationEl.textContent = record.explanationError;
+    else teacherExplanationEl.textContent = '';
+    teacherInfoEl.textContent = record.teacherModel ? 'Teacher: ' + record.teacherModel : '';
+  }
+
+  function showManualReview(record) {
+    ratingControls.hidden = false;
+    confirmButton.hidden = false;
+    confirmButton.disabled = false;
+    confirmButton.textContent = 'Save review';
+    confirmButton.onclick = function () { void saveManual(record); };
+    ratingInput.value = record.rating || '3';
+    correctInput.value = 'true';
+    finalRatingEl.textContent = '';
+  }
+
   function renderReview(record) {
     expectedAnswerEl.textContent = record.card.card.answer;
     detailsEl.textContent = record.card.card.details;
@@ -865,42 +904,15 @@
     feedbackEl.innerHTML = feedback ? renderMarkdown(feedback) : '';
     feedbackEl.hidden = !feedback;
     resultEl.hidden = false;
-
-    if (record.manual) {
-      judgeInfoEl.textContent = 'Automatic judging failed; rate this answer manually.';
-    } else if (record.error) {
-      judgeInfoEl.textContent = record.error;
-    } else {
-      var model = (record.saved && record.saved.judge_model) || (record.preview && record.preview.judge_model) || '';
-      judgeInfoEl.textContent = model ? 'Judge: ' + model : '';
-    }
-
-    if (teacherEnabled) {
-      teacherWrap.hidden = false;
-      if (record.explanation) teacherExplanationEl.innerHTML = renderMarkdown(record.explanation);
-      else if (record.explanationError) teacherExplanationEl.textContent = record.explanationError;
-      else teacherExplanationEl.textContent = '';
-      teacherInfoEl.textContent = record.teacherModel ? 'Teacher: ' + record.teacherModel : '';
-    } else {
-      teacherWrap.hidden = true;
-    }
-
+    renderReviewJudgeInfo(record);
+    renderReviewTeacher(record);
     nextButton.hidden = false;
     nextButton.disabled = false;
     nextButton.textContent = 'Next';
-
     if (record.manual) {
-      ratingControls.hidden = false;
-      confirmButton.hidden = false;
-      confirmButton.disabled = false;
-      confirmButton.textContent = 'Save review';
-      confirmButton.onclick = function () { void saveManual(record); };
-      ratingInput.value = record.rating || '3';
-      correctInput.value = 'true';
-      finalRatingEl.textContent = '';
+      showManualReview(record);
       return;
     }
-
     ratingControls.hidden = true;
     confirmButton.hidden = true;
     finalRatingEl.textContent = record.saved
@@ -1077,6 +1089,47 @@
     }
   }
 
+  function inReviewPhase() {
+    return batchEnabled && batch && batch.phase === 'review';
+  }
+
+  function primaryAction() {
+    if (!nextButton.hidden) {
+      if (inReviewPhase()) advanceReview();
+      else void nextCard();
+    } else if (!studyEl.hidden && !submitButton.disabled) {
+      void submitCurrent();
+    }
+  }
+
+  function onKeydown(event) {
+    if (event.key === 'Enter' && recorder && recorder.state === 'recording') {
+      event.preventDefault();
+      toggleRecording();
+      return;
+    }
+    var typing =
+      event.target === answerInput ||
+      event.target === ratingInput ||
+      event.target === correctInput ||
+      event.target === deckSelect;
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && event.target === answerInput) {
+      event.preventDefault();
+      void submitCurrent();
+      return;
+    }
+    if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      primaryAction();
+    } else if (event.key >= '1' && event.key <= '4' && !ratingControls.hidden) {
+      ratingInput.value = event.key;
+    } else if (event.key === 'n' && !nextButton.hidden) {
+      if (inReviewPhase()) advanceReview();
+      else void nextCard();
+    }
+  }
+
   deckSelect.addEventListener('change', function () {
     if (!started) return;
     if (batchEnabled) void startBatch();
@@ -1090,35 +1143,11 @@
   recordButton.addEventListener('click', toggleRecording);
   textModeButton.addEventListener('click', setTextMode);
   nextButton.addEventListener('click', function () {
-    if (batchEnabled && batch && batch.phase === 'review') advanceReview();
+    if (inReviewPhase()) advanceReview();
     else void nextCard();
   });
   answerInput.addEventListener('input', invalidateAssessment);
-  document.addEventListener('keydown', function (event) {
-    if (event.key === 'Enter' && recorder && recorder.state === 'recording') {
-      event.preventDefault();
-      toggleRecording();
-      return;
-    }
-    var typing = event.target === answerInput || event.target === ratingInput || event.target === correctInput || event.target === deckSelect;
-    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && event.target === answerInput) {
-      event.preventDefault();
-      void submitAnswer();
-      return;
-    }
-    if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      if (batchEnabled && batch && batch.phase === 'review' && !nextButton.hidden) advanceReview();
-      else if (!nextButton.hidden) void nextCard();
-      else if (!studyEl.hidden && !submitButton.disabled) void submitCurrent();
-    } else if (event.key >= '1' && event.key <= '4' && !ratingControls.hidden) {
-      ratingInput.value = event.key;
-    } else if (event.key === 'n' && !nextButton.hidden) {
-      if (batchEnabled && batch && batch.phase === 'review') advanceReview();
-      else void nextCard();
-    }
-  });
+  document.addEventListener('keydown', onKeydown);
   startButton.addEventListener('click', startSession);
   void watchMicrophonePermission();
 })();
