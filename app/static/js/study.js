@@ -34,6 +34,7 @@
   var ratingInput = document.getElementById('rating');
   var correctInput = document.getElementById('correct');
   var finalRatingEl = document.getElementById('final-rating');
+  var retryRecordBtn = document.getElementById('retry-record');
   var confirmButton = document.getElementById('confirm');
   var nextButton = document.getElementById('next');
   var startPanel = document.getElementById('start-panel');
@@ -422,6 +423,7 @@
     confirmButton.disabled = false;
     nextButton.hidden = true;
     nextButton.disabled = false;
+    retryRecordBtn.hidden = true;
     answerInput.disabled = false;
     answerInput.value = '';
     submitButton.disabled = false;
@@ -799,6 +801,7 @@
     ratingControls.hidden = true;
     confirmButton.hidden = true;
     nextButton.hidden = true;
+    retryRecordBtn.hidden = true;
     setTextMode();
   }
 
@@ -1024,6 +1027,7 @@
     nextButton.hidden = false;
     nextButton.disabled = false;
     nextButton.textContent = 'Next';
+    retryRecordBtn.hidden = true;
     finalRatingEl.textContent = '';
     resultEl.hidden = false;
     setStatus(
@@ -1112,6 +1116,9 @@
     feedbackEl.hidden = !feedback;
     resultEl.hidden = false;
     renderReviewJudgeInfo(record);
+    retryRecordBtn.hidden = !record.error;
+    retryRecordBtn.textContent = record.payload ? 'Retry judging' : 'Retry transcription';
+    retryRecordBtn.onclick = function () { void retryTranscription(record); };
     renderReviewTeacher(record);
     nextButton.hidden = false;
     nextButton.disabled = false;
@@ -1152,6 +1159,25 @@
       showReviewCard(next);
     } else {
       finishBatch();
+    }
+  }
+
+  async function retryTranscription(record) {
+    // The recording is still in this tab's memory: a transcription that came back
+    // rate-limited can be tried again during the review.
+    retryRecordBtn.disabled = true;
+    retryRecordBtn.hidden = true;
+    record.error = null;
+    record.status = 'processing';
+    record.promise = processRecord(record);
+    showPendingReview(record, reviewIndex);
+    try {
+      await record.promise;
+    } finally {
+      retryRecordBtn.disabled = false;
+    }
+    if (batch.phase === 'review' && batch.records[reviewIndex] === record) {
+      renderReview(record);
     }
   }
 

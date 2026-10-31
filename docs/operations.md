@@ -148,7 +148,7 @@ Example client URL: `http://127.0.0.1:8000/mcp/`.
 6. The OpenRouter Decisions API (`POST /api/alpha/decisions`) maps the answer to a level on the deck's scale (`0`..`max`, default `0..4`) and to `is_correct` independently. It returns no prose feedback.
 7. The input can be corrected and judged again. In `ai_assess`, Next card saves the latest preview; in `ai_preselect`, Confirm review saves it. The deck's scheduler then reschedules the card (the level is mapped to its `1..4` quality) and an `AnswerLog` row is persisted. A teacher explanation generated with that answer's `log_id` is stored on the same row; no audio is ever written to disk.
 
-If the STT call fails, the voice attempt is logged server-side and the user can still answer by text. If the judge fails or times out (5 s), manual self-assessment is offered through a single-use fallback token.
+If the STT call fails, the voice attempt is logged server-side and the user can still answer by text. Speech-to-text calls are queued and start two seconds apart, because a batch of voice answers otherwise reaches the provider as a burst and comes back rate-limited; the recording stays in the browser tab, so a transcription that still failed can be retried from the review card (**Retry transcription**), and retries wait 2 s, 5 s, then 15 s before they give up. Speech synthesis calls queue the same way, one second apart. If the judge fails or times out (5 s), manual self-assessment is offered through a single-use fallback token.
 
 ## Schedulers
 

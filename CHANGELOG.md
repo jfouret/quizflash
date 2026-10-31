@@ -4,6 +4,23 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] - 2026-11-01
+
+### Added
+
+- A review card whose transcription failed offers **Retry transcription** (and **Retry
+  judging** when only the judge failed). The recording never leaves the browser tab until a
+  transcription succeeds, so the audio is only kept long enough to retry, and nothing is
+  written server-side.
+
+### Fixed
+
+- Speech-to-text calls are queued and start two seconds apart instead of bursting: a batch
+  of voice answers reached the provider as five simultaneous requests and came back
+  `429 Too Many Requests`. Speech synthesis queues the same way, one second apart.
+- Upstream retries wait longer before giving up: 2 s, 5 s, then 15 s (was 1 s then 3 s), and
+  a `Retry-After` is honoured up to 30 s.
+
 ## [0.8.0] - 2026-10-31
 
 ### Added
