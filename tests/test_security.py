@@ -436,8 +436,14 @@ def test_security_headers_are_set(client: TestClient) -> None:
 
 def test_api_docs_get_a_relaxed_but_bounded_policy(client: TestClient) -> None:
     csp = client.get("/docs").headers["content-security-policy"]
-    assert "https://cdn.jsdelivr.net" in csp
-    assert "object-src 'none'" in csp
+    directives = {
+        name: set(values.split())
+        for name, _, values in (part.strip().partition(" ") for part in csp.split(";"))
+    }
+    # Set comparison, not a substring test: a substring test would also accept
+    # "https://cdn.jsdelivr.net.evil", and CodeQL reports that pattern.
+    assert directives["script-src"] >= {"https://cdn.jsdelivr.net"}
+    assert directives["object-src"] == {"'none'"}
 
 
 INLINE_SCRIPT = r"<script(?![^>]*\bsrc=)"

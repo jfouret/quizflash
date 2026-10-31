@@ -22,6 +22,16 @@ VisibilityForm = Literal["private", "public"]
 UserAction = Literal["approve", "suspend", "reactivate", "promote", "demote", "delete"]
 
 
+def _deck_page(deck_id: int, notice: str) -> str:
+    """URL of a deck page on this site.
+
+    Concatenation, not an f-string: the literal prefix is what proves the target
+    cannot leave the site, and CodeQL's URL-redirection query only accepts the
+    right-hand side of a concatenation as safe.
+    """
+    return "/decks/" + str(deck_id) + "?notice=" + notice
+
+
 @router.get("/healthz", include_in_schema=False)
 def healthz() -> dict[str, str]:
     """Liveness probe for the container healthcheck; no session required."""
@@ -86,7 +96,7 @@ def update_deck_form(
     if visibility is not None:
         data.visibility = visibility
     crud.update_deck(session, user, deck_id, data)
-    return RedirectResponse(f"/decks/{deck_id}?notice=deck-saved", status_code=303)
+    return RedirectResponse(_deck_page(deck_id, "deck-saved"), status_code=303)
 
 
 @router.post("/decks/{deck_id}/delete")
@@ -98,7 +108,7 @@ def delete_deck_form(deck_id: int, session: SessionDep, user: CurrentUser) -> Re
 @router.post("/decks/{deck_id}/follow")
 def follow_deck_form(deck_id: int, session: SessionDep, user: CurrentUser) -> RedirectResponse:
     crud.follow_deck(session, user, deck_id)
-    return RedirectResponse(f"/decks/{deck_id}?notice=deck-followed", status_code=303)
+    return RedirectResponse(_deck_page(deck_id, "deck-followed"), status_code=303)
 
 
 @router.post("/decks/{deck_id}/unfollow")
@@ -110,7 +120,8 @@ def unfollow_deck_form(deck_id: int, session: SessionDep, user: CurrentUser) -> 
 @router.post("/decks/{deck_id}/copy")
 def copy_deck_form(deck_id: int, session: SessionDep, user: CurrentUser) -> RedirectResponse:
     copy = crud.copy_deck(session, user, deck_id)
-    return RedirectResponse(f"/decks/{copy.id}?notice=deck-copied", status_code=303)
+    assert copy.id is not None  # a committed row always has an id
+    return RedirectResponse(_deck_page(copy.id, "deck-copied"), status_code=303)
 
 
 @router.post("/decks/{deck_id}/cards")
@@ -138,7 +149,7 @@ def create_card_form(
             tags=[tag.strip() for tag in tags.split(",") if tag.strip()],
         ),
     )
-    return RedirectResponse(f"/decks/{deck_id}?notice=card-created", status_code=303)
+    return RedirectResponse(_deck_page(deck_id, "card-created"), status_code=303)
 
 
 @router.post("/cards/{card_id}/delete")
@@ -149,7 +160,7 @@ def delete_card_form(
     deck_id: Annotated[int, Form()],
 ) -> RedirectResponse:
     crud.delete_card(session, user, card_id)
-    return RedirectResponse(f"/decks/{deck_id}?notice=card-deleted", status_code=303)
+    return RedirectResponse(_deck_page(deck_id, "card-deleted"), status_code=303)
 
 
 @router.get("/explore", response_class=HTMLResponse)
