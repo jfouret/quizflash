@@ -49,12 +49,13 @@ Environment variables can come from the shell or a `.env` file (see `.env.exampl
 | Variable | Default | Description |
 |---|---|---|
 | `DATABASE_URL` | `sqlite:///./quizdeck.db` | SQLAlchemy database URL |
+| `BUILD_TAG` | (none) | Build identifier shown in the UI footer; the image build sets it |
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai` | Shared OpenRouter root; every `X_BASE_URL` below falls back to it |
 | `OPENROUTER_API_KEY` | (none) | Shared key; every `X_API_KEY` below falls back to it |
 | `JUDGE_BASE_URL` | `OPENROUTER_BASE_URL` | Judge root URL; `/api/alpha/decisions` is appended |
 | `JUDGE_MODEL` | `inception/mercury-decide` | OpenRouter decision model |
 | `JUDGE_API_KEY` | `OPENROUTER_API_KEY` | Judge API key |
-| `STT_BASE_URL` | `OPENROUTER_BASE_URL` | OpenAI-compatible `/v1/audio/transcriptions` base |
+| `STT_BASE_URL` | `OPENROUTER_BASE_URL` | Speech-to-text base; `/api/v1/audio/transcriptions` is appended (or `/audio/transcriptions` when the base already ends in `/v1`) |
 | `STT_MODEL` | (none) | STT model |
 | `STT_API_KEY` | `OPENROUTER_API_KEY` | STT API key |
 | `TEACHER_BASE_URL` | `JUDGE_BASE_URL` → `OPENROUTER_BASE_URL` | Chat-completions base for the teacher; `/api/v1/chat/completions` is appended |
@@ -64,7 +65,7 @@ Environment variables can come from the shell or a `.env` file (see `.env.exampl
 | `TTS_BASE_URL` | `TEACHER_BASE_URL` → `OPENROUTER_BASE_URL` | Speech base; `/api/v1/audio/speech` is appended |
 | `TTS_MODEL` | (none) | TTS model (required for spoken output) |
 | `TTS_API_KEY` | `TEACHER_API_KEY` → `OPENROUTER_API_KEY` | TTS API key |
-| `TTS_VOICE` | `alloy` | TTS voice |
+| `TTS_VOICE` | `en_paul_neutral` | TTS voice; must be one of the model's `supported_voices` |
 | `COOKIE_SECURE` | `1` | Send the session cookie only over HTTPS (`__Host-session`). Set `0` only for plain-HTTP local development |
 | `SESSION_IDLE_HOURS` | `168` | A session expires after this much inactivity |
 | `SESSION_MAX_HOURS` | `720` | Absolute session lifetime |
@@ -85,6 +86,30 @@ export STT_MODEL="whisper-1"                 # STT base URL defaults to OPENROUT
 export TEACHER_MODEL="openai/gpt-4o-mini"
 export TTS_MODEL="openai/gpt-4o-mini-tts"
 ```
+
+## Agent configuration
+
+Administrators get an **Agents** page (`/admin/agents`) with one tab per model
+step: Judge, Teacher, TTS, Verbalizer and STT. Each tab can override the model,
+base URL, API key environment variable name, voice (TTS), system prompt and Jinja
+prompt template. Empty fields fall back to the environment variables shown in
+the form.
+
+API keys are environment-only. The page stores the *name* of the variable (for
+example `TEACHER_API_KEY`) but never the key value, and saving a tab fails until
+that variable, or `OPENROUTER_API_KEY`, is set.
+
+Prompt templates receive the card and answer context. For example:
+
+```jinja
+Question: {{ card.question }}
+Expected answer: {{ card.answer }}
+User answer: {{ user_answer }}
+```
+
+The defaults tell every model to respect the requested language and to keep
+technical terms, proper nouns, code identifiers and abbreviations in their
+original form instead of over-translating them.
 
 ## Run locally
 

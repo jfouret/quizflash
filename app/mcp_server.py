@@ -24,6 +24,7 @@ from app.schemas import (
 )
 from app.stats import get_stats as calculate_stats
 from app.teacher.base import Teacher
+from app.teacher.openrouter import OpenRouterTeacher
 from app.teacher.service import explain_card as teacher_explanation
 
 
@@ -187,8 +188,14 @@ def create_mcp(
             user = current_user(session)
             if not crud.get_app_settings(session).teacher_allowed:
                 raise ToolError("Teacher explanations are disabled")
-            explanation = teacher_explanation(session, user, card_id, teacher)
-            return {"explanation": explanation, "model": teacher.model}
+            resolved = teacher
+            if isinstance(teacher, OpenRouterTeacher):
+                resolved = OpenRouterTeacher.from_config(
+                    crud.get_agent_config(session, "teacher"),
+                    crud.get_agent_config(session, "verbalizer"),
+                )
+            explanation = teacher_explanation(session, user, card_id, resolved)
+            return {"explanation": explanation, "model": resolved.model}
 
     @mcp.tool
     def list_public_decks() -> list[dict[str, Any]]:

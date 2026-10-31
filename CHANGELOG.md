@@ -4,6 +4,43 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-10-31
+
+### Added
+
+- Admin **Agents** page with one tab per model step: Judge, Teacher, TTS,
+  Verbalizer and STT. Each step stores its model, base URL, API key environment
+  variable name, voice (TTS), system prompt and Jinja prompt template.
+- Default prompts respect the requested language and keep technical terms,
+  proper nouns, code identifiers and abbreviations in their original form.
+- Prompt templates render card, deck and answer fields such as
+  `{{ card.question }}`, `{{ card.answer }}`, `{{ deck.context }}` and
+  `{{ user_answer }}`.
+
+### Changed
+
+- API keys are read from environment variables only. The Agents UI never stores
+  or displays a key, and saving a step requires the named variable to be set.
+- The Verbalizer has its own agent settings instead of sharing the Teacher model.
+
+## [0.3.0] - 2026-10-31
+
+### Added
+
+- The UI footer shows the application version and the image build tag
+  (`X.Y.Z-YYYY-MM-DD`), so the running release is visible without calling
+  `/healthz`.
+
+### Fixed
+
+- Speech-to-text calls the OpenRouter `/api/v1/audio/transcriptions` endpoint
+  instead of the nonexistent root `/audio/transcriptions` path.
+- The default TTS voice is `en_paul_neutral`, which Mistral Voxtral TTS accepts;
+  the previous `alloy` default made the provider return 404. `TTS_VOICE` must
+  match one of the configured model's `supported_voices`.
+- TTS and STT base URLs that already end in `/api/v1` or `/v1` no longer get a
+  duplicated path prefix.
+
 ## [0.2.2] - 2026-10-31
 
 ### Added

@@ -1,12 +1,26 @@
 from typing import Any
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+from app import __version__
 from app.models import CardState, User
+from app.templating import templates
 from tests.conftest import response_dict, response_list
 from tests.test_study import answer_payload, enable_ai_assess
+
+
+def test_footer_shows_version_and_build_tag(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(templates.env.globals, "build_tag", "9.9.9-2026-01-01")
+
+    html = client.get("/login").text
+
+    assert f"QuizDeck v{__version__}" in html
+    assert "build 9.9.9-2026-01-01" in html
 
 
 def _public_deck(client: TestClient) -> tuple[dict[str, Any], dict[str, Any]]:

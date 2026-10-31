@@ -175,6 +175,10 @@ button.link { background: none; border: none; padding: 0; color: var(--pico-prim
 
 fieldset.panel { border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); padding: 1rem 1.25rem .25rem; margin-bottom: 1rem; background: var(--pico-card-background-color); }
 fieldset.panel legend { font-weight: 700; padding: 0 .4rem; margin-left: -.4rem; }
+.tabs { display: flex; flex-wrap: wrap; gap: .35rem; margin: 0 0 1rem; padding: .35rem; background: var(--surface-muted); border-radius: var(--pico-border-radius); }
+.tabs a { padding: .45rem .8rem; border-radius: .45rem; text-decoration: none; color: var(--pico-muted-color); font-weight: 600; font-size: .9rem; }
+.tabs a:hover { color: var(--pico-color); }
+.tabs a[aria-current="page"] { background: var(--pico-card-background-color); color: var(--pico-primary); box-shadow: var(--pico-card-box-shadow); }
 .hint { display: block; color: var(--pico-muted-color); font-size: .85rem; margin: -.4rem 0 .9rem; }
 label > .hint { margin: .15rem 0 0 2.6rem; }
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 1rem; }

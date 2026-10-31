@@ -147,3 +147,16 @@ class AppSettings(SQLModel, table=True):
     voice_allowed: bool = True
     tts_allowed: bool = True
     default_settings: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+
+class AgentConfig(SQLModel, table=True):
+    """Admin-editable agent settings. API key values stay in the environment."""
+
+    step: str = Field(primary_key=True)
+    model: str = ""
+    base_url: str = ""
+    api_key_env: str = "OPENROUTER_API_KEY"
+    voice: str = ""
+    system_prompt: str = ""
+    prompt_template: str = ""
+    updated_at: datetime = Field(default_factory=utc_now)
