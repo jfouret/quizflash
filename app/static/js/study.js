@@ -53,16 +53,22 @@
   var batchSize = Number(config.batchSize) || 5;
   var batchProgressEl = document.getElementById('batch-progress');
 
-  // Focusing the answer field on a touch device raises the on-screen keyboard, which
-  // then hides the card at every new question. Autofocus only where a mouse or
-  // trackpad exists: a phone or tablet has no fine pointer at all, while a
-  // touch-screen laptop still counts as a keyboard device.
-  var touchOnly =
-    window.matchMedia('(any-pointer: coarse)').matches &&
-    !window.matchMedia('(any-pointer: fine)').matches;
+  // Autofocus is for whoever types on a physical keyboard. On a touch device the
+  // focus call raises the on-screen keyboard, which then hides the question at every
+  // card, so it is skipped there. The media query only gives the starting guess: a
+  // pen counts as a fine pointer on some devices, so the real input in use decides.
+  var touchInput = window.matchMedia('(any-pointer: coarse)').matches;
+  document.addEventListener(
+    'pointerdown',
+    function (event) {
+      if (event.pointerType === 'mouse') touchInput = false;
+      else if (event.pointerType === 'touch' || event.pointerType === 'pen') touchInput = true;
+    },
+    true
+  );
 
   function focusAnswer() {
-    if (!touchOnly) answerInput.focus();
+    if (!touchInput) answerInput.focus();
   }
 
   var current = null;
@@ -318,10 +324,14 @@
   }
 
   function setTextMode() {
+    // The interrupt for the automatic voice flow: drop the recording in progress
+    // instead of letting it be transcribed and submitted on its own.
+    var wasRecording = Boolean(recorder) || startingRecording;
+    cancelRecording();
     inputMethod = 'text';
     sttDuration = null;
     audioDuration = null;
-    setStatus('Text answer mode.');
+    setStatus(wasRecording ? 'Recording interrupted. Type your answer.' : 'Text answer mode.');
   }
 
   function updateRecordingCounter() {
@@ -399,6 +409,7 @@
   function resetPanels() {
     cancelRecording();
     answerInput.blur();
+    inputMethod = 'text';
     current = null;
     setFlipped(false);
     studyEl.hidden = true;
@@ -753,6 +764,7 @@
   function prepareAnswerCard() {
     cancelRecording();
     answerInput.blur();
+    inputMethod = 'text';
     stopSpoken();
     setFlipped(false);
     resultEl.hidden = true;
@@ -1321,7 +1333,13 @@
   speakQuestionBtn.addEventListener('click', function () { void speak('/api/study/speak-question', speakQuestionBtn); });
   speakExplanationBtn.addEventListener('click', function () { void speak('/api/study/speak-explanation', speakExplanationBtn); });
   recordButton.addEventListener('click', toggleRecording);
-  textModeButton.addEventListener('click', setTextMode);
+  // Tapping the text button is a request for the keyboard, and the only place where
+  // focus is raised on purpose. The automatic fallback (a failed transcription, an
+  // unsupported browser) goes through setTextMode alone and leaves the keyboard down.
+  textModeButton.addEventListener('click', function () {
+    setTextMode();
+    answerInput.focus();
+  });
   nextButton.addEventListener('click', function () {
     if (inReviewPhase()) advanceReview();
     else void nextCard();

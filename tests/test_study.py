@@ -263,13 +263,17 @@ def test_sm2_deck_scheduler_reschedules_low_rating(
 def test_study_page_never_autofocuses_the_answer_field(client: TestClient) -> None:
     """A focused textarea raises the phone keyboard and hides the next card.
 
-    The page must not carry `autofocus`, and study.js skips the focus call when the
-    device has no fine pointer at all (see focusAnswer in the script).
+    The page must not carry `autofocus`, study.js decides from the input actually in
+    use (pointer events, not a media query), and the text button interrupts the
+    automatic voice flow instead of letting it be submitted.
     """
     page = client.get("/study").text
 
     assert 'id="answer-input"' in page
     assert "autofocus" not in page
+    assert ">Type instead<" in page
+
     script = client.get("/static/js/study.js").text
-    assert "(any-pointer: coarse)" in script
-    assert "(any-pointer: fine)" in script
+    assert "pointerdown" in script
+    assert "touchInput" in script
+    assert "Recording interrupted" in script

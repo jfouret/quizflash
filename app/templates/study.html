@@ -57,7 +57,7 @@
   <textarea id="answer-input" rows="3" placeholder="Type your answer{{ ' or record it' if voice_allowed }}…"></textarea>
   <div class="study-actions">
     <button id="record" type="button" class="secondary" {% if not voice_allowed %}hidden{% endif %}>Record voice</button>
-    <button id="text-mode" type="button" class="secondary outlined" {% if not voice_allowed %}hidden{% endif %}>Use text input</button>
+    <button id="text-mode" type="button" class="secondary outlined" {% if not voice_allowed %}hidden{% endif %}>Type instead</button>
     <span id="recording-counter" class="muted" role="timer" aria-label="Recording duration" hidden>0:00</span>
     <canvas id="eq" width="96" height="28" hidden aria-hidden="true"></canvas>
     <button id="submit" type="button">Submit answer</button>
