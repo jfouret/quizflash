@@ -88,7 +88,7 @@ check_hardening() {
 echo "== local login mode"
 start
 wait_ready
-[ "$(curl -s "$BASE/healthz" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')" = "$VERSION" ] \
+[ "$(curl -s "$BASE/healthz" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')" = "$VERSION" ] \
   || fail "/healthz does not report version $VERSION"
 check_anonymous_denied
 check_hardening
