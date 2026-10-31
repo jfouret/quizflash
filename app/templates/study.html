@@ -16,17 +16,15 @@
 <section id="start-panel" class="card">
   <h2>Start a session</h2>
   <p class="muted">Choose a deck above, optionally filter by tags, then press Start.</p>
-  {% if study_tags %}
-  <fieldset class="panel">
-    <legend>Tags</legend>
+  <fieldset class="panel" id="tag-panel"{% if not study_tags %} hidden{% endif %}>
+    <legend>Tags in the selected deck</legend>
     <p class="muted"><small>Leave all unchecked to include every tag. A card is selected when it carries at least one checked tag.</small></p>
-    <div class="tag-checks">
+    <div class="tag-checks" id="tag-options">
       {% for tag in study_tags %}
       <label class="tag-check"><input type="checkbox" name="study-tag" value="{{ tag }}"> <span class="tag">{{ tag }}</span></label>
       {% endfor %}
     </div>
   </fieldset>
-  {% endif %}
   <button id="start-study" type="button">Start</button>
 </section>
 <div id="batch-progress" class="batch-progress" hidden></div>

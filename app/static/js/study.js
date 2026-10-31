@@ -36,7 +36,8 @@
   var nextButton = document.getElementById('next');
   var startPanel = document.getElementById('start-panel');
   var startButton = document.getElementById('start-study');
-  var tagInputs = document.querySelectorAll('input[name="study-tag"]');
+  var tagPanelEl = document.getElementById('tag-panel');
+  var tagOptionsEl = document.getElementById('tag-options');
   var cardTagsEl = document.getElementById('card-tags');
   var reviewTagsEl = document.getElementById('review-tags');
   var batchDoneEl = document.getElementById('batch-done');
@@ -90,10 +91,39 @@
 
   function selectedTags() {
     var tags = [];
-    Array.prototype.forEach.call(tagInputs, function (input) {
+    var inputs = document.querySelectorAll('input[name="study-tag"]');
+    Array.prototype.forEach.call(inputs, function (input) {
       if (input.checked) tags.push(input.value);
     });
     return tags;
+  }
+
+  function tagCheckbox(tag, checked) {
+    return '<label class="tag-check"><input type="checkbox" name="study-tag" value="' +
+      escapeHtml(tag) + '"' + (checked ? ' checked' : '') + '> <span class="tag">' +
+      escapeHtml(tag) + '</span></label>';
+  }
+
+  async function refreshStudyTags() {
+    var preserved = selectedTags();
+    var query = deckSelect.value ? '?deck_id=' + encodeURIComponent(deckSelect.value) : '';
+    var tags;
+    try {
+      tags = await api('/api/study/tags' + query);
+    } catch (error) {
+      return;
+    }
+    tagOptionsEl.innerHTML = tags.map(function (tag) {
+      return tagCheckbox(tag, preserved.indexOf(tag) !== -1);
+    }).join('');
+    tagPanelEl.hidden = !tags.length;
+  }
+
+  async function onDeckChange() {
+    await refreshStudyTags();
+    if (!started) return;
+    if (batchEnabled) void startBatch();
+    else void loadNext();
   }
 
   function studyQuery(extra) {
@@ -1200,11 +1230,7 @@
     }
   }
 
-  deckSelect.addEventListener('change', function () {
-    if (!started) return;
-    if (batchEnabled) void startBatch();
-    else void loadNext();
-  });
+  deckSelect.addEventListener('change', function () { void onDeckChange(); });
   submitButton.addEventListener('click', function () { void submitCurrent(); });
   teacherBtn.addEventListener('click', fetchExplanation);
   teacherRegenBtn.addEventListener('click', fetchExplanation);

@@ -347,7 +347,7 @@ def list_tags(session: Session, user: User) -> list[Tag]:
     return list(session.exec(statement).all())
 
 
-def list_study_tags(session: Session, user: User) -> list[str]:
+def list_study_tags(session: Session, user: User, deck_id: int | None = None) -> list[str]:
     """Distinct tag names on cards the user can train on, for the study filter."""
     statement = (
         select(Tag.name)
@@ -357,6 +357,9 @@ def list_study_tags(session: Session, user: User) -> list[str]:
         .distinct()
         .order_by(col(Tag.name))
     )
+    if deck_id is not None:
+        _trainable_deck(session, user, deck_id)
+        statement = statement.where(Card.deck_id == deck_id)
     return list(session.exec(statement).all())
 
 

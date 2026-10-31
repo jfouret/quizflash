@@ -49,9 +49,9 @@ def next_card(
 
 
 @router.get("/tags", response_model=list[str])
-def study_tags(session: SessionDep, user: CurrentUser) -> list[str]:
-    """Distinct tag names available in the user's study queue."""
-    return crud.list_study_tags(session, user)
+def study_tags(session: SessionDep, user: CurrentUser, deck_id: int | None = None) -> list[str]:
+    """Distinct tag names available in the user's study queue (optionally one deck)."""
+    return crud.list_study_tags(session, user, deck_id)
 
 
 @router.get("/batch", response_model=list[DueCard])

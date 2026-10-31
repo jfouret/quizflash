@@ -19,7 +19,7 @@ Self-hosted, multi-user spaced-repetition quiz application. Each user owns their
 - Per-user settings; per-user permanent MCP tokens managed from `/settings`.
 - Decks, cards, and first-class tags with full CRUD.
 - Continuous review queue (`due <= now`), ordered by due date, with optional daily new/review limits.
-- Batch study mode (on by default, batch size 5): answer a batch of cards back to back, then review their explanations. Judging, speech-to-text, the teacher and speech are prefetched in the background, so the next card appears as soon as the answer is submitted. The batch loops back to the first card for review and waits for **Next** (or Enter). Sessions start on a **Start** button, so a deck and tags can be chosen first; each card shows its tags. A finished batch offers **Continue** (a new batch, same deck and tags) or **Back to menu**.
+- Batch study mode (on by default, batch size 5): answer a batch of cards back to back, then review their explanations. Judging, speech-to-text, the teacher and speech are prefetched in the background, so the next card appears as soon as the answer is submitted. The batch loops back to the first card for review and waits for **Next** (or Enter). Sessions start on a **Start** button, so a deck and tags can be chosen first (the tag list follows the selected deck); each card shows its tags. A finished batch offers **Continue** (a new batch, same deck and tags) or **Back to menu**.
 - Evaluation modes:
   - `ai_preselect`: the AI proposes a rating and feedback; the user confirms or overrides.
   - `ai_assess`: the AI decides and the review is saved immediately.

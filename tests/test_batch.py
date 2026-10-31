@@ -98,6 +98,21 @@ def test_study_tags_lists_available_tags(client: TestClient, deck: dict[str, Any
     assert client.get("/api/study/tags").json() == ["alpha", "beta"]
 
 
+def test_study_tags_filter_by_deck(client: TestClient, deck: dict[str, Any]) -> None:
+    other = response_dict(client.post("/api/decks", json={"name": "Other"}))
+    client.post(
+        "/api/cards",
+        json={"deck_id": deck["id"], "question": "Q", "answer": "A", "tags": ["alpha"]},
+    )
+    client.post(
+        "/api/cards",
+        json={"deck_id": other["id"], "question": "Q", "answer": "A", "tags": ["beta"]},
+    )
+
+    assert client.get(f"/api/study/tags?deck_id={deck['id']}").json() == ["alpha"]
+    assert client.get("/api/study/tags").json() == ["alpha", "beta"]
+
+
 def test_batch_filters_by_tag(client: TestClient, deck: dict[str, Any]) -> None:
     _make_cards(client, deck["id"], 3)
     client.post(

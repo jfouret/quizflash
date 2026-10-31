@@ -62,7 +62,7 @@ A card carries `question`, `answer`, optional `details`, optional `expected_time
 
 ### Study
 
-A study session does not start on its own: the user picks a deck and optional tags, then presses **Start**. The `tag` query parameter may be repeated to filter the queue; a card is included when it carries at least one of the given tag names (`GET /api/study/tags` lists the names available to the user, including tags on followed decks).
+A study session does not start on its own: the user picks a deck and optional tags, then presses **Start**. The `tag` query parameter may be repeated to filter the queue; a card is included when it carries at least one of the given tag names. `GET /api/study/tags` lists the available names (all trainable decks, or one with `deck_id`), including tags on followed decks; the menu refreshes them when the deck changes.
 
 Batch mode is a per-user setting (`batch_enabled`, `batch_size`, default on at 5). The study view fetches up to `batch_size` due cards with `GET /api/study/batch`, then answers them back to back. After each submission the review is judged and saved in the background while the next card is shown; a voice answer is transcribed in the background too, and the teacher explanation and its speech are prefetched. After the last card the view loops back over the batch, showing each explanation and waiting for **Next** (or Enter) before the next one. A judge failure pauses that card for a manual rating during the review loop. When every card in the batch has been reviewed, a completion screen offers **Continue** (a new batch with the same deck and tags) or **Back to menu**. When batch mode is off, the view falls back to the single-card flow.
 
@@ -70,7 +70,7 @@ Batch mode is a per-user setting (`batch_enabled`, `batch_size`, default on at 5
 |---|---|---|
 | `GET` | `/api/study/next?deck_id=&tag=` | Next due card, or `null` when the queue is empty |
 | `GET` | `/api/study/batch?size=&deck_id=&tag=` | Up to `size` due cards (max 50), for the batch flow |
-| `GET` | `/api/study/tags` | Distinct tag names available in the user's queue |
+| `GET` | `/api/study/tags?deck_id=` | Distinct tag names available in the user's queue, or in one deck |
 | `POST` | `/api/study/transcribe` | Multipart audio upload, remote STT, editable transcript |
 | `POST` | `/api/study/answer` | Judge, confirm, or save a review |
 | `POST` | `/api/study/speak` | Synthesize `{text, vocal}` to audio without re-running the teacher |

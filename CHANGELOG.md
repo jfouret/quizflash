@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.5.1] - 2026-10-31
 
+### Changed
+
+- The study menu lists only the tags present in the selected deck, refreshed when
+  the deck changes.
+
 ### Fixed
 
 - Batch mode: a voice answer is transcribed in the background, so the next card
