@@ -13,6 +13,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- CI no longer publishes an image, attests or creates a release from a pull
+  request; publishing stays on `main` pushes and manual refresh runs.
 - Batch mode: a voice answer is transcribed in the background, so the next card
   appears as soon as recording ends instead of waiting for speech-to-text.
 - Batch review waits for **Next** (or Enter) before showing the following card,

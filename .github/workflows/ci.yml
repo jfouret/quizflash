@@ -104,10 +104,13 @@ jobs:
             tagged=false
           fi
           publish=false
-          if [ "$tagged" = false ]; then
-            publish=true
-          elif [ "${{ inputs.refresh }}" = "true" ]; then
-            publish=true
+          # Never publish from a pull request: only main pushes and manual refresh runs do.
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            if [ "$tagged" = false ]; then
+              publish=true
+            elif [ "${{ inputs.refresh }}" = "true" ]; then
+              publish=true
+            fi
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "date=$date" >> "$GITHUB_OUTPUT"
