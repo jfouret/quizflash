@@ -67,8 +67,34 @@ def test_decisions_endpoint_and_request_context() -> None:
     }
     assert body["questions"]["is_correct"]["type"] == "noul"
     assert body["questions"]["rating"]["type"] == "choice"
-    assert set(body["questions"]["rating"]["criteria"]) == {"1", "2", "3", "4"}
+    assert set(body["questions"]["rating"]["criteria"]) == {"0", "1", "2", "3", "4"}
     assert "messages" not in body
+
+
+def test_rating_criteria_follow_the_deck_scale() -> None:
+    request_bodies: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        request_bodies.append(json.loads(request.content))
+        return _judge_response(choice="7")
+
+    judge = _make_judge(httpx.MockTransport(handler))
+    result = judge.evaluate(
+        question="Q",
+        expected_answer="A",
+        user_answer="A",
+        expected_time_s=None,
+        response_time_ms=1000,
+        language="en",
+        max_level=10,
+        labels={3: "Bad", 5: "Average", 7: "Good"},
+    )
+
+    assert result.rating == 7
+    criteria = request_bodies[0]["questions"]["rating"]["criteria"]
+    assert set(criteria) == {str(level) for level in range(11)}
+    assert criteria["3"].startswith("Bad")
+    assert criteria["7"].startswith("Good")
 
 
 @pytest.mark.parametrize(
@@ -129,7 +155,7 @@ def test_timeout_is_wrapped_without_retry() -> None:
     assert calls == 1
 
 
-@pytest.mark.parametrize("choice", ["0", "5", 4, None])
+@pytest.mark.parametrize("choice", ["5", 4, None, "-1", "1.5"])
 def test_invalid_rating_choice_is_rejected(choice: Any) -> None:
     def handler(_: httpx.Request) -> httpx.Response:
         return _judge_response(choice=choice)

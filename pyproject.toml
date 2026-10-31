@@ -1,6 +1,6 @@
 [project]
 name = "quizdeck"
-version = "0.5.2"
+version = "0.6.0"
 description = "Self-hosted AI-evaluated spaced-repetition quizzes"
 license = "EUPL-1.2"
 license-files = ["LICENSE"]

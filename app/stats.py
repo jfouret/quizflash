@@ -1,13 +1,13 @@
-from typing import Literal
+from typing import Any, Literal
 
 from sqlalchemy import case, func
 from sqlmodel import Session, col, or_, select
 from sqlmodel.sql.expression import SelectOfScalar
 
-from app import crud
+from app import crud, grading
 from app.crud import NotFoundError
-from app.models import AnswerLog, Card, CardTag, Tag, User
-from app.schemas import StatsResponse
+from app.models import AnswerLog, Card, CardTag, Deck, Tag, User
+from app.schemas import StatsBreakdownItem, StatsBreakdownResponse, StatsResponse
 
 
 def _visible_tag_ids(user: User) -> SelectOfScalar[int] | SelectOfScalar[None]:
@@ -85,3 +85,96 @@ def get_stats(
         avg_response_time_ms=float(average) if average is not None else None,
         by_mode=by_mode,
     )
+
+
+def _merge(
+    rows: list[tuple[str, str, dict[str, Any], int, int, float | None]],
+) -> list[StatsBreakdownItem]:
+    """Combine per-deck rows sharing a key into one weighted item.
+
+    `rows` are `(key, label, scale, total, correct, avg_rating)`. The normalized
+    mean is rating/max*10, so decks graded on different scales stay comparable.
+    """
+    merged: dict[str, dict[str, Any]] = {}
+    for key, label, scale, total, correct, average in rows:
+        maximum = grading.normalize(scale)["max"]
+        bucket = merged.setdefault(
+            key, {"label": label, "total": 0, "correct": 0, "rating_sum": 0.0, "norm_sum": 0.0}
+        )
+        bucket["total"] += total
+        bucket["correct"] += correct
+        if average is not None:
+            bucket["rating_sum"] += float(average) * total
+            bucket["norm_sum"] += (float(average) / maximum * 10) * total
+    items: list[StatsBreakdownItem] = []
+    for key, bucket in merged.items():
+        total = int(bucket["total"])
+        items.append(
+            StatsBreakdownItem(
+                key=key,
+                label=str(bucket["label"]),
+                total=total,
+                correct=int(bucket["correct"]),
+                correct_rate=int(bucket["correct"]) / total if total else 0.0,
+                avg_rating=bucket["rating_sum"] / total if total else None,
+                avg_normalized=bucket["norm_sum"] / total if total else None,
+            )
+        )
+    return items
+
+
+def get_breakdown(
+    session: Session,
+    user: User,
+    group: Literal["card", "tag"],
+    deck_id: int | None = None,
+) -> StatsBreakdownResponse:
+    """Mean rating and correct rate per card or per tag, for one deck or all."""
+    if deck_id is not None:
+        crud.get_deck(session, user, deck_id)
+    base = [col(AnswerLog.user_id) == crud.uid(user)]
+    if deck_id is not None:
+        base.append(col(Card.deck_id) == deck_id)
+
+    if group == "card":
+        statement = (
+            select(  # type: ignore[call-overload]
+                Card.id,
+                Card.question,
+                Deck.grading_scale,
+                func.count(col(AnswerLog.id)),
+                func.coalesce(func.sum(case((col(AnswerLog.is_correct), 1), else_=0)), 0),
+                func.avg(col(AnswerLog.rating)),
+            )
+            .join(Card, col(Card.id) == col(AnswerLog.card_id))
+            .join(Deck, col(Deck.id) == col(Card.deck_id))
+            .where(*base)
+            .group_by(Card.id, Card.question)
+            .order_by(Card.id)
+        )
+        rows = [
+            (str(card_id), str(question), scale, int(total), int(correct), average)
+            for card_id, question, scale, total, correct, average in session.exec(statement).all()
+        ]
+    else:
+        statement = (
+            select(  # type: ignore[call-overload]
+                Tag.name,
+                Deck.grading_scale,
+                func.count(col(AnswerLog.id)),
+                func.coalesce(func.sum(case((col(AnswerLog.is_correct), 1), else_=0)), 0),
+                func.avg(col(AnswerLog.rating)),
+            )
+            .join(Card, col(Card.id) == col(AnswerLog.card_id))
+            .join(Deck, col(Deck.id) == col(Card.deck_id))
+            .join(CardTag, col(CardTag.card_id) == col(Card.id))
+            .join(Tag, col(Tag.id) == col(CardTag.tag_id))
+            .where(*base)
+            .group_by(Tag.name, Card.deck_id)
+            .order_by(Tag.name)
+        )
+        rows = [
+            (str(tag), str(tag), scale, int(total), int(correct), average)
+            for tag, scale, total, correct, average in session.exec(statement).all()
+        ]
+    return StatsBreakdownResponse(group=group, items=_merge(rows))

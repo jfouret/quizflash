@@ -19,7 +19,7 @@ Self-hosted, multi-user spaced-repetition quiz application. Each user owns their
 - Per-user settings; per-user permanent MCP tokens managed from `/settings`.
 - Decks, cards, and first-class tags with full CRUD.
 - Continuous review queue (`due <= now`), ordered by due date, with optional daily new/review limits.
-- Batch study mode (on by default, batch size 5): answer a batch of cards back to back, then review their explanations. Judging, speech-to-text, the teacher and speech are prefetched in the background, so the next card appears as soon as the answer is submitted. The batch loops back to the first card for review and waits for **Next** (or Enter). Sessions start on a **Start** button, so a deck and tags can be chosen first (the tag list follows the selected deck); each card shows its tags. A finished batch offers **Continue** (a new batch, same deck and tags) or **Back to menu**.
+- Batch study mode (on by default, batch size 5): answer a batch of cards back to back, then review their explanations. Judging, speech-to-text, the teacher and speech are prefetched in the background, so the next card appears as soon as the answer is submitted. The batch loops back to the first card for review and waits for **Next** (or Enter). Sessions start on a **Start** button, so one or more decks and tags can be chosen first (the tag list and due count follow the selected decks); each card shows its tags. A finished batch offers **Continue** (a new batch, same decks and tags) or **Back to menu**.
 - Evaluation modes:
   - `ai_preselect`: the AI proposes a rating and feedback; the user confirms or overrides.
   - `ai_assess`: the AI decides and the review is saved immediately.
@@ -28,7 +28,10 @@ Self-hosted, multi-user spaced-repetition quiz application. Each user owns their
 - Deck-level and card-level context fields, plus an optional LLM teacher: after a result, the teacher explains the card using both contexts (toggle in settings; otherwise use the Teacher/Regenerate buttons in the result panel). Explanations render as Markdown.
 - Spoken output (TTS via OpenRouter): per-user toggle speaks the question and the teacher explanation aloud; optional extra LLM passes ("vocal-ready") rewrite question and explanation into plain spoken sentences before synthesis. Playback streams so it starts before the clip is fully generated. Admin can disable TTS globally.
 - Pluggable schedulers: FSRS (default, `fsrs` PyPI package) and SM-2, configurable per deck.
-- SQL statistics per deck, card, and tag.
+- Per-deck grading scale: answers are rated from `0` to a deck-defined maximum, with optional labels for individual levels (for example `3=Bad, 5=Average, 7=Good, 10=Perfect`). The scale is mapped onto the scheduler's quality internally; changing it is refused once the deck has answers, so copy the deck first.
+- Edit cards from the deck page, including question, answer, details, teacher context, expected time and tags.
+- History (`/history`): every past answer with its rating, judge feedback, expected answer and the stored teacher explanation, filterable and clearable per deck or entirely. No audio is kept.
+- Statistics (`/stats`): mean rating (normalized out of 10) and correct rate per card and per tag, charted with a bundled Chart.js.
 - FastMCP server mounted at `/mcp` for external AI agents.
 - SQLite by default, swappable through `DATABASE_URL`.
 
@@ -139,7 +142,9 @@ Then open:
 - `/` — deck and card management
 - `/explore` — public decks to follow or copy
 - `/admin` — administration (admins only)
-- `/study` — continuous study queue
+- `/study` — study queue (pick decks and tags, then Start)
+- `/history` — past answers, ratings, and teacher explanations
+- `/stats` — per-card and per-tag charts
 - `/settings` — evaluation mode, batch size, voice auto-judging, languages, and daily limits
 - `/docs` — generated OpenAPI documentation
 
@@ -202,3 +207,7 @@ and redistribute it, including commercially; if you distribute a modified versio
 that version stays under the EUPL. Running it as a service creates no obligation to
 publish your changes. The licence text is available in 23 languages from
 [joinup.ec.europa.eu](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12).
+
+Bundled third-party assets keep their own licences: [Pico CSS](https://picocss.com)
+(MIT), [htmx](https://htmx.org) (BSD-2-Clause) and [Chart.js](https://www.chartjs.org)
+(MIT), all vendored under `app/static/` so the browser never leaves the site.

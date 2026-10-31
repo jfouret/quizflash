@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.grading import DEFAULT_MAX, MAX_MAX
 
 # Bounds on free text: the database is user-writable and LLM calls are billed per token.
 MAX_TEXT = 10_000
@@ -27,12 +29,34 @@ class TagRead(BaseModel):
     name: str
 
 
+class GradingScale(BaseModel):
+    """Levels run from 0 to `max`; labels are optional and may be sparse."""
+
+    max: int = Field(default=DEFAULT_MAX, ge=1, le=MAX_MAX)
+    labels: dict[int, str] = Field(default_factory=dict)
+
+    @field_validator("labels")
+    @classmethod
+    def _check_labels(cls, labels: dict[int, str], info: Any) -> dict[int, str]:
+        maximum = info.data.get("max", DEFAULT_MAX)
+        clean: dict[int, str] = {}
+        for level, text in labels.items():
+            if not 0 <= level <= maximum:
+                raise ValueError(f"label level {level} is outside 0..{maximum}")
+            text = text.strip()
+            if not 1 <= len(text) <= 40:
+                raise ValueError("labels must be 1 to 40 characters")
+            clean[level] = text
+        return clean
+
+
 class DeckCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=MAX_TEXT)
     context: str = Field(default="", max_length=MAX_TEXT)
     scheduler: SchedulerName = "fsrs"
     scheduler_params: dict[str, Any] = Field(default_factory=dict)
+    grading_scale: GradingScale = Field(default_factory=GradingScale)
     eval_mode: EvalMode | None = None
     visibility: Visibility = "private"
 
@@ -43,6 +67,7 @@ class DeckUpdate(BaseModel):
     context: str | None = Field(default=None, max_length=MAX_TEXT)
     scheduler: SchedulerName | None = None
     scheduler_params: dict[str, Any] | None = None
+    grading_scale: GradingScale | None = None
     eval_mode: EvalMode | None = None
     visibility: Visibility | None = None
 
@@ -56,6 +81,7 @@ class DeckRead(BaseModel):
     context: str
     scheduler: str
     scheduler_params: dict[str, Any]
+    grading_scale: dict[str, Any]
     eval_mode: str | None
     owner_id: int
     visibility: str
@@ -107,6 +133,7 @@ class DueCard(BaseModel):
     card: CardRead
     due: datetime
     is_new: bool
+    grading_scale: dict[str, Any] = Field(default_factory=dict)
 
 
 class SettingsRead(BaseModel):
@@ -160,7 +187,7 @@ class AnswerRequest(BaseModel):
     confirmed: bool = False
     self_fallback: bool = False
     fallback_token: str | None = None
-    rating: int | None = Field(default=None, ge=1, le=4)
+    rating: int | None = Field(default=None, ge=0, le=MAX_MAX)
     is_correct: bool | None = None
     judge_feedback: str = Field(default="", max_length=MAX_TEXT)
     judge_model: str = Field(default="", max_length=200)
@@ -168,6 +195,7 @@ class AnswerRequest(BaseModel):
 
 class ExplainRequest(BaseModel):
     card_id: int
+    log_id: int | None = None
 
 
 class SpeakTextRequest(BaseModel):
@@ -199,6 +227,51 @@ class StatsResponse(BaseModel):
     correct_rate: float
     avg_response_time_ms: float | None
     by_mode: dict[str, int]
+
+
+class StatsBreakdownItem(BaseModel):
+    key: str
+    label: str
+    total: int
+    correct: int
+    correct_rate: float
+    avg_rating: float | None
+    avg_normalized: float | None
+
+
+class StatsBreakdownResponse(BaseModel):
+    group: Literal["card", "tag"]
+    items: list[StatsBreakdownItem]
+
+
+class HistoryItem(BaseModel):
+    id: int
+    card_id: int
+    deck_id: int
+    deck_name: str
+    question: str
+    answer: str
+    answer_text: str
+    input_method: str
+    mode: str
+    rating: int
+    max_level: int
+    rating_label: str
+    is_correct: bool
+    judge_feedback: str
+    judge_model: str
+    explanation: str
+    response_time_ms: int
+    reviewed_at: datetime
+
+
+class HistoryPage(BaseModel):
+    total: int
+    items: list[HistoryItem]
+
+
+class HistoryCleared(BaseModel):
+    deleted: int
 
 
 class AppSettingsRead(BaseModel):

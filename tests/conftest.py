@@ -36,6 +36,8 @@ class FakeJudge:
         expected_time_s: int | None,
         response_time_ms: int,
         language: str,
+        max_level: int = 4,
+        labels: dict[int, str] | None = None,
     ) -> JudgeResult:
         self.calls.append(
             {
@@ -45,6 +47,8 @@ class FakeJudge:
                 "expected_time_s": expected_time_s,
                 "response_time_ms": response_time_ms,
                 "language": language,
+                "max_level": max_level,
+                "labels": labels,
             }
         )
         if self.error is not None:

@@ -19,8 +19,24 @@ from app.models import AgentConfig
 
 RATING_INSTRUCTIONS = (
     "Rate recall quality independently of correctness, using the response time and "
-    "expected time when available."
+    "expected time when available. Pick the level from the deck's scale."
 )
+
+# Fallback wording when a deck level has no label of its own.
+LEVEL_HINTS = {
+    0: "no useful recall or a wrong answer",
+    1: "difficult or partial recall",
+    2: "correct recall with minor difficulty or omissions",
+    3: "complete, correct and prompt recall",
+}
+
+
+def _rating_criteria(max_level: int, labels: dict[int, str]) -> dict[str, str]:
+    criteria: dict[str, str] = {}
+    for level in range(max(0, max_level) + 1):
+        name = labels.get(level) or f"Level {level}"
+        criteria[str(level)] = f"{name}: {LEVEL_HINTS.get(level, 'a point on the scale')}"
+    return criteria
 
 
 class OpenRouterJudge:
@@ -76,6 +92,8 @@ class OpenRouterJudge:
         expected_time_s: int | None,
         response_time_ms: int,
         language: str,
+        max_level: int = 4,
+        labels: dict[int, str] | None = None,
     ) -> JudgeResult:
         if not self.base_url or not self.model:
             raise JudgeError("JUDGE_BASE_URL and JUDGE_MODEL must be configured")
@@ -136,12 +154,7 @@ class OpenRouterJudge:
                             "rating": {
                                 "type": "choice",
                                 "instructions": rating_instructions,
-                                "criteria": {
-                                    "1": "Again: no useful recall or a wrong answer.",
-                                    "2": "Hard: partial or difficult recall.",
-                                    "3": "Good: correct recall with minor difficulty or omissions.",
-                                    "4": "Easy: complete, correct, and prompt recall.",
-                                },
+                                "criteria": _rating_criteria(max_level, labels or {}),
                             },
                         },
                     },
@@ -149,10 +162,10 @@ class OpenRouterJudge:
                 response.raise_for_status()
             except httpx.HTTPError as exc:
                 raise JudgeError(f"Judge request failed: {exc}") from exc
-        return self._parse_response(response)
+        return self._parse_response(response, max_level)
 
     @staticmethod
-    def _parse_response(response: httpx.Response) -> JudgeResult:
+    def _parse_response(response: httpx.Response, max_level: int = 4) -> JudgeResult:
         try:
             payload: dict[str, Any] = response.json()
             correctness = payload["answers"]["is_correct"]
@@ -167,8 +180,10 @@ class OpenRouterJudge:
                 or not 0 <= probability <= 1
             ):
                 raise ValueError("invalid correctness probability")
-            if choice not in {"1", "2", "3", "4"}:
+            if not isinstance(choice, str) or not choice.isdigit():
                 raise ValueError("invalid rating choice")
+            if not 0 <= int(choice) <= max_level:
+                raise ValueError("rating choice is outside the deck scale")
             return JudgeResult(
                 rating=int(choice),
                 is_correct=probability >= 0.5,

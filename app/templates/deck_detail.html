@@ -57,6 +57,11 @@
       {% if allow_public or deck.visibility == 'public' %}<option value="public" {% if deck.visibility == 'public' %}selected{% endif %}>Public: anyone can follow or copy</option>{% endif %}
     </select>
     <small id="visibility-hint" class="hint">{% if not allow_public %}Public decks are disabled by the administrator.{% else %}Making a public deck private removes followers' access.{% endif %}</small>
+    <label for="deck-grading-max">Rating scale maximum</label>
+    <input id="deck-grading-max" name="grading_max" type="number" min="1" max="100" value="{{ grading_max }}" aria-describedby="grading-hint">
+    <label for="deck-grading-labels">Level labels (optional)</label>
+    <input id="deck-grading-labels" name="grading_labels" value="{{ grading_labels }}" placeholder="3=Bad, 5=Average, 7=Good, 10=Perfect">
+    <small id="grading-hint" class="hint">Answers are graded from 0 to the maximum, using the time taken. A deck that already has answers cannot change its scale: copy the deck first.</small>
     <button type="submit">Save deck</button>
   </form>
 </details>
@@ -78,11 +83,14 @@
     {% if card.expected_time_s %}<dt>Expected time</dt><dd>{{ card.expected_time_s }} s</dd>{% endif %}
   </dl>
   {% if is_owner %}
-  <form method="post" action="/cards/{{ card.id }}/delete" class="actions" data-confirm="Delete this card and its review history?">
-    {{ csrf }}
-    <input type="hidden" name="deck_id" value="{{ deck.id }}">
-    <button class="danger outline sm" type="submit">Delete card</button>
-  </form>
+  <div class="actions">
+    <button type="button" class="secondary outline sm" data-edit-card="{{ card.id }}">Edit card</button>
+    <form method="post" action="/cards/{{ card.id }}/delete" class="actions" data-confirm="Delete this card and its review history?">
+      {{ csrf }}
+      <input type="hidden" name="deck_id" value="{{ deck.id }}">
+      <button class="danger outline sm" type="submit">Delete card</button>
+    </form>
+  </div>
   {% endif %}
 </details>
 {% endfor %}
@@ -125,5 +133,30 @@
     </form>
   </article>
 </dialog>
+
+<dialog id="edit-card">
+  <article>
+    <header>
+      <h2>Edit card</h2>
+      <button type="button" class="secondary outline icon-btn" data-close aria-label="Close">✕</button>
+    </header>
+    <form method="post" action="" id="edit-card-form">
+      {{ csrf }}
+      <input type="hidden" name="deck_id" value="{{ deck.id }}">
+      <label for="edit-question">Question</label><textarea id="edit-question" name="question" rows="2" required></textarea>
+      <label for="edit-answer">Answer</label><textarea id="edit-answer" name="answer" rows="2" required></textarea>
+      <label for="edit-details">Details / links for going further</label><textarea id="edit-details" name="details" rows="2"></textarea>
+      <label for="edit-context">Teacher context for this card</label><textarea id="edit-context" name="context" rows="2"></textarea>
+      <div class="grid-2">
+        <div><label for="edit-expected-time">Expected time (seconds)</label><input id="edit-expected-time" name="expected_time_s" type="number" min="1" placeholder="optional"></div>
+        <div><label for="edit-tags">Tags</label><input id="edit-tags" name="tags" placeholder="comma, separated"></div>
+      </div>
+      <button type="submit">Save card</button>
+    </form>
+  </article>
+</dialog>
 {% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/deck.js?v={{ asset_version }}" defer></script>
 {% endblock %}

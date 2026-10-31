@@ -309,3 +309,7 @@ fieldset[role=group] button { white-space: nowrap; }
 .mt-lg { margin-top: 1.25rem; }
 .w-full { width: 100%; }
 .danger-zone.mt-2 { margin-top: 2rem; }
+
+/* ---- Charts ---- */
+.chart-wrap { position: relative; height: 16rem; margin-bottom: 1rem; }
+.stats-table { font-size: .9rem; }

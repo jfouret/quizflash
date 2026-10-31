@@ -7,8 +7,17 @@ from app.models import User
 from app.teacher.base import Teacher, TeacherError
 
 
-def explain_card(session: Session, user: User, card_id: int, teacher: Teacher) -> str:
+def explain_card(
+    session: Session,
+    user: User,
+    card_id: int,
+    teacher: Teacher,
+    log_id: int | None = None,
+) -> str:
     """Explain a trainable card using its deck and card context and the last answer.
+
+    When `log_id` is given and names one of the caller's answers on this card, the
+    explanation is stored with that answer for the history view.
 
     Raises `crud.NotFoundError` when the card is out of the user's perimeter and
     `TeacherError` when the model call fails; callers map those to their own errors.
@@ -25,6 +34,8 @@ def explain_card(session: Session, user: User, card_id: int, teacher: Teacher) -
         is_correct=log.is_correct if log else None,
         language=settings.judge_language,
     )
+    if log_id is not None and log is not None and log.id == log_id:
+        crud.save_explanation(session, log, result.explanation)
     return result.explanation
 
 

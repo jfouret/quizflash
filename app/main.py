@@ -18,7 +18,7 @@ from app.database import DATABASE_URL, create_db_engine, init_db
 from app.dependencies import LoginRequiredError
 from app.judge.openrouter import OpenRouterJudge
 from app.mcp_server import create_mcp
-from app.routes import admin, auth, cards, decks, pages, settings, stats, study, tags
+from app.routes import admin, auth, cards, decks, history, pages, settings, stats, study, tags
 from app.stt.openai_compat import OpenAICompatibleSTT
 from app.teacher.base import Teacher
 from app.teacher.openrouter import OpenRouterTeacher
@@ -33,6 +33,7 @@ ROUTERS = (
     tags.router,
     study.router,
     stats.router,
+    history.router,
     settings.router,
     admin.router,
     pages.router,

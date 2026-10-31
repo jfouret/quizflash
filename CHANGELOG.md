@@ -4,6 +4,30 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-10-31
+
+### Added
+
+- Study sessions can combine several decks: `deck_id` may be repeated on
+  `/api/study/next`, `/api/study/batch` and `/api/study/tags`, and the new
+  `GET /api/study/due` returns the due count for the current selection. The tag
+  list and due count refresh when the deck selection changes.
+- Per-deck grading scale: answers are rated from `0` to a deck-defined maximum,
+  with optional labels per level (for example `3=Bad, 5=Average, 7=Good`). The
+  judge is given the scale and the level is mapped to the scheduler's `1..4`.
+- Cards can be edited from the deck page.
+- History (`/history`, `GET`/`DELETE /api/history`): past answers with rating,
+  judge feedback, expected answer and the stored teacher explanation, filterable
+  and clearable per deck or entirely. No audio is retained.
+- Statistics (`/stats`, `GET /api/stats/breakdown`): mean rating normalized out
+  of 10 and correct rate per card and per tag, charted with a bundled Chart.js.
+
+### Changed
+
+- Rating levels now run from `0` to `max` (default `0..4`) instead of `1..4`.
+- Changing a deck's grading scale is refused once the deck has answers; copy the
+  deck first. Copies keep the scale.
+
 ## [0.5.2] - 2026-10-31
 
 ### Changed

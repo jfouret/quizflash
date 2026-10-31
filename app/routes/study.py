@@ -1,12 +1,12 @@
 import logging
 import secrets
 import time
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 
-from app import crud
+from app import crud, grading
 from app.dependencies import CurrentUser, JudgeDep, SessionDep, STTDep, TeacherDep, TTSDep
 from app.judge.base import JudgeError
 from app.models import Settings
@@ -30,11 +30,20 @@ logger = logging.getLogger(__name__)
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
 
 
+def _scale(
+    session: SessionDep, user: CurrentUser, deck_id: int, cache: dict[int, dict[str, Any]]
+) -> dict[str, Any]:
+    """Normalized grading scale for a deck, cached within one request."""
+    if deck_id not in cache:
+        cache[deck_id] = grading.normalize(crud.get_deck(session, user, deck_id).grading_scale)
+    return cache[deck_id]
+
+
 @router.get("/next", response_model=DueCard | None)
 def next_card(
     session: SessionDep,
     user: CurrentUser,
-    deck_id: int | None = None,
+    deck_id: Annotated[list[int] | None, Query()] = None,
     tag: Annotated[list[str] | None, Query()] = None,
 ) -> DueCard | None:
     due = crud.get_due(session, user, deck_id, tags=tag)
@@ -45,13 +54,29 @@ def next_card(
         card=CardRead.model_validate(card),
         due=state.due,
         is_new=state.last_review is None,
+        grading_scale=_scale(session, user, card.deck_id, {}),
     )
 
 
 @router.get("/tags", response_model=list[str])
-def study_tags(session: SessionDep, user: CurrentUser, deck_id: int | None = None) -> list[str]:
-    """Distinct tag names available in the user's study queue (optionally one deck)."""
+def study_tags(
+    session: SessionDep,
+    user: CurrentUser,
+    deck_id: Annotated[list[int] | None, Query()] = None,
+) -> list[str]:
+    """Distinct tag names available in the user's study queue (optionally one or more decks)."""
     return crud.list_study_tags(session, user, deck_id)
+
+
+@router.get("/due", response_model=dict[str, int])
+def due_count(
+    session: SessionDep,
+    user: CurrentUser,
+    deck_id: Annotated[list[int] | None, Query()] = None,
+    tag: Annotated[list[str] | None, Query()] = None,
+) -> dict[str, int]:
+    """How many cards are due under the current deck and tag filters."""
+    return {"count": len(crud.get_due(session, user, deck_id, tags=tag))}
 
 
 @router.get("/batch", response_model=list[DueCard])
@@ -59,17 +84,19 @@ def batch_cards(
     session: SessionDep,
     user: CurrentUser,
     size: int = 5,
-    deck_id: int | None = None,
+    deck_id: Annotated[list[int] | None, Query()] = None,
     tag: Annotated[list[str] | None, Query()] = None,
 ) -> list[DueCard]:
     """Up to `size` due cards, for the batch study flow."""
     size = max(1, min(size, 50))
     due = crud.get_due(session, user, deck_id, tags=tag)[:size]
+    cache: dict[int, dict[str, Any]] = {}
     return [
         DueCard(
             card=CardRead.model_validate(card),
             due=state.due,
             is_new=state.last_review is None,
+            grading_scale=_scale(session, user, card.deck_id, cache),
         )
         for card, state in due
     ]
@@ -111,7 +138,7 @@ def explain(
     if not crud.get_app_settings(session).teacher_allowed:
         raise HTTPException(status_code=403, detail="Teacher explanations are disabled")
     try:
-        explanation = explain_card(session, user, payload.card_id, teacher)
+        explanation = explain_card(session, user, payload.card_id, teacher, payload.log_id)
     except TeacherError as exc:
         logger.warning("Teacher explanation failed: %s", exc)
         raise HTTPException(
@@ -252,6 +279,13 @@ def answer(
     card, deck = crud.get_trainable_card(session, user, payload.card_id)
     settings = crud.get_settings(session, user)
     mode = deck.eval_mode or settings.eval_mode
+    scale = grading.normalize(deck.grading_scale)
+
+    if payload.rating is not None and payload.rating > scale["max"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Rating must be between 0 and {scale['max']} for this deck",
+        )
 
     if payload.self_fallback:
         tokens: dict[str, tuple[int, int, float]] = request.app.state.fallback_tokens
@@ -312,6 +346,8 @@ def answer(
             expected_time_s=card.expected_time_s,
             response_time_ms=payload.response_time_ms,
             language=settings.judge_language,
+            max_level=scale["max"],
+            labels=scale["labels"],
         )
     except JudgeError as exc:
         logger.warning("Judge failed; requiring self-assessment fallback: %s", exc)

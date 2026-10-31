@@ -62,17 +62,21 @@ A card carries `question`, `answer`, optional `details`, optional `expected_time
 
 ### Study
 
-A study session does not start on its own: the user picks a deck and optional tags, then presses **Start**. The `tag` query parameter may be repeated to filter the queue; a card is included when it carries at least one of the given tag names. `GET /api/study/tags` lists the available names (all trainable decks, or one with `deck_id`), including tags on followed decks; the menu refreshes them when the deck changes.
+A study session does not start on its own: the user picks one or more decks and optional tags, then presses **Start**. Both `deck_id` and `tag` query parameters may be repeated; a card is included when it belongs to one of the given decks and carries at least one of the given tag names (no `deck_id` means every trainable deck). `GET /api/study/tags` lists the available names for the current selection, including tags on followed decks; the menu refreshes them, and the due count, when the selection changes.
 
-Batch mode is a per-user setting (`batch_enabled`, `batch_size`, default on at 5). The study view fetches up to `batch_size` due cards with `GET /api/study/batch`, then answers them back to back. After each submission the review is judged and saved in the background while the next card is shown; a voice answer is transcribed in the background too, and the teacher explanation and its speech are prefetched. After the last card the view loops back over the batch, showing each explanation and waiting for **Next** (or Enter) before the next one. A judge failure pauses that card for a manual rating during the review loop. When every card in the batch has been reviewed, a completion screen offers **Continue** (a new batch with the same deck and tags) or **Back to menu**. When batch mode is off, the view falls back to the single-card flow.
+Each answer is graded on its deck's scale: integer levels from `0` to `grading_scale.max` (default 4), with optional labels per level. The judge is told the scale, and the level is mapped to the scheduler's fixed `1..4` quality before rescheduling. Changing a deck's `grading_scale` is refused once any learner has answered a card of that deck; copy the deck to start a new scale.
+
+Batch mode is a per-user setting (`batch_enabled`, `batch_size`, default on at 5). The study view fetches up to `batch_size` due cards with `GET /api/study/batch`, then answers them back to back. After each submission the review is judged and saved in the background while the next card is shown; a voice answer is transcribed in the background too, and the teacher explanation and its speech are prefetched. After the last card the view loops back over the batch, showing each explanation and waiting for **Next** (or Enter) before the next one. A judge failure pauses that card for a manual rating during the review loop. When every card in the batch has been reviewed, a completion screen offers **Continue** (a new batch with the same decks and tags) or **Back to menu**. When batch mode is off, the view falls back to the single-card flow.
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/study/next?deck_id=&tag=` | Next due card, or `null` when the queue is empty |
 | `GET` | `/api/study/batch?size=&deck_id=&tag=` | Up to `size` due cards (max 50), for the batch flow |
-| `GET` | `/api/study/tags?deck_id=` | Distinct tag names available in the user's queue, or in one deck |
+| `GET` | `/api/study/tags?deck_id=` | Distinct tag names available for the current deck selection |
+| `GET` | `/api/study/due?deck_id=&tag=` | `{count}` of due cards under the current filters |
 | `POST` | `/api/study/transcribe` | Multipart audio upload, remote STT, editable transcript |
 | `POST` | `/api/study/answer` | Judge, confirm, or save a review |
+| `POST` | `/api/study/explain` | Teacher explanation; with a matching `log_id` it is stored with that answer |
 | `POST` | `/api/study/speak` | Synthesize `{text, vocal}` to audio without re-running the teacher |
 
 `/api/study/answer` behavior by mode:
@@ -81,11 +85,14 @@ Batch mode is a per-user setting (`batch_enabled`, `batch_size`, default on at 5
 - `ai_preselect`: the first call returns `status: "pending"` with the AI proposal; a second call with `confirmed: true` and the final `rating`/`is_correct` persists it.
 - Judge failure: the first call returns `status: "fallback_required"` with a single-use `fallback_token`; a manual rating is then saved as mode `self_fallback`.
 
-### Stats and settings
+### Stats, history and settings
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/stats?scope=deck|card|tag&id=` | Aggregates: total, correct, incorrect, correct rate, average response time, counts by mode |
+| `GET` | `/api/stats/breakdown?group=card|tag&deck_id=` | Per-card or per-tag mean rating, mean normalized out of 10, and correct rate |
+| `GET` | `/api/history?deck_id=&limit=&offset=` | Your past answers, newest first, with rating, feedback and stored explanation |
+| `DELETE` | `/api/history?deck_id=` | Delete your history, for one deck or everywhere (no `deck_id`) |
 | `GET` | `/api/settings` | Your settings |
 | `PATCH` | `/api/settings` | Update evaluation mode, voice auto-judging, languages, and daily limits |
 | `GET` | `/api/settings/tokens` | Your MCP tokens (metadata only) |
@@ -138,8 +145,8 @@ Example client URL: `http://127.0.0.1:8000/mcp/`.
 3. `POST /api/study/transcribe` measures audio duration from the uploaded container, calls the remote STT API, and returns `{text, stt_duration_ms, audio_duration_ms}`.
 4. The transcript stays editable. The `voice_auto_judge` setting chooses between immediate judging and waiting for transcript validation.
 5. `POST /api/study/answer` sends the final answer text, `input_method: "voice"`, all timing values, and `preview: true` from the study UI.
-6. The OpenRouter Decisions API (`POST /api/alpha/decisions`) maps the answer to `rating` (1=Again..4=Easy) and `is_correct` independently. It returns no prose feedback.
-7. The input can be corrected and judged again. In `ai_assess`, Next card saves the latest preview; in `ai_preselect`, Confirm review saves it. The deck's scheduler then reschedules the card and an `AnswerLog` row is persisted.
+6. The OpenRouter Decisions API (`POST /api/alpha/decisions`) maps the answer to a level on the deck's scale (`0`..`max`, default `0..4`) and to `is_correct` independently. It returns no prose feedback.
+7. The input can be corrected and judged again. In `ai_assess`, Next card saves the latest preview; in `ai_preselect`, Confirm review saves it. The deck's scheduler then reschedules the card (the level is mapped to its `1..4` quality) and an `AnswerLog` row is persisted. A teacher explanation generated with that answer's `log_id` is stored on the same row; no audio is ever written to disk.
 
 If the STT call fails, the voice attempt is logged server-side and the user can still answer by text. If the judge fails or times out (5 s), manual self-assessment is offered through a single-use fallback token.
 
