@@ -239,6 +239,8 @@
     min-width: 2.5rem; min-height: 2.5rem; padding: 0; border-radius: var(--radius-md);
   }
   .icon-btn .icon { margin: 0; }
+  /* Icon-only controls stay square, including the compact ones in a row. */
+  .sm.icon-btn { min-width: 2rem; min-height: 2rem; padding: 0; }
   .icon { width: 1.1em; height: 1.1em; flex: none; vertical-align: -0.15em; }
 
   .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
@@ -440,6 +442,7 @@
   #question { font-size: clamp(1.3rem, 1rem + 1.6vw, 1.75rem); margin: 0.6rem 0 1.25rem; letter-spacing: -0.02em; }
   .question-row { display: flex; align-items: flex-start; gap: 0.5rem; }
   .question-row #question { flex: 1; }
+  .question-row > div { flex: 1; min-width: 0; }
   .question-row button { margin: 0.5rem 0 0; flex: none; }
   #card-state { margin: 0; }
   .study-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
@@ -486,8 +489,8 @@
     box-shadow: var(--shadow-pop);
   }
   #speech-bar[hidden] { display: none; }
+  /* The stop square in the icon takes over from the old bullet prefix. */
   .recording #record { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
-  .recording #record::before { content: "● "; }
 
   /* Charts ---------------------------------------------------------------- */
   /* color is the resolved accent the chart and the voice meter read from JS. */
@@ -521,7 +524,7 @@
   .brand-name { display: none; }
   form:not(.actions) > button[type="submit"] { width: 100%; }
   .shortcuts { display: none; }
-  .study-actions button { flex: 1 1 100%; }
+  .study-actions button:not(.icon-btn) { flex: 1 1 100%; }
   .study-actions #submit { margin-left: 0; }
   #study-card, #result { padding: 1.25rem; }
 

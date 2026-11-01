@@ -72,10 +72,50 @@ def test_study_result_shows_the_answer_box(client: TestClient) -> None:
     assert 'id="pause-speech"' in page
     assert 'id="stop-speech"' in page
     assert 'id="speech-eq"' in page
+    # The transport controls are icon buttons with an accessible name: the glyph
+    # changes with the state, the label never leaves the button unnamed.
+    assert 'id="record"' in page
+    assert 'aria-label="Record voice"' in page
+    assert 'data-icon="mic" data-active-icon="stop"' in page
+    assert 'data-icon="play" data-active-icon="pause"' in page
+    assert 'id="speak-review-question"' in page
+    assert 'aria-label="Play the explanation"' in page
+    # The old volume glyph is gone: play/pause/stop/mic carry the transport state.
+    assert "icons.svg#volume" not in page
     stylesheet = client.get("/static/style.css").text
     assert ".answer-box.wrong" in stylesheet
     assert ".eq-frame" in stylesheet
     assert "#speech-bar" in stylesheet
+
+
+def test_every_icon_reference_resolves_in_the_sprite(client: TestClient) -> None:
+    """A page must never ask for a glyph the sprite does not define, or the button
+    renders empty. The JS swaps glyphs by name, so its data attributes count too."""
+    sprite = (STATIC / "icons.svg").read_text()
+    defined = set(re.findall(r'<symbol id="([a-z-]+)"', sprite))
+    assert "volume" not in defined, "the sound glyph was removed from the library"
+
+    used: set[str] = set()
+    for path in ("/", "/study", "/history", "/stats", "/settings"):
+        page = client.get(path).text
+        used.update(re.findall(r"icons\.svg#([a-z-]+)", page))
+    templates = "".join(
+        path.read_text() for path in sorted((STATIC.parent / "templates").glob("*.html"))
+    )
+    used.update(re.findall(r'data-(?:active-)?icon="([a-z-]+)"', templates))
+
+    assert used, "no icon is referenced anywhere"
+    assert used <= defined, f"missing sprite symbols: {sorted(used - defined)}"
+
+
+def test_study_script_finds_every_element_it_looks_up(client: TestClient) -> None:
+    """A getElementById that the page does not render throws and stops the whole script."""
+    script = (STATIC / "js" / "study.js").read_text()
+    page = client.get("/study").text
+
+    looked_up = set(re.findall(r"getElementById\('([a-zA-Z0-9-]+)'\)", script))
+    missing = sorted(name for name in looked_up if f'id="{name}"' not in page)
+    assert not missing, f"study.js looks up elements the page does not render: {missing}"
 
 
 def test_htmx_does_not_inject_indicator_styles(client: TestClient) -> None:

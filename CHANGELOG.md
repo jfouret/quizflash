@@ -4,6 +4,33 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.12.0] - 2026-11-01
+
+### Added
+
+- The transport controls are icons from the app's own sprite, with an accessible name and a
+  tooltip that follow the state: the recorder is a microphone that turns into a stop square, the
+  recorder pause flips between pause and play, and the player bar carries pause and stop.
+- The review panel repeats the question with its own play button, which plays the clip already
+  cached for that card instead of synthesizing it again.
+- The sound glyph left the icon library: the question and explanation buttons are play buttons,
+  so a control that starts audio looks like every other player.
+
+### Changed
+
+- The explanation button now plays the explanation that is on screen — reusing the prefetched
+  clip when the batch has one — instead of running the teacher again and speaking a second,
+  different answer.
+- The player bar and the inline play buttons toggle pause and resume on the clip they started;
+  an inline button shows pause while its clip runs.
+
+### Fixed
+
+- Stopping any clip revoked the blob URL of the clip that was playing. A prefetched question
+  clip lost its URL that way, so a later replay was silent — and because a browser may hand a
+  freed blob URL to another clip, the question button could end up playing the explanation. The
+  script now only revokes URLs it created itself.
+
 ## [0.11.0] - 2026-11-01
 
 ### Added

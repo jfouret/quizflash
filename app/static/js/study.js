@@ -35,6 +35,7 @@
   var teacherBtn = document.getElementById('teacher-btn');
   var teacherRegenBtn = document.getElementById('teacher-regen');
   var speakQuestionBtn = document.getElementById('speak-question');
+  var speakReviewQuestionBtn = document.getElementById('speak-review-question');
   var speakExplanationBtn = document.getElementById('speak-explanation');
   var ratingControls = document.getElementById('rating-controls');
   var ratingInput = document.getElementById('rating');
@@ -377,7 +378,6 @@
     eqFrameEl.hidden = true;
     eqFrameEl.classList.remove('paused');
     recordingPaused = false;
-    setPauseRecordLabel();
     document.body.classList.remove('recording');
     if (audioCtx) {
       void audioCtx.close();
@@ -444,14 +444,17 @@
     recordingStream = null;
     chunks = [];
     stopRecordingCounter();
-    recordButton.textContent = 'Record voice';
     recordButton.disabled = false;
     pauseRecordBtn.hidden = true;
     recordingPaused = false;
-    setPauseRecordLabel();
+    setRecordingControls();
   }
 
   var spokenAudio = null;
+  // The control that started the clip, so its icon returns to Play when it ends.
+  var speakingButton = null;
+  // A stream fallback URL is the only one this script creates and may revoke.
+  var playedBlobUrl = '';
 
   function resetPanels() {
     cancelRecording();
@@ -481,6 +484,7 @@
     teacherBtn.disabled = false;
     teacherRegenBtn.disabled = false;
     speakQuestionBtn.disabled = false;
+    speakReviewQuestionBtn.disabled = false;
     speakExplanationBtn.disabled = false;
     stopSpoken();
     pendingResult = null;
@@ -517,8 +521,27 @@
     void lock.release().catch(function () {});
   }
 
-  function setPauseRecordLabel() {
-    pauseRecordBtn.textContent = recordingPaused ? 'Resume' : 'Pause';
+  // One place decides what a control shows: the glyph and its label follow the state.
+  // A button carries data-icon, data-active-icon, data-label and data-active-label.
+  function setIcon(button, name) {
+    var use = button.querySelector('use');
+    if (!use) return;
+    use.setAttribute('href', use.getAttribute('href').split('#')[0] + '#' + name);
+  }
+
+  function setControlState(button, active) {
+    if (!button) return;
+    setIcon(button, (active ? button.dataset.activeIcon : button.dataset.icon) || 'play');
+    var label = active ? button.dataset.activeLabel : button.dataset.label;
+    if (!label) return;
+    button.setAttribute('aria-label', label);
+    button.title = label;
+  }
+
+  function setRecordingControls() {
+    // The mic becomes a stop square while the recorder runs, then turns back.
+    setControlState(recordButton, Boolean(recorder));
+    setControlState(pauseRecordBtn, recordingPaused);
   }
 
   function toggleRecordPause() {
@@ -533,7 +556,7 @@
       recordingPaused = true;
     }
     eqFrameEl.classList.toggle('paused', recordingPaused);
-    setPauseRecordLabel();
+    setRecordingControls();
     updateRecordingCounter();
     setStatus(recordingPaused ? 'Recording paused.' : 'Recording…', false);
   }
@@ -594,16 +617,17 @@
     for (var ahead = 1; ahead <= 2; ahead++) prefetchQuestion(batch.records[batch.pos + ahead]);
   }
 
-  async function playSpoken(url, onEnded) {
+  async function playSpoken(url, onEnded, button) {
     stopSpoken();
     var audio = new Audio(url);
     spokenAudio = audio;
+    speakingButton = button || null;
+    setControlState(speakingButton, true);
     void keepAwake();
     startSpeechEqualizer();
     audio.addEventListener('ended', function () {
       if (spokenAudio !== audio) return;
-      stopSpeechEqualizer();
-      allowSleep();
+      stopSpoken();
       if (onEnded) onEnded();
     }, {once: true});
     try {
@@ -611,30 +635,113 @@
     } catch (error) {
       // Autoplay or the decoder can refuse; the card still works.
       if (spokenAudio === audio) {
-        allowSleep();
+        stopSpoken();
         if (onEnded) onEnded();
       }
     }
   }
 
-  async function speakQuestionFor(record, onEnded) {
-    var url = record ? record.questionAudioUrl : '';
-    if (!url && record && record.questionAudioPromise) url = await record.questionAudioPromise;
+  // The clip of a question, cached on the record (or on the card in single-card mode).
+  async function questionAudio(record) {
+    var holder = record || current;
+    if (!holder) return '';
+    var url = holder.questionAudioUrl;
+    if (!url && holder.questionAudioPromise) url = await holder.questionAudioPromise;
     if (!url) {
-      url = await fetchQuestionAudio(record ? record.card.card.id : (current ? current.card.id : null));
-      if (url && record) record.questionAudioUrl = url;
+      var cardId = holder.card.card ? holder.card.card.id : holder.card.id;
+      url = await fetchQuestionAudio(cardId);
+      if (url) holder.questionAudioUrl = url;
     }
-    if (!url) {
-      if (onEnded) onEnded();
-      return;
-    }
-    await playSpoken(url, onEnded);
+    return url || '';
   }
 
   function speakCurrentQuestion() {
     if (!autoSpeak || !ttsEnabled || !current || studyEl.hidden) return Promise.resolve();
     prefetchUpcomingQuestions();
-    return speakQuestionFor(batchRecord(), maybeAutoRecord);
+    return questionAudio(batchRecord()).then(function (url) {
+      if (!url) return maybeAutoRecord();
+      return playSpoken(url, maybeAutoRecord);
+    });
+  }
+
+  // The record whose card the panel is showing: the answer phase, the review loop,
+  // or none in the single-card flow, where `current` is the card.
+  function shownRecord() {
+    if (!batchEnabled || !batch) return null;
+    if (batch.phase === 'answer') return batch.records[batch.pos] || null;
+    if (batch.phase === 'review') return batch.records[reviewIndex] || null;
+    return null;
+  }
+
+  function playingThrough(url, button) {
+    // The clip already playing through this button toggles instead of restarting.
+    return Boolean(spokenAudio) && (spokenAudio.src === url || speakingButton === button);
+  }
+
+  async function playQuestion(button) {
+    if (!current || !ttsEnabled) return;
+    var url = await questionAudio(shownRecord());
+    if (!url) {
+      setStatus('Question audio is unavailable.', true);
+      return;
+    }
+    if (playingThrough(url, button)) {
+      toggleSpeechPause();
+      return;
+    }
+    setStatus('Playing.');
+    await playSpoken(url, null, button);
+  }
+
+  function playExplanation(button) {
+    if (!ttsEnabled) return Promise.resolve();
+    var record = shownRecord();
+    if (record && record.explanation) {
+      if (record.audioUrl) {
+        if (playingThrough(record.audioUrl, button)) {
+          toggleSpeechPause();
+          return Promise.resolve();
+        }
+        setStatus('Playing.');
+        return playSpoken(record.audioUrl, null, button);
+      }
+      return speakShownText(record.explanation, button);
+    }
+    // Single-card flow: speak what the panel shows, never a second teacher call.
+    var shown = teacherExplanationEl.textContent.trim();
+    if (!shown) {
+      setStatus('The explanation is not ready yet.', true);
+      return Promise.resolve();
+    }
+    return speakShownText(shown, button);
+  }
+
+  // Synthesize a text that is already on screen, through /api/study/speak.
+  async function speakShownText(text, button) {
+    if (spokenAudio && speakingButton === button) {
+      toggleSpeechPause();
+      return;
+    }
+    button.disabled = true;
+    setStatus('Synthesizing speech…');
+    try {
+      var response = await fetch('/api/study/speak', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
+        credentials: 'same-origin',
+        body: JSON.stringify({text: text, vocal: teacherVocal})
+      });
+      if (!response.ok) {
+        var data = await response.json();
+        throw new Error(typeof data.detail === 'string' ? data.detail : 'Speech synthesis failed');
+      }
+      await playResponse(response, button);
+      setStatus('Playing.');
+    } catch (error) {
+      setStatus(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
   }
 
   function beginAnswer() {
@@ -754,11 +861,6 @@
     if (teacherEnabled) void fetchExplanation();
   }
 
-  function setSpeechPauseLabel() {
-    var paused = spokenAudio ? spokenAudio.paused : false;
-    pauseSpeechBtn.textContent = paused ? 'Resume' : 'Pause';
-  }
-
   // A stand-in for a spectrum: the clip cannot be routed through Web Audio
   // without risking silent playback, so the bars show that sound is running.
   function speechLevelData() {
@@ -780,7 +882,6 @@
     function draw() {
       speechEqFrame = requestAnimationFrame(draw);
       drawEqualizer(speechEqCanvas, speechLevelData());
-      setSpeechPauseLabel();
     }
     draw();
   }
@@ -788,6 +889,7 @@
   function stopSpeechEqualizer() {
     if (speechEqFrame !== null) cancelAnimationFrame(speechEqFrame);
     speechEqFrame = null;
+    setControlState(pauseSpeechBtn, false);
     speechBar.hidden = true;
   }
 
@@ -795,21 +897,25 @@
     if (!spokenAudio) return;
     if (spokenAudio.paused) void spokenAudio.play().catch(function () {});
     else spokenAudio.pause();
-    setSpeechPauseLabel();
+    setControlState(speakingButton, !spokenAudio.paused);
+    setControlState(pauseSpeechBtn, !spokenAudio.paused);
     setStatus(spokenAudio.paused ? 'Paused.' : 'Playing.', false);
   }
 
   function stopSpoken() {
     if (spokenAudio) {
       spokenAudio.pause();
-      // The blob is never played again after this: release it instead of leaking it.
-      if (spokenAudio.src.indexOf('blob:') === 0) URL.revokeObjectURL(spokenAudio.src);
       spokenAudio = null;
     }
     if (speechReader) {
       void speechReader.cancel().catch(function () {});
       speechReader = null;
     }
+    // Never revoke here: the URL belongs to the record that holds it. Revoking a
+    // prefetched question clip would make a later replay silent, and a browser may
+    // hand the freed URL to another clip, so the question could play the answer.
+    setControlState(speakingButton, false);
+    speakingButton = null;
     stopSpeechEqualizer();
     allowSleep();
   }
@@ -824,27 +930,33 @@
     });
   }
 
-  async function playBlob(response) {
+  async function playBlob(response, button) {
     var blob = await response.blob();
     if (spokenAudio) spokenAudio.pause();
-    spokenAudio = new Audio(URL.createObjectURL(blob));
+    if (playedBlobUrl) URL.revokeObjectURL(playedBlobUrl);
+    playedBlobUrl = URL.createObjectURL(blob);
+    spokenAudio = new Audio(playedBlobUrl);
+    speakingButton = button || null;
+    setControlState(speakingButton, true);
     await spokenAudio.play();
   }
 
   // Start playback before the whole clip is generated, when the browser can stream it.
-  async function playResponse(response) {
+  async function playResponse(response, button) {
     var type = (response.headers.get('Content-Type') || 'audio/mpeg').split(';')[0].trim();
     stopSpoken();
     if (!window.MediaSource || !window.MediaSource.isTypeSupported(type) || !response.body) {
-      await playBlob(response);
+      await playBlob(response, button);
       return;
     }
     var source = new MediaSource();
     var audio = new Audio(URL.createObjectURL(source));
     spokenAudio = audio;
+    speakingButton = button || null;
+    setControlState(speakingButton, true);
     startSpeechEqualizer();
     audio.addEventListener('ended', function () {
-      if (spokenAudio === audio) stopSpeechEqualizer();
+      if (spokenAudio === audio) stopSpoken();
     }, {once: true});
     await new Promise(function (resolve) { source.addEventListener('sourceopen', resolve, {once: true}); });
     var buffer;
@@ -852,7 +964,7 @@
       buffer = source.addSourceBuffer(type);
     } catch (error) {
       stopSpoken();
-      await playBlob(response);
+      await playBlob(response, button);
       return;
     }
     // Held on the script so Stop can cancel the download as well as the sound.
@@ -867,30 +979,6 @@
     try { source.endOfStream(); } catch (error) { /* source already closed */ }
     speechReader = null;
     if (!started) await audio.play();
-  }
-
-  async function speak(endpoint, button) {
-    if (!current || !ttsEnabled) return;
-    button.disabled = true;
-    setStatus('Synthesizing speech…');
-    try {
-      var response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
-        credentials: 'same-origin',
-        body: JSON.stringify({card_id: current.card.id})
-      });
-      if (!response.ok) {
-        var data = await response.json();
-        throw new Error(typeof data.detail === 'string' ? data.detail : 'Speech synthesis failed');
-      }
-      await playResponse(response);
-      setStatus('Playing.');
-    } catch (error) {
-      setStatus(error.message, true);
-    } finally {
-      button.disabled = false;
-    }
   }
 
   function invalidateAssessment() {
@@ -1561,7 +1649,6 @@
       void keepAwake();
       recordingElapsed = 0;
       recordingPaused = false;
-      setPauseRecordLabel();
       chunks = [];
       recordingStream = stream;
       startEqualizer(stream);
@@ -1578,8 +1665,8 @@
         recordingStream = null;
         chunks = [];
         stopRecordingCounter();
-        recordButton.textContent = 'Record voice';
         pauseRecordBtn.hidden = true;
+        setRecordingControls();
         if (batchEnabled && batch && batch.phase === 'answer' && voiceAutoJudge) {
           void submitBatchVoice(blob);
         } else {
@@ -1593,7 +1680,7 @@
       updateRecordingCounter();
       recordingCounter.hidden = false;
       recordingTimer = setInterval(updateRecordingCounter, 1000);
-      recordButton.textContent = 'Stop recording';
+      setRecordingControls();
       setStatus('Recording…');
     } catch (error) {
       if (requestId === recordingRequest) cancelRecording();
@@ -1683,8 +1770,9 @@
   submitButton.addEventListener('click', function () { void submitCurrent(); });
   teacherBtn.addEventListener('click', fetchExplanation);
   teacherRegenBtn.addEventListener('click', fetchExplanation);
-  speakQuestionBtn.addEventListener('click', function () { void speak('/api/study/speak-question', speakQuestionBtn); });
-  speakExplanationBtn.addEventListener('click', function () { void speak('/api/study/speak-explanation', speakExplanationBtn); });
+  speakQuestionBtn.addEventListener('click', function () { void playQuestion(speakQuestionBtn); });
+  speakReviewQuestionBtn.addEventListener('click', function () { void playQuestion(speakReviewQuestionBtn); });
+  speakExplanationBtn.addEventListener('click', function () { void playExplanation(speakExplanationBtn); });
   recordButton.addEventListener('click', toggleRecording);
   pauseRecordBtn.addEventListener('click', toggleRecordPause);
   pauseSpeechBtn.addEventListener('click', toggleSpeechPause);

@@ -1,3 +1,5 @@
+import re
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -107,7 +109,7 @@ def test_app_settings_defaults_and_switches(
     audio = {"audio": ("a.webm", b"x", "audio/webm")}
     assert client.post("/api/study/transcribe", files=audio).status_code == 403
     assert "Record voice" in client.get("/study").text  # rendered but hidden
-    assert 'id="record" type="button" class="secondary" hidden' in client.get("/study").text
+    assert re.search(r'id="record"[^>]*hidden', client.get("/study").text)
     public = client.patch(f"/api/decks/{card['deck_id']}", json={"visibility": "public"})
     assert public.status_code == 403
     assert client.post("/api/decks", json={"name": "P", "visibility": "public"}).status_code == 403
