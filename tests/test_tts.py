@@ -215,6 +215,44 @@ def test_speak_question_with_vocal_pass(
     assert fake_tts.calls == [("Vocal: Capital of France?", "fr")]
 
 
+def test_speak_question_drops_a_vocal_rewrite_that_answers(
+    client: TestClient,
+    card: dict[str, Any],
+    fake_tts: FakeTTS,
+    fake_teacher: FakeTeacher,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The rewrite pass is a chat model: asked to reproduce a question, it answers it."""
+    _enable_tts(client, question_vocal=True)
+    monkeypatch.setattr(
+        fake_teacher, "to_vocal", lambda text, *, language: "The capital of France is Paris."
+    )
+
+    response = client.post("/api/study/speak-question", json={"card_id": card["id"]})
+
+    assert response.status_code == 200
+    assert fake_tts.calls == [("Capital of France?", "auto")]
+
+
+def test_speak_question_drops_a_rewrite_that_spoils_the_answer(
+    client: TestClient,
+    card: dict[str, Any],
+    fake_tts: FakeTTS,
+    fake_teacher: FakeTeacher,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Keeping the question mark is not enough: naming the answer still spoils the card."""
+    _enable_tts(client, question_vocal=True)
+    monkeypatch.setattr(
+        fake_teacher, "to_vocal", lambda text, *, language: "What is the capital of France? Paris."
+    )
+
+    response = client.post("/api/study/speak-question", json={"card_id": card["id"]})
+
+    assert response.status_code == 200
+    assert fake_tts.calls == [("Capital of France?", "auto")]
+
+
 def test_speak_explanation_returns_audio(
     client: TestClient, card: dict[str, Any], fake_tts: FakeTTS, fake_teacher: FakeTeacher
 ) -> None:

@@ -64,7 +64,8 @@ DEFAULT_VERBALIZER_SYSTEM = (
     "enables a vocal-ready setting. Output only the spoken version: plain flowing sentences "
     "with no Markdown, bullets, numbering, parentheses, URLs or symbols that read awkwardly. "
     "Spell out abbreviations and numbers. Keep the meaning and the length close to the "
-    "original. " + LANGUAGE_GUIDELINE
+    "original. When the text is a question, reproduce it as the question it is: never answer "
+    "it, and never add the answer to it. " + LANGUAGE_GUIDELINE
 )
 DEFAULT_VERBALIZER_TEMPLATE = "{{ text }}"
 

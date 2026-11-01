@@ -4,6 +4,31 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.13.0] - 2026-11-01
+
+### Added
+
+- A **Microphone** panel on the start screen, shown when voice answers are available: authorize the
+  microphone there, test it (a three-second recording played back to you), and start either way.
+  The session no longer stops on a permission prompt raised by Start.
+- The microphone scope ends with the answer phase: entering the review stops and releases every
+  track, and nothing records during a review.
+
+### Fixed
+
+- A question spoken with **Vocal-ready question** on could be read as its *answer*: the rewrite
+  pass is a chat model, and asked to reproduce "What is the capital of France?" it answers "The
+  capital of France is Paris.". A rewrite is now kept only while it still asks the question and
+  does not spell out the expected answer; otherwise the question is read as written.
+
+### Changed
+
+- The default verbalizer prompt says a question must be reproduced as the question it is, never
+  answered. Existing installations keep their saved prompt: **Restore default prompts** on
+  `/admin/agents` picks up the new one, and the guard applies either way.
+- The synthesis log line names what is being spoken, so a rewrite that answers can be told apart
+  from a provider returning another clip's audio.
+
 ## [0.12.0] - 2026-11-01
 
 ### Added

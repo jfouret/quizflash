@@ -46,6 +46,11 @@
   var nextButton = document.getElementById('next');
   var startPanel = document.getElementById('start-panel');
   var startButton = document.getElementById('start-study');
+  var micAuthorizeBtn = document.getElementById('mic-authorize');
+  var micTestBtn = document.getElementById('mic-test');
+  var micStateEl = document.getElementById('mic-state');
+  var micEqFrameEl = document.getElementById('mic-eq-frame');
+  var micEqCanvas = document.getElementById('mic-eq');
   var tagPanelEl = document.getElementById('tag-panel');
   var tagOptionsEl = document.getElementById('tag-options');
   var cardTagsEl = document.getElementById('card-tags');
@@ -765,6 +770,129 @@
     }
   }
 
+  // --- Microphone setup, before the session ---------------------------------
+
+  var micAudioCtx = null;
+  var micMeterFrame = null;
+  var micTestRecorder = null;
+  var micTestTimer = null;
+
+  function setMicState(message, isError) {
+    micStateEl.textContent = message;
+    micStateEl.className = isError ? 'error' : 'muted';
+  }
+
+  function refreshMicState() {
+    micAuthorizeBtn.hidden = microphoneAuthorized;
+    micTestBtn.hidden = !microphoneAuthorized;
+    if (microphoneAuthorized) setMicState('Microphone ready.');
+  }
+
+  async function authorizeMicrophone() {
+    if (!navigator.mediaDevices) {
+      setMicState('This browser cannot record audio.', true);
+      return;
+    }
+    micAuthorizeBtn.disabled = true;
+    try {
+      var stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      stream.getTracks().forEach(function (track) { track.stop(); });
+      microphoneAuthorized = true;
+      refreshMicState();
+    } catch (error) {
+      setMicState('Microphone unavailable: ' + error.message + '. You can still type.', true);
+    } finally {
+      micAuthorizeBtn.disabled = false;
+    }
+  }
+
+  function stopMicMeter() {
+    if (micMeterFrame !== null) cancelAnimationFrame(micMeterFrame);
+    micMeterFrame = null;
+    micEqFrameEl.hidden = true;
+    if (micAudioCtx) {
+      void micAudioCtx.close();
+      micAudioCtx = null;
+    }
+  }
+
+  function startMicMeter(stream) {
+    if (!window.AudioContext) return;
+    stopMicMeter();
+    micAudioCtx = new AudioContext();
+    var analyser = micAudioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    micAudioCtx.createMediaStreamSource(stream).connect(analyser);
+    var data = new Uint8Array(analyser.frequencyBinCount);
+    micEqFrameEl.hidden = false;
+    function draw() {
+      micMeterFrame = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(data);
+      drawEqualizer(micEqCanvas, data);
+    }
+    draw();
+  }
+
+  // A three-second round trip: record, then play it back, so the user hears the
+  // microphone themselves before the session relies on it.
+  async function testMicrophone() {
+    if (micTestRecorder || !navigator.mediaDevices || !window.MediaRecorder) return;
+    micTestBtn.disabled = true;
+    try {
+      var stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      microphoneAuthorized = true;
+      refreshMicState();
+      var recorder = new MediaRecorder(stream);
+      micTestRecorder = recorder;
+      var chunks = [];
+      recorder.ondataavailable = function (event) {
+        if (event.data.size) chunks.push(event.data);
+      };
+      recorder.onstop = function () {
+        stream.getTracks().forEach(function (track) { track.stop(); });
+        stopMicMeter();
+        micTestRecorder = null;
+        micTestBtn.disabled = false;
+        setMicState('Playing the test back…');
+        var url = URL.createObjectURL(new Blob(chunks, {type: recorder.mimeType || 'audio/webm'}));
+        var audio = new Audio(url);
+        audio.addEventListener('ended', function () {
+          URL.revokeObjectURL(url);
+          setMicState('Microphone ready. The test above was your own recording.');
+        }, {once: true});
+        void audio.play().catch(function () {
+          URL.revokeObjectURL(url);
+          setMicState('Microphone ready, but playback was blocked.');
+        });
+      };
+      recorder.start();
+      startMicMeter(stream);
+      setMicState('Recording three seconds…');
+      micTestTimer = setTimeout(function () {
+        if (micTestRecorder) micTestRecorder.stop();
+      }, 3000);
+    } catch (error) {
+      setMicState('Microphone unavailable: ' + error.message, true);
+      micTestBtn.disabled = false;
+    }
+  }
+
+  // The microphone scope ends with the answer phase: the review does not record,
+  // and every track is stopped when the batch leaves the answering loop.
+  function releaseMicrophone() {
+    cancelRecording();
+    if (micTestTimer !== null) {
+      clearTimeout(micTestTimer);
+      micTestTimer = null;
+    }
+    if (micTestRecorder) {
+      micTestRecorder.onstop = null;
+      if (micTestRecorder.state !== 'inactive') micTestRecorder.stop();
+      micTestRecorder = null;
+    }
+    stopMicMeter();
+  }
+
   async function loadNext() {
     resetPanels();
     setStatus('Loading next card…');
@@ -1032,6 +1160,8 @@
   function showReviewed(result) {
     pendingResult = null;
     currentLogId = result.log_id || null;
+    // The answer phase of this card is over: the review needs no microphone.
+    releaseMicrophone();
     studyEl.hidden = true;
     answerInput.disabled = true;
     showCardContext();
@@ -1355,7 +1485,7 @@
   function enterReview() {
     batch.phase = 'review';
     reviewIndex = 0;
-    cancelRecording();
+    releaseMicrophone();
     stopSpoken();
     answerInput.disabled = true;
     studyEl.hidden = true;
@@ -1563,6 +1693,7 @@
   }
 
   function finishBatch() {
+    releaseMicrophone();
     stopSpoken();
     batchProgressEl.hidden = true;
     studyEl.hidden = true;
@@ -1579,6 +1710,7 @@
   }
 
   function backToMenu() {
+    releaseMicrophone();
     stopSpoken();
     batchDoneEl.hidden = true;
     emptyEl.hidden = true;
@@ -1631,6 +1763,8 @@
 
   async function startRecording() {
     if (startingRecording || recorder || !current || studyEl.hidden) return;
+    // The microphone scope ends with the answer phase: nothing records in a review.
+    if (inReviewPhase()) return;
     if (!navigator.mediaDevices || !window.MediaRecorder) {
       setStatus('Voice recording is unsupported in this browser. Use text.', true);
       return;
@@ -1708,8 +1842,10 @@
     try {
       var permission = await navigator.permissions.query({name: 'microphone'});
       microphoneAuthorized = permission.state === 'granted';
+      refreshMicState();
       permission.onchange = function () {
         microphoneAuthorized = permission.state === 'granted';
+        refreshMicState();
         maybeAutoRecord();
       };
       maybeAutoRecord();
@@ -1791,6 +1927,9 @@
   answerInput.addEventListener('input', invalidateAssessment);
   document.addEventListener('keydown', onKeydown);
   startButton.addEventListener('click', startSession);
+  micAuthorizeBtn.addEventListener('click', function () { void authorizeMicrophone(); });
+  micTestBtn.addEventListener('click', function () { void testMicrophone(); });
+  refreshMicState();
   batchContinueBtn.addEventListener('click', continueBatch);
   batchMenuBtn.addEventListener('click', backToMenu);
   autoSpeakBtn.addEventListener('click', function () { void toggleAutoSpeak(); });

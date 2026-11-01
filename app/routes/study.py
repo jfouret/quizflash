@@ -159,6 +159,9 @@ def _check_tts(session: SessionDep, user: CurrentUser) -> Settings:
 
 
 def _speak(text: str, language: str, tts: TTSDep) -> Response:
+    # The log names what was actually synthesized: it separates a wrong text on our
+    # side (a bad rewrite) from a provider returning another clip's audio.
+    logger.info("Synthesizing %d characters: %.60s", len(text), " ".join(text.split()))
     try:
         stream = tts.speak_stream(text, language)
     except TTSError as exc:
@@ -177,6 +180,33 @@ def _vocal(text: str, language: str, vocal: bool, teacher: TeacherDep) -> str:
         raise HTTPException(status_code=502, detail="Vocal rewrite failed; try again") from exc
 
 
+QUESTION_MARKS = ("?", "¿", "؟")
+
+
+def _fold(text: str) -> str:
+    """Case- and space-insensitive form, for the containment checks."""
+    return " ".join(text.casefold().split())
+
+
+def _rewrite_still_asks(question: str, rewritten: str, answer: str) -> bool:
+    """Whether a vocal rewrite reads as the question and not as its answer.
+
+    The rewrite pass is a chat model asked to reproduce a text, and a question it can
+    answer, it answers: asked for "What is the capital of France?" it returns "The
+    capital of France is Paris." Reading the answer spoils the card, so a rewrite is
+    dropped when it stops asking, or when it spells out the expected answer.
+    """
+    if not rewritten.strip():
+        return False
+    asks = any(mark in question for mark in QUESTION_MARKS)
+    if asks and not any(mark in rewritten for mark in QUESTION_MARKS):
+        return False
+    expected = _fold(answer)
+    return not (
+        len(expected) >= 3 and expected in _fold(rewritten) and expected not in _fold(question)
+    )
+
+
 @router.post("/speak-question")
 def speak_question(
     payload: ExplainRequest,
@@ -188,6 +218,9 @@ def speak_question(
     card, _ = crud.get_trainable_card(session, user, payload.card_id)
     settings = _check_tts(session, user)
     text = _vocal(card.question, settings.judge_language, settings.question_vocal, teacher)
+    if settings.question_vocal and not _rewrite_still_asks(card.question, text, card.answer):
+        logger.info("Dropped a question rewrite that read as its answer")
+        text = card.question
     return _speak(text, settings.judge_language, tts)
 
 
