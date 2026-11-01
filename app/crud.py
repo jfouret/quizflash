@@ -515,6 +515,7 @@ def update_settings(session: Session, user: User, data: SettingsUpdate) -> Setti
         "teacher_vocal",
         "batch_enabled",
         "batch_size",
+        "auto_speak_questions",
         "daily_new_limit",
         "daily_review_limit",
     )

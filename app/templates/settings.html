@@ -60,6 +60,11 @@
       <small class="hint">Adds a speaker button next to the question and in the result panel.</small>
     </label>
     <label>
+      <input name="auto_speak_questions" type="checkbox" role="switch" value="true" {% if settings.auto_speak_questions %}checked{% endif %}>
+      Read each question aloud on its own
+      <small class="hint">The question is spoken when the card appears, the next ones are prepared in advance, and recording starts when the audio ends. A button on the study page toggles the same setting.</small>
+    </label>
+    <label>
       <input name="question_vocal" type="checkbox" role="switch" value="true" {% if settings.question_vocal %}checked{% endif %}>
       Vocal-ready question
       <small class="hint">Extra LLM pass rewrites the question into plain spoken sentences before synthesis.</small>

@@ -40,6 +40,11 @@ def test_explain_uses_deck_and_card_context(
     assert call["user_answer"] == "Paris"
     assert call["is_correct"] is True
     assert call["language"] == "fr"
+    # The rating and the deck scale reach the prompt, so the teacher can say what
+    # a stronger answer would have added.
+    assert call["rating"] == 3
+    assert call["max_level"] == 5
+    assert call["rating_label"] == "Better than average"
 
 
 def test_explain_without_prior_answer(
@@ -49,6 +54,7 @@ def test_explain_without_prior_answer(
     assert result["explanation"] == "Paris is the capital of France."
     assert fake_teacher.calls[0]["user_answer"] == ""
     assert fake_teacher.calls[0]["is_correct"] is None
+    assert fake_teacher.calls[0]["rating"] is None
 
 
 def test_explain_unknown_card(client: TestClient) -> None:

@@ -152,6 +152,7 @@ class SettingsRead(BaseModel):
     teacher_vocal: bool
     batch_enabled: bool
     batch_size: int
+    auto_speak_questions: bool
     daily_new_limit: int
     daily_review_limit: int
 
@@ -168,6 +169,7 @@ class SettingsUpdate(BaseModel):
     teacher_vocal: bool | None = None
     batch_enabled: bool | None = None
     batch_size: int | None = Field(default=None, ge=1, le=50)
+    auto_speak_questions: bool | None = None
     daily_new_limit: int | None = Field(default=None, ge=0)
     daily_review_limit: int | None = Field(default=None, ge=0)
 

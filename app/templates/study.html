@@ -29,7 +29,10 @@
       {% endfor %}
     </div>
   </fieldset>
-  <button id="start-study" type="button">Start</button>
+  <div class="actions">
+    <button id="start-study" type="button">Start</button>
+    <button id="auto-speak" type="button" class="secondary outlined" aria-pressed="false" {% if not settings.tts_enabled %}hidden{% endif %}>Read questions aloud: off</button>
+  </div>
 </section>
 <div id="batch-progress" class="batch-progress" hidden></div>
 <section id="empty" class="empty empty-study" hidden>
@@ -64,6 +67,7 @@
   </div>
 </section>
 <section id="result" class="card" hidden>
+  <h3>Question</h3><p id="review-question" class="pre"></p>
   <div id="feedback" class="md"></div>
   <p id="judge-info" class="muted"></p>
   <div id="review-tags" class="card-tags" hidden></div>
@@ -109,6 +113,7 @@
      data-teacher-vocal="{{ settings.teacher_vocal | tojson }}"
      data-batch-enabled="{{ settings.batch_enabled | tojson }}"
      data-batch-size="{{ settings.batch_size | tojson }}"
-     data-voice-allowed="{{ voice_allowed | tojson }}"></div>
+     data-voice-allowed="{{ voice_allowed | tojson }}"
+     data-auto-speak="{{ settings.auto_speak_questions | tojson }}"></div>
 <script src="/static/js/study.js?v={{ asset_version }}" defer></script>
 {% endblock %}

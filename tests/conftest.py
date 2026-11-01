@@ -75,6 +75,9 @@ class FakeTeacher:
         user_answer: str,
         is_correct: bool | None,
         language: str,
+        rating: int | None = None,
+        max_level: int = 0,
+        rating_label: str = "",
     ) -> TeacherResult:
         self.calls.append(
             {
@@ -85,6 +88,9 @@ class FakeTeacher:
                 "user_answer": user_answer,
                 "is_correct": is_correct,
                 "language": language,
+                "rating": rating,
+                "max_level": max_level,
+                "rating_label": rating_label,
             }
         )
         if self.error is not None:
