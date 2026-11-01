@@ -66,6 +66,8 @@ def test_study_result_shows_the_answer_box(client: TestClient) -> None:
     assert 'id="your-answer-wrap"' in page
     assert 'id="your-answer"' in page
     assert 'id="retry-record"' in page
+    assert 'id="review-question"' in page
+    assert 'id="auto-speak"' in page
     assert ".answer-box.wrong" in client.get("/static/style.css").text
 
 

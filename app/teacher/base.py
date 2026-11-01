@@ -22,6 +22,9 @@ class Teacher(Protocol):
         user_answer: str,
         is_correct: bool | None,
         language: str,
+        rating: int | None = None,
+        max_level: int = 0,
+        rating_label: str = "",
     ) -> TeacherResult: ...
 
     def to_vocal(self, text: str, *, language: str) -> str: ...

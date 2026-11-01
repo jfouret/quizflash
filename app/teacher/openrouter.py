@@ -107,6 +107,9 @@ class OpenRouterTeacher:
         user_answer: str,
         is_correct: bool | None,
         language: str,
+        rating: int | None = None,
+        max_level: int = 0,
+        rating_label: str = "",
     ) -> TeacherResult:
         if not self.base_url or not self.model:
             raise TeacherError("TEACHER_BASE_URL and TEACHER_MODEL must be configured")
@@ -133,6 +136,9 @@ class OpenRouterTeacher:
             "user_answer": user_answer,
             "is_correct": is_correct,
             "correctness": correctness,
+            "rating": rating,
+            "max_level": max_level,
+            "rating_label": rating_label,
             "language": language,
         }
         try:

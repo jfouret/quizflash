@@ -52,9 +52,12 @@
   var ttsEnabled = config.ttsEnabled === 'true';
   var voiceAllowed = config.voiceAllowed === 'true';
   var teacherVocal = config.teacherVocal === 'true';
+  var autoSpeak = config.autoSpeak === 'true';
   var batchEnabled = config.batchEnabled === 'true';
   var batchSize = Number(config.batchSize) || 5;
   var batchProgressEl = document.getElementById('batch-progress');
+  var autoSpeakBtn = document.getElementById('auto-speak');
+  var reviewQuestionEl = document.getElementById('review-question');
 
   // Autofocus is for whoever types on a physical keyboard. On a touch device the
   // focus call raises the on-screen keyboard, which then hides the question at every
@@ -236,8 +239,11 @@
     emptyEl.hidden = true;
     batchDoneEl.hidden = true;
     flipEl.hidden = false;
-    if (batchEnabled) void startBatch();
-    else void loadNext();
+    // Ask for the microphone before the first card, so the automatic flow works.
+    void prepareMicrophone().then(function () {
+      if (batchEnabled) void startBatch();
+      else void loadNext();
+    });
   }
 
   function setFlipped(on) {
@@ -393,6 +399,7 @@
     recordingRequest += 1;
     startingRecording = false;
     stopEqualizer();
+    allowSleep();
     if (recorder) {
       recorder.ondataavailable = null;
       recorder.onstop = null;
@@ -451,6 +458,146 @@
     void startRecording();
   }
 
+  // --- Spoken questions, microphone and screen awake -------------------------
+
+  var wakeLock = null;
+
+  async function keepAwake() {
+    if (wakeLock || !navigator.wakeLock || document.visibilityState !== 'visible') return;
+    try {
+      var lock = await navigator.wakeLock.request('screen');
+      lock.addEventListener('release', function () { if (wakeLock === lock) wakeLock = null; });
+      wakeLock = lock;
+    } catch (error) {
+      wakeLock = null; // Refused (low battery and the like): the session still works.
+    }
+  }
+
+  function allowSleep() {
+    if (!wakeLock) return;
+    var lock = wakeLock;
+    wakeLock = null;
+    void lock.release().catch(function () {});
+  }
+
+  function setAutoSpeakButton() {
+    autoSpeakBtn.textContent = 'Read questions aloud: ' + (autoSpeak ? 'on' : 'off');
+    autoSpeakBtn.setAttribute('aria-pressed', autoSpeak ? 'true' : 'false');
+  }
+
+  async function toggleAutoSpeak() {
+    autoSpeak = !autoSpeak;
+    setAutoSpeakButton();
+    try {
+      await api('/api/settings', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({auto_speak_questions: autoSpeak})
+      });
+    } catch (error) {
+      setStatus(error.message, true);
+    }
+    if (autoSpeak && current && !studyEl.hidden) void speakCurrentQuestion();
+  }
+
+  function batchRecord() {
+    if (batchEnabled && batch && batch.phase === 'answer') return batch.records[batch.pos] || null;
+    return null;
+  }
+
+  async function fetchQuestionAudio(cardId) {
+    if (!cardId) return '';
+    try {
+      var response = await fetch('/api/study/speak-question', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
+        credentials: 'same-origin',
+        body: JSON.stringify({card_id: cardId})
+      });
+      if (!response.ok) return '';
+      var blob = await response.blob();
+      if (!blob.size) return '';
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function prefetchQuestion(record) {
+    if (!record || record.questionAudioUrl || record.questionAudioPromise) return;
+    record.questionAudioPromise = fetchQuestionAudio(record.card.card.id).then(function (url) {
+      record.questionAudioUrl = url || '';
+      return url;
+    });
+  }
+
+  function prefetchUpcomingQuestions() {
+    if (!autoSpeak || !ttsEnabled || !batchEnabled || !batch || batch.phase !== 'answer') return;
+    for (var ahead = 1; ahead <= 2; ahead++) prefetchQuestion(batch.records[batch.pos + ahead]);
+  }
+
+  async function playSpoken(url, onEnded) {
+    stopSpoken();
+    var audio = new Audio(url);
+    spokenAudio = audio;
+    void keepAwake();
+    audio.addEventListener('ended', function () {
+      if (spokenAudio !== audio) return;
+      allowSleep();
+      if (onEnded) onEnded();
+    }, {once: true});
+    try {
+      await audio.play();
+    } catch (error) {
+      // Autoplay or the decoder can refuse; the card still works.
+      if (spokenAudio === audio) {
+        allowSleep();
+        if (onEnded) onEnded();
+      }
+    }
+  }
+
+  async function speakQuestionFor(record, onEnded) {
+    var url = record ? record.questionAudioUrl : '';
+    if (!url && record && record.questionAudioPromise) url = await record.questionAudioPromise;
+    if (!url) {
+      url = await fetchQuestionAudio(record ? record.card.card.id : (current ? current.card.id : null));
+      if (url && record) record.questionAudioUrl = url;
+    }
+    if (!url) {
+      if (onEnded) onEnded();
+      return;
+    }
+    await playSpoken(url, onEnded);
+  }
+
+  function speakCurrentQuestion() {
+    if (!autoSpeak || !ttsEnabled || !current || studyEl.hidden) return Promise.resolve();
+    prefetchUpcomingQuestions();
+    return speakQuestionFor(batchRecord(), maybeAutoRecord);
+  }
+
+  function beginAnswer() {
+    // With spoken questions the recording waits for the clip to end, so it does
+    // not record the question itself.
+    if (autoSpeak && ttsEnabled) {
+      void speakCurrentQuestion();
+      return;
+    }
+    maybeAutoRecord();
+  }
+
+  async function prepareMicrophone() {
+    if (!voiceAllowed || microphoneAuthorized || !navigator.mediaDevices) return;
+    try {
+      var stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      stream.getTracks().forEach(function (track) { track.stop(); });
+      microphoneAuthorized = true;
+    } catch (error) {
+      setStatus('Microphone unavailable: ' + error.message + '. Answer with text.', true);
+    }
+  }
+
   async function loadNext() {
     resetPanels();
     setStatus('Loading next card…');
@@ -471,7 +618,7 @@
       startedAt = Date.now();
       focusAnswer();
       setStatus('Timer started.');
-      maybeAutoRecord();
+      beginAnswer();
     } catch (error) {
       setStatus(error.message, true);
     }
@@ -504,6 +651,7 @@
   }
 
   function showCardContext() {
+    reviewQuestionEl.textContent = current.card.question;
     expectedAnswerEl.textContent = current.card.answer;
     detailsEl.textContent = current.card.details;
     detailsWrap.hidden = !current.card.details;
@@ -553,6 +701,7 @@
       if (spokenAudio.src.indexOf('blob:') === 0) URL.revokeObjectURL(spokenAudio.src);
       spokenAudio = null;
     }
+    allowSleep();
   }
 
   function appendBuffer(buffer, data) {
@@ -856,7 +1005,7 @@
     studyEl.classList.add('batch-in');
     setTimeout(function () { studyEl.classList.remove('batch-in'); }, 320);
     focusAnswer();
-    maybeAutoRecord();
+    beginAnswer();
   }
 
   async function submitBatch() {
@@ -1012,6 +1161,7 @@
 
   function showPendingReview(record, index) {
     currentLogId = null;
+    reviewQuestionEl.textContent = record.card.card.question;
     renderYourAnswer(answerText(record.payload), null);
     expectedAnswerEl.textContent = record.card.card.answer;
     detailsEl.textContent = record.card.card.details;
@@ -1106,6 +1256,7 @@
     detailsEl.textContent = record.card.card.details;
     detailsWrap.hidden = !record.card.card.details;
     currentLogId = record.saved ? record.saved.log_id : null;
+    reviewQuestionEl.textContent = record.card.card.question;
     var judgment = record.saved ? record.saved.is_correct
       : (record.preview ? record.preview.is_correct : null);
     renderYourAnswer(answerText(record.payload), judgment);
@@ -1145,11 +1296,7 @@
   }
 
   function playReviewAudio(url) {
-    stopSpoken();
-    spokenAudio = new Audio(url);
-    spokenAudio.play().catch(function () {
-      // Autoplay may be blocked; the Next button still works.
-    });
+    void playSpoken(url);
   }
 
   function advanceReview() {
@@ -1295,6 +1442,7 @@
         return;
       }
       microphoneAuthorized = true;
+      void keepAwake();
       chunks = [];
       recordingStream = stream;
       startEqualizer(stream);
@@ -1304,6 +1452,7 @@
       activeRecorder.onstop = function () {
         stream.getTracks().forEach(function (track) { track.stop(); });
         stopEqualizer();
+        allowSleep();
         if (requestId !== recordingRequest) return;
         var blob = new Blob(chunks, {type: activeRecorder.mimeType || 'audio/webm'});
         recorder = null;
@@ -1428,5 +1577,11 @@
   startButton.addEventListener('click', startSession);
   batchContinueBtn.addEventListener('click', continueBatch);
   batchMenuBtn.addEventListener('click', backToMenu);
+  autoSpeakBtn.addEventListener('click', function () { void toggleAutoSpeak(); });
+  setAutoSpeakButton();
+  // A wake lock is dropped when the page is hidden; take it back on return.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && (recorder || spokenAudio)) void keepAwake();
+  });
   void watchMicrophonePermission();
 })();

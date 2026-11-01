@@ -4,6 +4,29 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] - 2026-11-01
+
+### Added
+
+- The review panel repeats the question of the card being reviewed, above the answer that was
+  judged.
+- **Read questions aloud** (`auto_speak_questions`, a button on the study page and a switch in
+  settings): each question is spoken when its card appears, the questions two cards ahead are
+  synthesized in advance through the same queue and retry path, and with the microphone allowed
+  the recording starts when the clip ends instead of when the card appears.
+- The microphone is requested once when a session starts, so a batch does not stop at each
+  permission prompt.
+- The screen wake lock is held while a clip plays or a recording runs, so a phone does not sleep
+  mid-answer.
+
+### Changed
+
+- The default teacher prompt no longer restates the question or the expected answer, which the
+  learner already reads. It receives the rating, its label and the deck scale, and is asked to
+  name what was missing and, when the answer was correct but below the top of the scale, what a
+  stronger answer would have added. Existing installations keep their saved prompt: **Restore
+  default prompts** on `/admin/agents` picks up the new one.
+
 ## [0.9.0] - 2026-11-01
 
 ### Added

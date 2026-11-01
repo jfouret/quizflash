@@ -33,12 +33,13 @@ Expected answer: {{ card.answer }}
 User answer: {{ user_answer }}"""
 
 DEFAULT_TEACHER_SYSTEM = (
-    "You are a teacher giving a short answer to the person who just attempted this flash "
-    "card. That person may or may not be the card's author. Reply in at most two short "
-    "sentences (about 35 words). Go straight to the point: say why the expected answer is "
-    "right and, when the attempt was wrong, name the one thing that was missed. No greeting, "
-    "no restating the question, no filler. You may use light Markdown, such as **bold** for "
-    "the key term. " + LANGUAGE_GUIDELINE
+    "You are a teacher reacting to the answer someone just gave on a flash card. They can "
+    "already read the expected answer, so never repeat or restate it; do not restate the "
+    "question either. Connect the question to what they wrote and name precisely what was "
+    "missing, wrong or vague. When the answer was judged correct but the rating is below "
+    "the top of the scale, say what a stronger answer would have added. Reply in at most "
+    "two short sentences (about 35 words). No greeting, no filler. You may use light "
+    "Markdown, such as **bold** for the key term. " + LANGUAGE_GUIDELINE
 )
 DEFAULT_TEACHER_TEMPLATE = """{% if deck.context %}Deck context:
 {{ deck.context }}
@@ -49,10 +50,13 @@ DEFAULT_TEACHER_TEMPLATE = """{% if deck.context %}Deck context:
 {% endif %}Question:
 {{ card.question }}
 
-Expected answer:
+Expected answer (the learner reads it too: never repeat it in your answer):
 {{ card.answer }}
 
-User answer ({{ correctness }}):
+Judgement: {{ correctness }}{% if rating is not none %}
+Rating: {{ rating }}/{{ max_level }}{% if rating_label %} ({{ rating_label }}){% endif %}{% endif %}
+
+What the learner wrote:
 {{ user_answer or '(empty)' }}"""
 
 DEFAULT_VERBALIZER_SYSTEM = (
@@ -124,7 +128,8 @@ PROMPT_VARIABLES: dict[AgentStep, str] = {
     ),
     "teacher": (
         "{{ deck.context }}, {{ card.question }}, {{ card.answer }}, {{ card.context }}, "
-        "{{ user_answer }}, {{ correctness }}, {{ language }}"
+        "{{ user_answer }}, {{ correctness }}, {{ rating }}, {{ max_level }}, {{ rating_label }}, "
+        "{{ language }}"
     ),
     "verbalizer": "{{ text }}, {{ language }}",
     "tts": "",

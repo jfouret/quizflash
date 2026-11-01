@@ -16,12 +16,14 @@ def test_agent_defaults_are_seeded(admin_client: TestClient, app: FastAPI) -> No
         configs = {config.step: config for config in crud.list_agent_configs(session)}
 
     assert set(configs) == {"judge", "teacher", "tts", "verbalizer", "stt"}
-    assert "person who just attempted this flash card" in configs["teacher"].system_prompt
-    assert "may or may not be the card's author" in configs["teacher"].system_prompt
+    assert "never repeat or restate it" in configs["teacher"].system_prompt
+    assert "rating is below the top of the scale" in configs["teacher"].system_prompt
     assert "at most two short sentences" in configs["teacher"].system_prompt
     assert "Respect the requested language" in configs["teacher"].system_prompt
     assert "do not over-translate them" in configs["teacher"].system_prompt
     assert "{{ card.question }}" in configs["teacher"].prompt_template
+    assert "{{ rating }}" in configs["teacher"].prompt_template
+    assert "never repeat it" in configs["teacher"].prompt_template
     assert configs["tts"].prompt_template == ""
     assert configs["stt"].prompt_template == ""
 

@@ -15,6 +15,7 @@ def test_settings_defaults_and_update(client: TestClient) -> None:
     assert defaults["batch_enabled"] is True
     assert defaults["batch_size"] == 5
     assert defaults["daily_new_limit"] == 0
+    assert defaults["auto_speak_questions"] is False
     assert defaults["daily_review_limit"] == 0
 
     updated = response_dict(
@@ -32,6 +33,7 @@ def test_settings_defaults_and_update(client: TestClient) -> None:
                 "batch_enabled": False,
                 "batch_size": 8,
                 "daily_new_limit": 5,
+                "auto_speak_questions": True,
                 "daily_review_limit": 20,
             },
         )
@@ -47,6 +49,7 @@ def test_settings_defaults_and_update(client: TestClient) -> None:
     assert updated["batch_enabled"] is False
     assert updated["batch_size"] == 8
     assert updated["daily_new_limit"] == 5
+    assert updated["auto_speak_questions"] is True
     assert updated["daily_review_limit"] == 20
 
 
@@ -74,6 +77,7 @@ def test_settings_form_updates_voice_auto_judge(client: TestClient) -> None:
             "batch_enabled": "true",
             "batch_size": "7",
             "daily_new_limit": "0",
+            "auto_speak_questions": "true",
             "daily_review_limit": "0",
         },
         follow_redirects=False,
@@ -88,3 +92,4 @@ def test_settings_form_updates_voice_auto_judge(client: TestClient) -> None:
     assert settings["teacher_vocal"] is True
     assert settings["batch_enabled"] is True
     assert settings["batch_size"] == 7
+    assert settings["auto_speak_questions"] is True

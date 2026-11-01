@@ -2,7 +2,7 @@
 
 from sqlmodel import Session
 
-from app import crud
+from app import crud, grading
 from app.models import User
 from app.teacher.base import Teacher, TeacherError
 
@@ -25,6 +25,8 @@ def explain_card(
     card, deck = crud.get_trainable_card(session, user, card_id)
     settings = crud.get_settings(session, user)
     log = crud.get_last_answer_log(session, user, card_id)
+    scale = grading.normalize(deck.grading_scale)
+    rating = log.rating if log else None
     result = teacher.explain(
         deck_context=deck.context,
         card_context=card.context,
@@ -32,6 +34,9 @@ def explain_card(
         expected_answer=card.answer,
         user_answer=log.answer_text if log else "",
         is_correct=log.is_correct if log else None,
+        rating=rating,
+        max_level=scale["max"],
+        rating_label=grading.label(scale, rating) if rating is not None else "",
         language=settings.judge_language,
     )
     if log_id is not None and log is not None and log.id == log_id:

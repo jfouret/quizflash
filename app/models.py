@@ -139,6 +139,7 @@ class Settings(SQLModel, table=True):
     teacher_vocal: bool = False
     batch_enabled: bool = True
     batch_size: int = 5
+    auto_speak_questions: bool = False
     daily_new_limit: int = 0
     daily_review_limit: int = 0
 

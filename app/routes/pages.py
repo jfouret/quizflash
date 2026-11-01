@@ -370,6 +370,7 @@ def update_settings_form(
     teacher_vocal: Annotated[bool, Form()] = False,
     batch_enabled: Annotated[bool, Form()] = False,
     batch_size: Annotated[int, Form()] = 5,
+    auto_speak_questions: Annotated[bool, Form()] = False,
 ) -> RedirectResponse:
     crud.update_settings(
         session,
@@ -386,6 +387,7 @@ def update_settings_form(
             teacher_vocal=teacher_vocal,
             batch_enabled=batch_enabled,
             batch_size=batch_size,
+            auto_speak_questions=auto_speak_questions,
             daily_new_limit=daily_new_limit,
             daily_review_limit=daily_review_limit,
         ),

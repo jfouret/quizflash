@@ -24,9 +24,9 @@ Self-hosted, multi-user spaced-repetition quiz application. Each user owns their
   - `ai_preselect`: the AI proposes a rating and feedback; the user confirms or overrides.
   - `ai_assess`: the AI decides and the review is saved immediately.
   - `self_fallback`: manual rating, only available through a single-use token issued after an actual judge failure.
-- Voice answers: automatic recording when microphone permission is granted, an elapsed-time counter, server-side remote STT, and an editable transcript. Settings can send the transcript straight to the judge or wait for validation. Corrections can be judged again before the review is saved. Response time, STT call duration, and audio duration are persisted.
+- Voice answers: the microphone is requested once when a session starts, then automatic recording when permission is granted, an elapsed-time counter, server-side remote STT, and an editable transcript. Settings can send the transcript straight to the judge or wait for validation. Corrections can be judged again before the review is saved. Response time, STT call duration, and audio duration are persisted.
 - Deck-level and card-level context fields, plus an optional LLM teacher: after a result, the teacher explains the card using both contexts (toggle in settings; otherwise use the Teacher/Regenerate buttons in the result panel). Explanations render as Markdown.
-- Spoken output (TTS via OpenRouter): per-user toggle speaks the question and the teacher explanation aloud; optional extra LLM passes ("vocal-ready") rewrite question and explanation into plain spoken sentences before synthesis. Playback streams so it starts before the clip is fully generated. Admin can disable TTS globally.
+- Spoken output (TTS via OpenRouter): per-user toggle speaks the question and the teacher explanation aloud; the study page adds a **Read questions aloud** button that speaks each question on its own, prepares the next ones in advance and starts the recording when the clip ends; the screen wake lock is held while a clip plays or a recording runs; optional extra LLM passes ("vocal-ready") rewrite question and explanation into plain spoken sentences before synthesis. Playback streams so it starts before the clip is fully generated. Admin can disable TTS globally.
 - Pluggable schedulers: FSRS (default, `fsrs` PyPI package) and SM-2, configurable per deck.
 - Per-deck grading scale: answers are rated from `0` to a deck-defined maximum. New decks use the shipped notation, `0=False or absent, 1=Bad, 2=Average, 3=Better than average, 4=Good, 5=Perfect`; the maximum and the labels are editable per deck. The scale is mapped onto the scheduler's quality internally; changing it is refused once the deck has answers, so copy the deck first.
 - Edit cards from the deck page, including question, answer, details, teacher context, expected time and tags.
@@ -114,7 +114,10 @@ User answer: {{ user_answer }}
 The defaults tell every model to respect the requested language and to keep
 technical terms, proper nouns, code identifiers and abbreviations in their
 original form instead of over-translating them. The Teacher default asks for a
-short, Markdown answer (at most two sentences) so a review round stays fast. A
+short, Markdown answer (at most two sentences) so a review round stays fast; it
+does not repeat the expected answer the learner already sees, and it receives the
+rating with its label and the deck scale, so a correct but average answer gets
+told what a stronger one would have added. A
 **Restore default prompts** button resets the system prompt and template of the
 current step to the values shipped with the running version.
 
@@ -145,7 +148,7 @@ Then open:
 - `/study` — study queue (pick decks and tags, then Start)
 - `/history` — past answers, ratings, and teacher explanations
 - `/stats` — per-card and per-tag charts
-- `/settings` — evaluation mode, batch size, voice auto-judging, languages, and daily limits
+- `/settings` — evaluation mode, batch size, voice auto-judging, reading questions aloud, languages, and daily limits
 - `/docs` — generated OpenAPI documentation
 
 ## Tests and quality checks
