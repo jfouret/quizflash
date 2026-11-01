@@ -12,6 +12,12 @@
   var recordButton = document.getElementById('record');
   var recordingCounter = document.getElementById('recording-counter');
   var eqCanvas = document.getElementById('eq');
+  var eqFrameEl = document.getElementById('eq-frame');
+  var pauseRecordBtn = document.getElementById('pause-record');
+  var speechBar = document.getElementById('speech-bar');
+  var speechEqCanvas = document.getElementById('speech-eq');
+  var pauseSpeechBtn = document.getElementById('pause-speech');
+  var stopSpeechBtn = document.getElementById('stop-speech');
   var dueCountEl = document.getElementById('due-count');
   var textModeButton = document.getElementById('text-mode');
   var submitButton = document.getElementById('submit');
@@ -96,7 +102,12 @@
   var audioCtx = null;
   var analyser = null;
   var eqData = null;
+  var eqSilence = null;
   var eqFrame = null;
+  var speechEqFrame = null;
+  var speechReader = null;
+  var recordingPaused = false;
+  var recordingElapsed = 0;
   var dueCount = Number(dueCountEl.textContent) || 0;
   var batch = null;
   var reviewIndex = 0;
@@ -343,8 +354,12 @@
     setStatus(wasRecording ? 'Recording interrupted. Type your answer.' : 'Text answer mode.');
   }
 
+  function recordedMs() {
+    return recordingElapsed + (recordingPaused ? 0 : Date.now() - recordingStartedAt);
+  }
+
   function updateRecordingCounter() {
-    var seconds = Math.floor((Date.now() - recordingStartedAt) / 1000);
+    var seconds = Math.floor(recordedMs() / 1000);
     var minutes = Math.floor(seconds / 60);
     recordingCounter.textContent = minutes + ':' + String(seconds % 60).padStart(2, '0');
   }
@@ -359,7 +374,10 @@
   function stopEqualizer() {
     if (eqFrame !== null) cancelAnimationFrame(eqFrame);
     eqFrame = null;
-    eqCanvas.hidden = true;
+    eqFrameEl.hidden = true;
+    eqFrameEl.classList.remove('paused');
+    recordingPaused = false;
+    setPauseRecordLabel();
     document.body.classList.remove('recording');
     if (audioCtx) {
       void audioCtx.close();
@@ -367,6 +385,25 @@
       analyser = null;
       eqData = null;
     }
+  }
+
+  // Bars mirrored around a centre axis: the frame draws the border, this draws the sound.
+  function drawEqualizer(canvas, data) {
+    var ctx = canvas.getContext('2d');
+    var width = canvas.width;
+    var height = canvas.height;
+    var middle = height / 2;
+    // Resolved colour: the canvas inherits the accent from .eq-frame's own style.
+    ctx.fillStyle = getComputedStyle(canvas).color || '#3b82f6';
+    ctx.clearRect(0, 0, width, height);
+    var barWidth = width / data.length;
+    for (var i = 0; i < data.length; i++) {
+      var half = Math.max(1, (data[i] / 255) * (middle - 1));
+      ctx.fillRect(i * barWidth, middle - half, Math.max(1, barWidth - 1.5), half * 2);
+    }
+    ctx.globalAlpha = 0.35;
+    ctx.fillRect(0, middle - 0.5, width, 1);
+    ctx.globalAlpha = 1;
   }
 
   function startEqualizer(stream) {
@@ -377,20 +414,17 @@
     analyser.fftSize = 64;
     audioCtx.createMediaStreamSource(stream).connect(analyser);
     eqData = new Uint8Array(analyser.frequencyBinCount);
-    eqCanvas.hidden = false;
+    eqSilence = new Uint8Array(analyser.frequencyBinCount);
+    eqFrameEl.hidden = false;
     document.body.classList.add('recording');
-    var ctx = eqCanvas.getContext('2d');
     function draw() {
       eqFrame = requestAnimationFrame(draw);
-      analyser.getByteFrequencyData(eqData);
-      ctx.clearRect(0, 0, eqCanvas.width, eqCanvas.height);
-      var barWidth = eqCanvas.width / eqData.length;
-      for (var i = 0; i < eqData.length; i++) {
-        var height = (eqData[i] / 255) * eqCanvas.height;
-        // Resolved colour: the canvas inherits the accent from #eq's own style.
-        ctx.fillStyle = getComputedStyle(eqCanvas).color || '#3b82f6';
-        ctx.fillRect(i * barWidth, eqCanvas.height - height, barWidth - 1, height);
+      if (recordingPaused) {
+        drawEqualizer(eqCanvas, eqSilence);
+        return;
       }
+      analyser.getByteFrequencyData(eqData);
+      drawEqualizer(eqCanvas, eqData);
     }
     draw();
   }
@@ -412,6 +446,9 @@
     stopRecordingCounter();
     recordButton.textContent = 'Record voice';
     recordButton.disabled = false;
+    pauseRecordBtn.hidden = true;
+    recordingPaused = false;
+    setPauseRecordLabel();
   }
 
   var spokenAudio = null;
@@ -480,6 +517,27 @@
     void lock.release().catch(function () {});
   }
 
+  function setPauseRecordLabel() {
+    pauseRecordBtn.textContent = recordingPaused ? 'Resume' : 'Pause';
+  }
+
+  function toggleRecordPause() {
+    if (!recorder || recorder.state === 'inactive') return;
+    if (recordingPaused) {
+      recorder.resume();
+      recordingPaused = false;
+      recordingStartedAt = Date.now();
+    } else {
+      recorder.pause();
+      recordingElapsed += Date.now() - recordingStartedAt;
+      recordingPaused = true;
+    }
+    eqFrameEl.classList.toggle('paused', recordingPaused);
+    setPauseRecordLabel();
+    updateRecordingCounter();
+    setStatus(recordingPaused ? 'Recording paused.' : 'Recording…', false);
+  }
+
   function setAutoSpeakButton() {
     autoSpeakBtn.textContent = 'Read questions aloud: ' + (autoSpeak ? 'on' : 'off');
     autoSpeakBtn.setAttribute('aria-pressed', autoSpeak ? 'true' : 'false');
@@ -541,8 +599,10 @@
     var audio = new Audio(url);
     spokenAudio = audio;
     void keepAwake();
+    startSpeechEqualizer();
     audio.addEventListener('ended', function () {
       if (spokenAudio !== audio) return;
+      stopSpeechEqualizer();
       allowSleep();
       if (onEnded) onEnded();
     }, {once: true});
@@ -694,6 +754,51 @@
     if (teacherEnabled) void fetchExplanation();
   }
 
+  function setSpeechPauseLabel() {
+    var paused = spokenAudio ? spokenAudio.paused : false;
+    pauseSpeechBtn.textContent = paused ? 'Resume' : 'Pause';
+  }
+
+  // A stand-in for a spectrum: the clip cannot be routed through Web Audio
+  // without risking silent playback, so the bars show that sound is running.
+  function speechLevelData() {
+    var bars = 20;
+    var data = new Uint8Array(bars);
+    if (!spokenAudio || spokenAudio.paused) return data;
+    var t = Date.now() / 240;
+    for (var i = 0; i < bars; i++) {
+      var wave = Math.sin(t + i * 0.55) * 0.5 + 0.5;
+      var swell = Math.sin(t / 3 + i * 0.2) * 0.5 + 0.5;
+      data[i] = Math.round(40 + wave * 90 + swell * 70);
+    }
+    return data;
+  }
+
+  function startSpeechEqualizer() {
+    stopSpeechEqualizer();
+    speechBar.hidden = false;
+    function draw() {
+      speechEqFrame = requestAnimationFrame(draw);
+      drawEqualizer(speechEqCanvas, speechLevelData());
+      setSpeechPauseLabel();
+    }
+    draw();
+  }
+
+  function stopSpeechEqualizer() {
+    if (speechEqFrame !== null) cancelAnimationFrame(speechEqFrame);
+    speechEqFrame = null;
+    speechBar.hidden = true;
+  }
+
+  function toggleSpeechPause() {
+    if (!spokenAudio) return;
+    if (spokenAudio.paused) void spokenAudio.play().catch(function () {});
+    else spokenAudio.pause();
+    setSpeechPauseLabel();
+    setStatus(spokenAudio.paused ? 'Paused.' : 'Playing.', false);
+  }
+
   function stopSpoken() {
     if (spokenAudio) {
       spokenAudio.pause();
@@ -701,6 +806,11 @@
       if (spokenAudio.src.indexOf('blob:') === 0) URL.revokeObjectURL(spokenAudio.src);
       spokenAudio = null;
     }
+    if (speechReader) {
+      void speechReader.cancel().catch(function () {});
+      speechReader = null;
+    }
+    stopSpeechEqualizer();
     allowSleep();
   }
 
@@ -732,6 +842,10 @@
     var source = new MediaSource();
     var audio = new Audio(URL.createObjectURL(source));
     spokenAudio = audio;
+    startSpeechEqualizer();
+    audio.addEventListener('ended', function () {
+      if (spokenAudio === audio) stopSpeechEqualizer();
+    }, {once: true});
     await new Promise(function (resolve) { source.addEventListener('sourceopen', resolve, {once: true}); });
     var buffer;
     try {
@@ -741,15 +855,17 @@
       await playBlob(response);
       return;
     }
-    var reader = response.body.getReader();
+    // Held on the script so Stop can cancel the download as well as the sound.
+    speechReader = response.body.getReader();
     var started = false;
     while (true) {
-      var chunk = await reader.read();
+      var chunk = await speechReader.read();
       if (chunk.done) break;
       await appendBuffer(buffer, chunk.value);
       if (!started) { started = true; void audio.play().catch(function () {}); }
     }
     try { source.endOfStream(); } catch (error) { /* source already closed */ }
+    speechReader = null;
     if (!started) await audio.play();
   }
 
@@ -1443,6 +1559,9 @@
       }
       microphoneAuthorized = true;
       void keepAwake();
+      recordingElapsed = 0;
+      recordingPaused = false;
+      setPauseRecordLabel();
       chunks = [];
       recordingStream = stream;
       startEqualizer(stream);
@@ -1460,12 +1579,15 @@
         chunks = [];
         stopRecordingCounter();
         recordButton.textContent = 'Record voice';
+        pauseRecordBtn.hidden = true;
         if (batchEnabled && batch && batch.phase === 'answer' && voiceAutoJudge) {
           void submitBatchVoice(blob);
         } else {
           void transcribeAudio(blob);
         }
       };
+      // Pausing mid-recording needs the recorder API; the button stays out of the way otherwise.
+      pauseRecordBtn.hidden = typeof activeRecorder.pause !== 'function';
       activeRecorder.start();
       recordingStartedAt = Date.now();
       updateRecordingCounter();
@@ -1529,6 +1651,9 @@
     } else if (/^[0-9]$/.test(event.key) && !ratingControls.hidden) {
       var level = Number(event.key);
       if (level <= ratingScale().max) ratingInput.value = String(level);
+    } else if (event.key === ' ' && !speechBar.hidden) {
+      event.preventDefault();
+      toggleSpeechPause();
     } else if (event.key === 'n' && !nextButton.hidden) {
       if (inReviewPhase()) advanceReview();
       else void nextCard();
@@ -1561,6 +1686,9 @@
   speakQuestionBtn.addEventListener('click', function () { void speak('/api/study/speak-question', speakQuestionBtn); });
   speakExplanationBtn.addEventListener('click', function () { void speak('/api/study/speak-explanation', speakExplanationBtn); });
   recordButton.addEventListener('click', toggleRecording);
+  pauseRecordBtn.addEventListener('click', toggleRecordPause);
+  pauseSpeechBtn.addEventListener('click', toggleSpeechPause);
+  stopSpeechBtn.addEventListener('click', stopSpoken);
   // Tapping the text button is a request for the keyboard, and the only place where
   // focus is raised on purpose. The automatic fallback (a failed transcription, an
   // unsupported browser) goes through setTextMode alone and leaves the keyboard down.
