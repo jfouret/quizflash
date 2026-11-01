@@ -68,7 +68,14 @@ def test_study_result_shows_the_answer_box(client: TestClient) -> None:
     assert 'id="retry-record"' in page
     assert 'id="review-question"' in page
     assert 'id="auto-speak"' in page
-    assert ".answer-box.wrong" in client.get("/static/style.css").text
+    assert 'id="pause-record"' in page
+    assert 'id="pause-speech"' in page
+    assert 'id="stop-speech"' in page
+    assert 'id="speech-eq"' in page
+    stylesheet = client.get("/static/style.css").text
+    assert ".answer-box.wrong" in stylesheet
+    assert ".eq-frame" in stylesheet
+    assert "#speech-bar" in stylesheet
 
 
 def test_htmx_does_not_inject_indicator_styles(client: TestClient) -> None:

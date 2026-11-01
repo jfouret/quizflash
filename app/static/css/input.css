@@ -465,7 +465,27 @@
   #status.error { border-color: color-mix(in srgb, var(--color-danger) 45%, transparent); color: var(--color-danger); }
   #status:empty { display: none; }
 
-  #eq { width: 6rem; height: 1.75rem; color: var(--color-accent); }
+  /* Equalizer: bars mirrored around a centre axis, inside a hairline frame. */
+  .eq-frame {
+    display: inline-flex; align-items: center; justify-content: center;
+    flex: none; width: 6.5rem; height: 2.25rem; padding: 0.2rem;
+    border: 1px solid var(--color-line-strong); border-radius: var(--radius-md);
+    background: var(--color-raised); color: var(--color-accent);
+    transition: opacity 0.15s var(--ease-out-quick);
+  }
+  .eq-frame canvas { display: block; width: 100%; height: 100%; }
+  .eq-frame[hidden] { display: none; }
+  .eq-frame.paused { opacity: 0.4; }
+
+  /* Player for a spoken clip: equalizer, pause, stop. Sits above the status pill. */
+  #speech-bar {
+    position: fixed; left: 1rem; bottom: 4.4rem; z-index: 21;
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 0.6rem; border-radius: var(--radius-lg);
+    background: var(--color-surface); border: 1px solid var(--color-line-strong);
+    box-shadow: var(--shadow-pop);
+  }
+  #speech-bar[hidden] { display: none; }
   .recording #record { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
   .recording #record::before { content: "● "; }
 

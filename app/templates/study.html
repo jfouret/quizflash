@@ -60,9 +60,10 @@
   <textarea id="answer-input" rows="3" placeholder="Type your answer{{ ' or record it' if voice_allowed }}…"></textarea>
   <div class="study-actions">
     <button id="record" type="button" class="secondary" {% if not voice_allowed %}hidden{% endif %}>Record voice</button>
+    <button id="pause-record" type="button" class="secondary outlined" hidden>Pause</button>
     <button id="text-mode" type="button" class="secondary outlined" {% if not voice_allowed %}hidden{% endif %}>Type instead</button>
     <span id="recording-counter" class="muted" role="timer" aria-label="Recording duration" hidden>0:00</span>
-    <canvas id="eq" width="96" height="28" hidden aria-hidden="true"></canvas>
+    <span id="eq-frame" class="eq-frame" hidden aria-hidden="true"><canvas id="eq" width="120" height="36"></canvas></span>
     <button id="submit" type="button">Submit answer</button>
   </div>
 </section>
@@ -102,7 +103,12 @@
   </div>
 </section>
 </div>
-<p class="shortcuts muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> submit · <kbd>Enter</kbd> next / stop recording · <kbd>0</kbd>–<kbd>9</kbd> rating</p>
+<div id="speech-bar" role="group" aria-label="Spoken audio" hidden>
+  <span class="eq-frame" aria-hidden="true"><canvas id="speech-eq" width="120" height="36"></canvas></span>
+  <button id="pause-speech" type="button" class="sm secondary outlined">Pause</button>
+  <button id="stop-speech" type="button" class="sm secondary outlined">Stop</button>
+</div>
+<p class="shortcuts muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> submit · <kbd>Enter</kbd> next / stop recording · <kbd>0</kbd>–<kbd>9</kbd> rating · <kbd>Space</kbd> pause audio</p>
 {% endblock %}
 {% block scripts %}
 <div id="study-config" hidden

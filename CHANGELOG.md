@@ -4,6 +4,18 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.11.0] - 2026-11-01
+
+### Added
+
+- **Pause** next to the recorder: it pauses the recording (the elapsed counter stops with it)
+  and resumes it, so an answer can be interrupted without losing what was already said.
+- A floating player for spoken audio, with its own **Pause**/**Resume**, **Stop** and the same
+  meter. Stop cancels the download of a clip still being synthesized, not just the sound, and
+  Space toggles pause while a clip plays.
+- The voice meters are redrawn: bars mirrored around a centre axis, inside a hairline frame,
+  accent-coloured, and dimmed while a recording is paused.
+
 ## [0.10.0] - 2026-11-01
 
 ### Added
