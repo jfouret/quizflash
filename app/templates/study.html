@@ -29,6 +29,16 @@
       {% endfor %}
     </div>
   </fieldset>
+  <fieldset class="panel" id="mic-setup"{% if not voice_allowed %} hidden{% endif %}>
+    <legend>Microphone</legend>
+    <p class="muted">Answers can be recorded automatically. Allow the microphone here and test it if you want: the session starts either way, and the review phase does not use the microphone.</p>
+    <div class="actions">
+      <button id="mic-authorize" type="button" class="secondary outlined">Allow the microphone</button>
+      <button id="mic-test" type="button" class="secondary outlined" hidden>Test the microphone</button>
+      <span id="mic-eq-frame" class="eq-frame" hidden aria-hidden="true"><canvas id="mic-eq" width="120" height="36"></canvas></span>
+      <span id="mic-state" class="muted" role="status" aria-live="polite">Not allowed yet</span>
+    </div>
+  </fieldset>
   <div class="actions">
     <button id="start-study" type="button">Start</button>
     <button id="auto-speak" type="button" class="secondary outlined" aria-pressed="false" {% if not settings.tts_enabled %}hidden{% endif %}>Read questions aloud: off</button>

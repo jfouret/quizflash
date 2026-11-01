@@ -108,6 +108,17 @@ def test_every_icon_reference_resolves_in_the_sprite(client: TestClient) -> None
     assert used <= defined, f"missing sprite symbols: {sorted(used - defined)}"
 
 
+def test_study_offers_microphone_setup_before_the_session(client: TestClient) -> None:
+    """The microphone is authorized and tested on the start panel, before any card."""
+    page = client.get("/study").text
+
+    assert 'id="mic-setup"' in page
+    assert 'id="mic-authorize"' in page
+    assert 'id="mic-test"' in page
+    assert 'id="mic-state"' in page
+    assert 'id="mic-eq"' in page
+
+
 def test_study_script_finds_every_element_it_looks_up(client: TestClient) -> None:
     """A getElementById that the page does not render throws and stops the whole script."""
     script = (STATIC / "js" / "study.js").read_text()
