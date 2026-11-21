@@ -3,6 +3,8 @@
   var config = document.getElementById('stats-config');
   if (!config || typeof Chart === 'undefined') return;
 
+  var scaleMax = parseInt(config.dataset.scaleMax, 10) || 5;
+
   function shorten(text, max) {
     return text.length > max ? text.slice(0, max - 1) + '…' : text;
   }
@@ -17,8 +19,8 @@
     var canvas = document.getElementById('chart-tag');
     if (!canvas || !data || !data.items.length) return;
     // Weakest first, so the tags to work on sit at the top.
-    var items = data.items.filter(function (item) { return item.avg_normalized != null; })
-      .sort(function (a, b) { return a.avg_normalized - b.avg_normalized; });
+    var items = data.items.filter(function (item) { return item.avg_rating != null; })
+      .sort(function (a, b) { return a.avg_rating - b.avg_rating; });
     // One row per tag: a fixed height would crush the bars when there are many.
     document.getElementById('tag-wrap').style.height = (items.length * 28 + 48) + 'px';
     new Chart(canvas, {
@@ -26,8 +28,8 @@
       data: {
         labels: items.map(function (item) { return shorten(item.label, 30); }),
         datasets: [{
-          label: 'Mean / 10',
-          data: items.map(function (item) { return Math.round(item.avg_normalized * 10) / 10; }),
+          label: 'Mean score',
+          data: items.map(function (item) { return Math.round(item.avg_rating * 10) / 10; }),
           backgroundColor: colorOf(canvas)
         }]
       },
@@ -35,7 +37,7 @@
         indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
-        scales: {x: {beginAtZero: true, max: 10}},
+        scales: {x: {beginAtZero: true, max: scaleMax}},
         plugins: {legend: {display: false}}
       }
     });
