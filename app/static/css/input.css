@@ -416,6 +416,7 @@
   .batch-progress .batch-label { font-size: 0.78rem; font-weight: 650; color: var(--color-ink-muted); text-transform: uppercase; letter-spacing: 0.06em; }
   .batch-progress .dot { width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--color-line-strong); transition: scale 0.2s var(--ease-out-quick), background 0.2s var(--ease-out-quick); }
   .batch-progress .dot.done { background: var(--color-accent); opacity: 0.45; }
+  .batch-progress .dot.failed { background: var(--color-danger, #dc2626); }
   .batch-progress .dot.current { background: var(--color-accent); scale: 1.45; }
   .card-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.25rem 0 0.85rem; }
   .tag-checks { display: flex; flex-wrap: wrap; gap: 0.5rem 0.4rem; }

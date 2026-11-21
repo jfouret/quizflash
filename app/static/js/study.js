@@ -119,6 +119,16 @@
   var reviewIndex = 0;
   var started = false;
 
+  var endSessionBtn = document.getElementById('end-session');
+  var batchSummaryEl = document.getElementById('batch-summary');
+  var inFlightIds = [];
+  var preferText = false;
+
+  function setStarted(on) {
+    started = on;
+    endSessionBtn.hidden = !on;
+  }
+
   function formatDate(value) {
     var date = new Date(value);
     return Number.isNaN(date.getTime())
@@ -129,6 +139,7 @@
   function setStatus(message, isError) {
     statusEl.textContent = message;
     statusEl.className = isError ? 'error' : 'muted';
+    if (isError) statusEl.scrollIntoView({block: 'nearest'});
   }
 
   function selectedTags() {
@@ -195,7 +206,9 @@
     selectedTags().forEach(function (tag) { params.push('tag=' + encodeURIComponent(tag)); });
     if (extra) {
       Object.keys(extra).forEach(function (key) {
-        params.push(encodeURIComponent(key) + '=' + encodeURIComponent(extra[key]));
+        [].concat(extra[key]).forEach(function (value) {
+          params.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
+        });
       });
     }
     return params.length ? '?' + params.join('&') : '';
@@ -251,7 +264,8 @@
   }
 
   function startSession() {
-    started = true;
+    inFlightIds = [];
+    setStarted(true);
     startPanel.hidden = true;
     emptyEl.hidden = true;
     batchDoneEl.hidden = true;
@@ -274,11 +288,22 @@
     options = options || {};
     var headers = Object.assign({}, options.headers || {}, {'X-CSRF-Token': csrfToken});
     var response = await fetch(url, Object.assign({}, options, {headers: headers, credentials: 'same-origin'}));
-    var data = await response.json();
+    // A proxy error page (413, 502) is HTML: keep the status, not a JSON parse error.
+    var data = await response.json().catch(function () { return null; });
     if (!response.ok) {
-      throw new Error(typeof data.detail === 'string' ? data.detail : 'Request failed');
+      throw new Error(
+        data && typeof data.detail === 'string' ? data.detail : 'Request failed (' + response.status + ')'
+      );
     }
     return data;
+  }
+
+  // Safari records audio/mp4: name the upload after what the recorder produced.
+  function audioFileName(blob) {
+    var type = blob.type || '';
+    if (type.indexOf('mp4') !== -1) return 'answer.mp4';
+    if (type.indexOf('ogg') !== -1) return 'answer.ogg';
+    return 'answer.webm';
   }
 
   function escapeHtml(text) {
@@ -498,7 +523,7 @@
   }
 
   function maybeAutoRecord() {
-    if (!microphoneAuthorized || !current || studyEl.hidden || !studyEl || recorder) return;
+    if (preferText || !microphoneAuthorized || !current || studyEl.hidden || !studyEl || recorder) return;
     if (batchEnabled && batch && batch.phase !== 'answer') return;
     if (!batchEnabled && pendingResult) return;
     void startRecording();
@@ -663,7 +688,10 @@
   function speakCurrentQuestion() {
     if (!autoSpeak || !ttsEnabled || !current || studyEl.hidden) return Promise.resolve();
     prefetchUpcomingQuestions();
+    var asked = current;
     return questionAudio(batchRecord()).then(function (url) {
+      // The user may have moved on while the clip was prepared: it is not this card's.
+      if (current !== asked || studyEl.hidden) return undefined;
       if (!url) return maybeAutoRecord();
       return playSpoken(url, maybeAutoRecord);
     });
@@ -902,7 +930,7 @@
         emptyEl.hidden = false;
         startPanel.hidden = false;
         flipEl.hidden = true;
-        started = false;
+        setStarted(false);
         setStatus('Queue empty.');
         return;
       }
@@ -915,7 +943,7 @@
       setStatus('Timer started.');
       beginAnswer();
     } catch (error) {
-      setStatus(error.message, true);
+      backToMenu(error.message);
     }
   }
 
@@ -973,6 +1001,14 @@
       });
       teacherExplanationEl.innerHTML = renderMarkdown(result.explanation);
       teacherInfoEl.textContent = 'Teacher: ' + result.model;
+      var shown = shownRecord();
+      if (shown) {
+        // Keep the record in step, and drop the clip of the previous text.
+        shown.explanation = result.explanation;
+        shown.teacherModel = result.model;
+        if (shown.audioUrl) URL.revokeObjectURL(shown.audioUrl);
+        shown.audioUrl = '';
+      }
       setStatus('Teacher explanation ready.');
     } catch (error) {
       teacherExplanationEl.textContent = '';
@@ -1255,12 +1291,14 @@
     var dots = '';
     for (var i = 0; i < total; i++) {
       var cls = i === currentIdx ? 'dot current' : (i < currentIdx ? 'dot done' : 'dot');
+      var rec = batch.records[i];
+      if (rec && (rec.status === 'error' || rec.status === 'manual')) cls += ' failed';
       dots += '<span class="' + cls + '"></span>';
     }
     var label = batch.phase === 'review'
       ? 'Review ' + (currentIdx + 1) + ' of ' + total
       : 'Card ' + (currentIdx + 1) + ' of ' + total;
-    batchProgressEl.innerHTML = '<span class="batch-label">' + label + '</span>' + dots;
+    batchProgressEl.innerHTML = '<span class="batch-label">' + label + '</span><span aria-hidden="true">' + dots + '</span>';
     batchProgressEl.hidden = false;
   }
 
@@ -1306,14 +1344,14 @@
     updateBatchProgress();
     setStatus('Loading batch…');
     try {
-      var cards = await api('/api/study/batch' + studyQuery({size: batchSize}));
+      var cards = await api('/api/study/batch' + studyQuery({size: batchSize, exclude: inFlightIds}));
       if (!cards.length) {
         batchProgressEl.hidden = true;
         emptyEl.hidden = false;
         startPanel.hidden = false;
         batchDoneEl.hidden = true;
         flipEl.hidden = true;
-        started = false;
+        setStarted(false);
         studyEl.hidden = true;
         setStatus('Queue empty.');
         return;
@@ -1321,7 +1359,7 @@
       batch.records = cards.map(function (card) { return {card: card, status: 'unseen'}; });
       showBatchCard(0);
     } catch (error) {
-      setStatus(error.message, true);
+      backToMenu(error.message);
     }
   }
 
@@ -1369,7 +1407,7 @@
 
   async function transcribePayload(record) {
     var form = new FormData();
-    form.append('audio', record.blob, 'answer.webm');
+    form.append('audio', record.blob, audioFileName(record.blob));
     var result = await api('/api/study/transcribe', {method: 'POST', body: form});
     return {
       card_id: record.card.card.id,
@@ -1504,6 +1542,8 @@
     feedbackEl.hidden = true;
     judgeInfoEl.textContent = 'Preparing…';
     teacherWrap.hidden = !teacherEnabled;
+    teacherBtn.disabled = true;
+    teacherRegenBtn.disabled = true;
     teacherExplanationEl.textContent = teacherEnabled ? 'Preparing explanation…' : '';
     teacherInfoEl.textContent = '';
     ratingControls.hidden = true;
@@ -1580,6 +1620,8 @@
     confirmButton.disabled = false;
     confirmButton.textContent = 'Save review';
     confirmButton.onclick = function () { void saveManual(record); };
+    nextButton.hidden = true;
+    setStatus('Rate this answer and save it before moving on.');
     ratingInput.value = record.rating != null ? String(record.rating) : String(defaultLevel(ratingScale()));
     correctInput.value = 'true';
     finalRatingEl.textContent = '';
@@ -1605,6 +1647,8 @@
     retryRecordBtn.textContent = record.payload ? 'Retry judging' : 'Retry transcription';
     retryRecordBtn.onclick = function () { void retryTranscription(record); };
     renderReviewTeacher(record);
+    teacherBtn.disabled = false;
+    teacherRegenBtn.disabled = false;
     nextButton.hidden = false;
     nextButton.disabled = false;
     nextButton.textContent = 'Next';
@@ -1616,6 +1660,7 @@
       showManualReview(record);
       return;
     }
+    nextButton.focus({preventScroll: true});
     ratingControls.hidden = true;
     confirmButton.hidden = true;
     finalRatingEl.textContent = record.saved
@@ -1685,6 +1730,8 @@
       ratingControls.hidden = true;
       confirmButton.hidden = true;
       finalRatingEl.textContent = 'Saved rating ' + ratingText(saved.rating) + ' · ' + (saved.is_correct ? 'correct' : 'incorrect');
+      nextButton.hidden = false;
+      nextButton.focus();
       setStatus('Review saved.');
     } catch (error) {
       setStatus(error.message, true);
@@ -1693,6 +1740,13 @@
   }
 
   function finishBatch() {
+    batch.phase = 'done';
+    nextButton.hidden = true;
+    endSessionBtn.hidden = true;
+    var saved = batch.records.filter(function (record) { return record.saved; }).length;
+    var missed = batch.records.length - saved;
+    batchSummaryEl.textContent = saved + ' of ' + batch.records.length + ' answers saved' +
+      (missed ? '; ' + missed + ' not saved (judging failed or was skipped).' : '.');
     releaseMicrophone();
     stopSpoken();
     batchProgressEl.hidden = true;
@@ -1701,15 +1755,24 @@
     flipEl.hidden = true;
     batchDoneEl.hidden = false;
     setStatus('Batch complete.');
+    batchContinueBtn.focus();
   }
 
   function continueBatch() {
+    // Answers still being saved are still unanswered for the queue: keep them out.
+    inFlightIds = batch.records.filter(function (record) {
+      return record.status === 'processing';
+    }).map(function (record) { return record.card.card.id; });
     batchDoneEl.hidden = true;
     flipEl.hidden = false;
+    endSessionBtn.hidden = false;
     void startBatch();
   }
 
-  function backToMenu() {
+  function backToMenu(errorMessage) {
+    batch = null;
+    preferText = false;
+    nextButton.hidden = true;
     releaseMicrophone();
     stopSpoken();
     batchDoneEl.hidden = true;
@@ -1717,15 +1780,24 @@
     flipEl.hidden = true;
     studyEl.hidden = true;
     resultEl.hidden = true;
-    started = false;
+    setStarted(false);
     startPanel.hidden = false;
-    setStatus('Choose one or more decks and tags, then press Start.');
+    if (typeof errorMessage === 'string') setStatus(errorMessage + ' Press Start to try again.', true);
+    else setStatus('Choose one or more decks and tags, then press Start.');
   }
 
   async function submitCurrent() {
     // Drop focus with the answer: the keyboard must not cover the result on a phone,
     // and the result shortcuts (Enter, digits) ignore keys typed into a field.
     answerInput.blur();
+    if (recorder && recorder.state !== 'inactive') {
+      // Finish the recording: its transcript is the answer, not the empty text box.
+      toggleRecording();
+      return;
+    }
+    if (!answerInput.value.trim() && !window.confirm('Submit an empty answer? It is saved as wrong.')) {
+      return;
+    }
     if (batchEnabled && batch && batch.phase === 'answer') {
       await submitBatch();
       return;
@@ -1735,7 +1807,7 @@
 
   async function transcribeAudio(blob) {
     var form = new FormData();
-    form.append('audio', blob, 'answer.webm');
+    form.append('audio', blob, audioFileName(blob));
     submitButton.disabled = true;
     recordButton.disabled = true;
     setStatus('Transcribing audio…');
@@ -1829,7 +1901,8 @@
   }
 
   function toggleRecording() {
-    if (recorder && recorder.state === 'recording') {
+    if (recorder && recorder.state !== 'inactive') {
+      preferText = false;
       recordButton.disabled = true;
       recorder.stop();
       return;
@@ -1884,7 +1957,7 @@
   }
 
   function onKeydown(event) {
-    if (event.key === 'Enter' && recorder && recorder.state === 'recording') {
+    if (event.key === 'Enter' && recorder && recorder.state !== 'inactive') {
       event.preventDefault();
       toggleRecording();
       return;
@@ -1895,6 +1968,8 @@
       return;
     }
     var tag = event.target && event.target.tagName;
+    // Enter on a focused button or link activates it; it is not the global shortcut.
+    if (event.key === 'Enter' && (tag === 'BUTTON' || tag === 'A')) return;
     var typing =
       event.target === answerInput || tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA';
     if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -1917,6 +1992,7 @@
   // focus is raised on purpose. The automatic fallback (a failed transcription, an
   // unsupported browser) goes through setTextMode alone and leaves the keyboard down.
   textModeButton.addEventListener('click', function () {
+    preferText = true;
     setTextMode();
     answerInput.focus();
   });
@@ -1931,7 +2007,8 @@
   micTestBtn.addEventListener('click', function () { void testMicrophone(); });
   refreshMicState();
   batchContinueBtn.addEventListener('click', continueBatch);
-  batchMenuBtn.addEventListener('click', backToMenu);
+  batchMenuBtn.addEventListener('click', function () { backToMenu(); });
+  endSessionBtn.addEventListener('click', function () { backToMenu(); });
   autoSpeakBtn.addEventListener('click', function () { void toggleAutoSpeak(); });
   setAutoSpeakButton();
   // A wake lock is dropped when the page is hidden; take it back on return.

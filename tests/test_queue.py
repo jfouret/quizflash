@@ -113,3 +113,16 @@ def test_priority_mode_offers_every_card_never_answered_first(
 
     client.patch("/api/settings", json={"queue_mode": "due"})
     assert [card.id for card, _ in get_due(db_session, alice)] == [ids[1], ids[2]]
+
+
+def test_batch_endpoint_skips_excluded_cards(client: TestClient, deck: dict[str, Any]) -> None:
+    ids = [
+        response_dict(
+            client.post(
+                "/api/cards", json={"deck_id": deck["id"], "question": f"Q{i}", "answer": "A"}
+            )
+        )["id"]
+        for i in range(2)
+    ]
+    rest = client.get("/api/study/batch", params={"exclude": [ids[0]]}).json()
+    assert [item["card"]["id"] for item in rest] == [ids[1]]

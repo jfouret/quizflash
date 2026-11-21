@@ -46,7 +46,7 @@
     <button id="auto-speak" type="button" class="secondary outlined" aria-pressed="false" {% if not settings.tts_enabled %}hidden{% endif %}>Read questions aloud: off</button>
   </div>
 </section>
-<div id="batch-progress" class="batch-progress" hidden></div>
+<div class="actions"><div id="batch-progress" class="batch-progress" hidden></div><button id="end-session" type="button" class="secondary outlined sm" hidden>End session</button></div>
 <section id="empty" class="empty empty-study" hidden>
   <h2>All caught up</h2>
   <p>No cards are due under your current limits.</p>
@@ -54,7 +54,7 @@
 </section>
 <section id="batch-done" class="card" hidden>
   <h2>Batch complete</h2>
-  <p class="muted">You reviewed every card in this batch.</p>
+  <p id="batch-summary" class="muted"></p>
   <div class="actions">
     <button id="batch-continue" type="button">Continue</button>
     <button id="batch-menu" type="button" class="secondary outlined">Back to menu</button>
