@@ -36,7 +36,18 @@
     apply();
   }
 
+  // Times are rendered in UTC by the server; show them in the reader's time zone.
+  function localizeTimes() {
+    Array.prototype.forEach.call(document.querySelectorAll('time.local-time'), function (el) {
+      var date = new Date(el.getAttribute('datetime'));
+      if (!Number.isNaN(date.getTime())) {
+        el.textContent = date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+      }
+    });
+  }
+
   apply();
+  localizeTimes();
 
   // Body scripts re-run on hx-boost navigation: bind document handlers once.
   if (window.quizdeckUiBound) return;
@@ -57,6 +68,12 @@
       navigator.clipboard.writeText(document.getElementById(copy.dataset.copy).textContent);
       copy.textContent = 'Copied';
     }
+  });
+
+  // Filter selects (data-autosubmit) apply as soon as they change; delegated so it survives hx-boost.
+  document.addEventListener('change', function (event) {
+    var select = event.target.closest('select[data-autosubmit]');
+    if (select && select.form) select.form.requestSubmit();
   });
 
   // Keep the toggle's label in sync after a boosted navigation.

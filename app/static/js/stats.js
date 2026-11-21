@@ -1,4 +1,4 @@
-// Stats page: chart the per-card and per-tag mean normalized rating with Chart.js.
+// Stats page: the tag scores and the 30-day activity, drawn with Chart.js.
 (function () {
   var config = document.getElementById('stats-config');
   if (!config || typeof Chart === 'undefined') return;
@@ -7,23 +7,28 @@
     return text.length > max ? text.slice(0, max - 1) + '…' : text;
   }
 
-  function draw(canvasId, data) {
-    var canvas = document.getElementById(canvasId);
+  // Read the resolved colour: a light-dark() token would come back unresolved
+  // from getPropertyValue. The canvas inherits the accent through .chart-wrap.
+  function colorOf(canvas) {
+    return getComputedStyle(canvas).color || '#4f46e5';
+  }
+
+  function drawTags(data) {
+    var canvas = document.getElementById('chart-tag');
     if (!canvas || !data || !data.items.length) return;
-    var items = data.items;
-    // Read the resolved colour: a light-dark() token would come back unresolved
-    // from getPropertyValue. The canvas inherits the accent through .chart-wrap.
-    var color = getComputedStyle(canvas).color || '#4f46e5';
+    // Weakest first, so the tags to work on sit at the top.
+    var items = data.items.filter(function (item) { return item.avg_normalized != null; })
+      .sort(function (a, b) { return a.avg_normalized - b.avg_normalized; });
+    // One row per tag: a fixed height would crush the bars when there are many.
+    document.getElementById('tag-wrap').style.height = (items.length * 28 + 48) + 'px';
     new Chart(canvas, {
       type: 'bar',
       data: {
-        labels: items.map(function (item) { return shorten(item.label, 40); }),
+        labels: items.map(function (item) { return shorten(item.label, 30); }),
         datasets: [{
           label: 'Mean / 10',
-          data: items.map(function (item) {
-            return item.avg_normalized == null ? 0 : Math.round(item.avg_normalized * 10) / 10;
-          }),
-          backgroundColor: color
+          data: items.map(function (item) { return Math.round(item.avg_normalized * 10) / 10; }),
+          backgroundColor: colorOf(canvas)
         }]
       },
       options: {
@@ -36,6 +41,24 @@
     });
   }
 
-  draw('chart-card', JSON.parse(config.dataset.card));
-  draw('chart-tag', JSON.parse(config.dataset.tag));
+  function drawActivity(data) {
+    var canvas = document.getElementById('chart-activity');
+    if (!canvas || !data) return;
+    new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: data.labels.map(function (day) { return day.slice(5); }),
+        datasets: [{label: 'Answers', data: data.values, backgroundColor: colorOf(canvas)}]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {y: {beginAtZero: true, ticks: {precision: 0}}, x: {ticks: {maxTicksLimit: 8}}},
+        plugins: {legend: {display: false}}
+      }
+    });
+  }
+
+  drawTags(JSON.parse(config.dataset.tag));
+  drawActivity(JSON.parse(config.dataset.activity));
 })();

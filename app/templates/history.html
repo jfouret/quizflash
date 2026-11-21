@@ -2,42 +2,51 @@
 {% block title %}History · QuizDeck{% endblock %}
 {% block content %}
 {% set csrf %}<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">{% endset %}
+{% macro page_link(target, label) -%}
+<a role="button" class="secondary outlined sm" href="/history?page={{ target }}{% if deck_id %}&amp;deck_id={{ deck_id }}{% endif %}{% if incorrect_only %}&amp;result=incorrect{% endif %}">{{ label }}</a>
+{%- endmacro %}
 <div class="page-head">
   <div>
     <h1>History</h1>
-    <p class="muted">{{ history.total }} answer{{ 's' if history.total != 1 }} recorded.</p>
+    <p class="muted">{{ history.total }} answer{{ 's' if history.total != 1 }}{% if incorrect_only %} marked incorrect{% else %} recorded{% endif %}.</p>
   </div>
-  <div class="actions">
-    <form method="get" action="/history" class="study-toolbar m-0">
-      <label for="history-deck" class="muted m-0">Deck</label>
-      <select id="history-deck" name="deck_id">
-        <option value="">All decks</option>
-        {% for deck in decks %}<option value="{{ deck.id }}" {% if deck_id == deck.id %}selected{% endif %}>{{ deck.name }}</option>{% endfor %}
-      </select>
-      <button type="submit" class="secondary outlined sm">Filter</button>
-    </form>
-    <form method="post" action="/history/clear" class="actions" data-confirm="{% if deck_id %}Delete your history for this deck?{% else %}Delete all your history? This cannot be undone.{% endif %}">
-      {{ csrf }}
-      <input type="hidden" name="deck_id" value="{{ deck_id or '' }}">
-      <button class="danger outlined sm" type="submit">{{ 'Clear this deck' if deck_id else 'Clear all history' }}</button>
-    </form>
-  </div>
+  <form method="get" action="/history" class="study-toolbar m-0">
+    <label for="history-deck" class="muted m-0">Deck</label>
+    <select id="history-deck" name="deck_id" data-autosubmit>
+      <option value="">All decks</option>
+      {% for deck in decks %}<option value="{{ deck.id }}" {% if deck_id == deck.id %}selected{% endif %}>{{ deck.name }}</option>{% endfor %}
+    </select>
+    <label for="history-result" class="muted m-0">Show</label>
+    <select id="history-result" name="result" data-autosubmit>
+      <option value="">All answers</option>
+      <option value="incorrect" {% if incorrect_only %}selected{% endif %}>Incorrect only</option>
+    </select>
+    <noscript><button type="submit" class="secondary outlined sm">Filter</button></noscript>
+  </form>
 </div>
 
 {% if history.items %}
-<div class="qa-list">
+{% set ns = namespace(day='') %}
 {% for item in history.items %}
+{% set day = item.reviewed_at.strftime('%Y-%m-%d') %}
+{% if day != ns.day %}
+{% if ns.day %}</div>{% endif %}
+<h2 class="day-head">{{ item.reviewed_at.strftime('%A %-d %B %Y') }}</h2>
+<div class="qa-list">
+{% set ns.day = day %}
+{% endif %}
 <details class="qa">
   <summary>
-    <span class="q pre">{{ item.question }}</span>
-    <span class="badge">{{ item.deck_name }}</span>
-    <span class="badge {{ 'success' if item.is_correct else 'danger' }}">{{ 'Correct' if item.is_correct else 'Incorrect' }}</span>
-    <span class="badge accent">{{ item.rating }}{% if item.rating_label %} · {{ item.rating_label }}{% endif %}</span>
+    <time class="local-time muted" datetime="{{ item.reviewed_at.isoformat() }}{{ '' if item.reviewed_at.tzinfo else 'Z' }}">{{ item.reviewed_at.strftime('%H:%M') }}</time>
+    <span class="q">{{ item.question }}</span>
+    <span class="badge {{ 'success' if item.is_correct else 'danger' }}">{{ item.rating }}/{{ item.max_level }}{% if item.rating_label %} · {{ item.rating_label }}{% endif %}<span class="sr-only"> {{ 'correct' if item.is_correct else 'incorrect' }}</span></span>
   </summary>
   <dl>
+    <dt>Deck</dt><dd>{{ item.deck_name }}</dd>
+    <dt>Question</dt><dd class="pre">{{ item.question }}</dd>
     <dt>Your answer</dt><dd class="pre">{{ item.answer_text or '—' }}</dd>
     <dt>Expected answer</dt><dd class="pre">{{ item.answer }}</dd>
-    <dt>When</dt><dd class="muted">{{ item.reviewed_at }} · {{ item.input_method }} · {{ item.mode }}{% if item.judge_model %} · {{ item.judge_model }}{% endif %} · {{ (item.response_time_ms / 1000) | round(1) }} s</dd>
+    <dt>How</dt><dd class="muted">{{ item.input_method }} · {{ item.mode }}{% if item.judge_model %} · {{ item.judge_model }}{% endif %} · {{ (item.response_time_ms / 1000) | round(1) }} s</dd>
     {% if item.judge_feedback %}<dt>Judge feedback</dt><dd class="pre">{{ item.judge_feedback }}</dd>{% endif %}
     {% if item.explanation %}<dt>Teacher explanation</dt><dd class="pre">{{ item.explanation }}</dd>{% endif %}
   </dl>
@@ -47,13 +56,22 @@
 
 {% if history.total > limit %}
 <nav class="actions mt-8" aria-label="History pages">
-  {% if page > 1 %}<a role="button" class="secondary outlined sm" href="/history?page={{ page - 1 }}{% if deck_id %}&amp;deck_id={{ deck_id }}{% endif %}">← Newer</a>{% endif %}
-  {% if page * limit < history.total %}<a role="button" class="secondary outlined sm" href="/history?page={{ page + 1 }}{% if deck_id %}&amp;deck_id={{ deck_id }}{% endif %}">Older →</a>{% endif %}
+  {% if page > 1 %}{{ page_link(page - 1, '← Newer') }}{% endif %}
+  {% if page * limit < history.total %}{{ page_link(page + 1, 'Older →') }}{% endif %}
 </nav>
 {% endif %}
+
+<details class="danger-zone">
+  <summary>Delete history</summary>
+  <form method="post" action="/history/clear" class="actions" data-confirm="{% if deck_id %}Delete your history for this deck?{% else %}Delete all your history? This cannot be undone.{% endif %}">
+    {{ csrf }}
+    <input type="hidden" name="deck_id" value="{{ deck_id or '' }}">
+    <button class="danger outlined sm" type="submit">{{ 'Clear this deck' if deck_id else 'Clear all history' }}</button>
+  </form>
+</details>
 {% else %}
 <div class="empty">
-  <h2>No answers yet</h2>
+  <h2>{{ 'No incorrect answers' if incorrect_only else 'No answers yet' }}</h2>
   <p>Study a deck and your answers, ratings, and teacher explanations will appear here.</p>
   <div class="actions"><a role="button" href="/study">Start studying</a></div>
 </div>

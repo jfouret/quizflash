@@ -73,4 +73,5 @@ def test_stats_page_renders_with_data(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert "Chart me" in response.text
-    assert 'id="chart-card"' in response.text
+    assert 'id="chart-activity"' in response.text
+    assert "Weakest cards" in response.text

@@ -37,12 +37,13 @@ def history_page(
     deck_id: int | None = None,
     limit: int = 50,
     offset: int = 0,
+    incorrect_only: bool = False,
 ) -> HistoryPage:
     if deck_id is not None:
         crud.get_deck(session, user, deck_id)
-    rows = crud.list_history(session, user, deck_id, limit, offset)
+    rows = crud.list_history(session, user, deck_id, limit, offset, incorrect_only)
     return HistoryPage(
-        total=crud.count_history(session, user, deck_id),
+        total=crud.count_history(session, user, deck_id, incorrect_only),
         items=[build_item(log, card, deck) for log, card, deck in rows],
     )
 

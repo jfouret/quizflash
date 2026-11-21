@@ -141,7 +141,12 @@ def test_stats_config_is_valid_json(client: TestClient) -> None:
     deck = client.post("/api/decks", json={"name": "D", "grading_scale": {"max": 10}}).json()
     card = client.post(
         "/api/cards",
-        json={"deck_id": deck["id"], "question": 'A "quoted" & <tagged> question?', "answer": "A"},
+        json={
+            "deck_id": deck["id"],
+            "question": 'A "quoted" & <tagged> question?',
+            "answer": "A",
+            "tags": ['a"b&c'],
+        },
     ).json()
     response = client.post(
         "/api/study/answer",
@@ -158,10 +163,13 @@ def test_stats_config_is_valid_json(client: TestClient) -> None:
     assert response.status_code == 200
 
     page = client.get(f"/stats?deck_id={deck['id']}").text
-    match = re.search(r'data-card="([^"]*)"', page)
+    match = re.search(r'data-tag="([^"]*)"', page)
     assert match, "stats config attribute is missing"
 
     data = json.loads(html.unescape(match.group(1)))
 
-    assert data["items"][0]["label"] == 'A "quoted" & <tagged> question?'
+    assert data["items"][0]["label"] == 'a"b&c'
     assert data["items"][0]["avg_normalized"] == 9.0
+    activity = re.search(r'data-activity="([^"]*)"', page)
+    assert activity and sum(json.loads(html.unescape(activity.group(1)))["values"]) == 1
+    assert "&lt;tagged&gt;" in page  # the question in the table is escaped

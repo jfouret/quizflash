@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Any, Literal
 
 from sqlalchemy import case, func
@@ -6,7 +7,7 @@ from sqlmodel.sql.expression import SelectOfScalar
 
 from app import crud, grading
 from app.crud import NotFoundError
-from app.models import AnswerLog, Card, CardTag, Deck, Tag, User
+from app.models import AnswerLog, Card, CardTag, Deck, Tag, User, utc_now
 from app.schemas import StatsBreakdownItem, StatsBreakdownResponse, StatsResponse
 
 
@@ -178,3 +179,32 @@ def get_breakdown(
             for tag, scale, total, correct, average in session.exec(statement).all()
         ]
     return StatsBreakdownResponse(group=group, items=_merge(rows))
+
+
+def get_overview(session: Session, user: User, deck_id: int | None = None) -> dict[str, Any]:
+    """Headline numbers for the stats page: totals, cards never answered, answers per day."""
+    if deck_id is not None:
+        crud.get_deck(session, user, deck_id)
+    user_id = crud.uid(user)
+    cards = select(Card.id).where(col(Card.deck_id).in_(crud.trainable_deck_ids(user_id)))
+    if deck_id is not None:
+        cards = cards.where(col(Card.deck_id) == deck_id)
+    answered = select(AnswerLog.card_id).where(col(AnswerLog.user_id) == user_id)
+    never = session.exec(
+        select(func.count()).select_from(cards.where(col(Card.id).not_in(answered)).subquery())
+    ).one()
+    since = utc_now() - timedelta(days=29)
+    per_day = (
+        select(func.date(col(AnswerLog.reviewed_at)), func.count(col(AnswerLog.id)))
+        .join(Card, col(Card.id) == col(AnswerLog.card_id))
+        .where(col(AnswerLog.user_id) == user_id, col(AnswerLog.reviewed_at) >= since)
+        .group_by(func.date(col(AnswerLog.reviewed_at)))
+    )
+    if deck_id is not None:
+        per_day = per_day.where(col(Card.deck_id) == deck_id)
+    counts = {str(day): int(count) for day, count in session.exec(per_day).all()}
+    days = [(since + timedelta(days=offset)).date().isoformat() for offset in range(30)]
+    return {
+        "never_answered": int(never),
+        "activity": {"labels": days, "values": [counts.get(day, 0) for day in days]},
+    }

@@ -27,7 +27,7 @@ from app.schemas import (
     Registration,
     SettingsUpdate,
 )
-from app.stats import get_breakdown
+from app.stats import get_breakdown, get_overview
 from app.templating import templates
 
 router = APIRouter(include_in_schema=False)
@@ -289,6 +289,7 @@ def history_view(
     user: CurrentUser,
     deck_id: int | None = None,
     page: int = 1,
+    result: str = "",
 ) -> Response:
     limit = 50
     offset = (max(1, page) - 1) * limit
@@ -300,7 +301,10 @@ def history_view(
             "deck_id": deck_id,
             "page": max(1, page),
             "limit": limit,
-            "history": history_page(session, user, deck_id, limit, offset),
+            "incorrect_only": result == "incorrect",
+            "history": history_page(
+                session, user, deck_id, limit, offset, incorrect_only=result == "incorrect"
+            ),
         },
     )
 
@@ -330,6 +334,7 @@ def stats_view(
             "deck_id": deck_id,
             "by_card": get_breakdown(session, user, "card", deck_id).model_dump(),
             "by_tag": get_breakdown(session, user, "tag", deck_id).model_dump(),
+            "overview": get_overview(session, user, deck_id),
         },
     )
 

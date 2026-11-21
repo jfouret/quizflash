@@ -675,18 +675,22 @@ def save_explanation(session: Session, log: AnswerLog, explanation: str) -> None
     session.commit()
 
 
-def _history_filters(user: User, deck_id: int | None) -> list[Any]:
+def _history_filters(user: User, deck_id: int | None, incorrect_only: bool = False) -> list[Any]:
     filters: list[Any] = [col(AnswerLog.user_id) == uid(user)]
+    if incorrect_only:
+        filters.append(col(AnswerLog.is_correct).is_(False))
     if deck_id is not None:
         filters.append(col(Card.deck_id) == deck_id)
     return filters
 
 
-def count_history(session: Session, user: User, deck_id: int | None = None) -> int:
+def count_history(
+    session: Session, user: User, deck_id: int | None = None, incorrect_only: bool = False
+) -> int:
     statement = (
         select(func.count(col(AnswerLog.id)))
         .join(Card, col(Card.id) == col(AnswerLog.card_id))
-        .where(*_history_filters(user, deck_id))
+        .where(*_history_filters(user, deck_id, incorrect_only))
     )
     return int(session.exec(statement).one())
 
@@ -697,12 +701,13 @@ def list_history(
     deck_id: int | None = None,
     limit: int = 50,
     offset: int = 0,
+    incorrect_only: bool = False,
 ) -> list[tuple[AnswerLog, Card, Deck]]:
     statement = (
         select(AnswerLog, Card, Deck)
         .join(Card, col(Card.id) == col(AnswerLog.card_id))
         .join(Deck, col(Deck.id) == col(Card.deck_id))
-        .where(*_history_filters(user, deck_id))
+        .where(*_history_filters(user, deck_id, incorrect_only))
         .order_by(col(AnswerLog.reviewed_at).desc(), col(AnswerLog.id).desc())
         .offset(max(0, offset))
         .limit(max(1, min(limit, 200)))

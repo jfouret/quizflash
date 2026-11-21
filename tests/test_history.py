@@ -94,3 +94,16 @@ def test_history_page_renders(
 
     assert response.status_code == 200
     assert card["question"] in response.text
+
+
+def test_history_page_can_show_incorrect_answers_only(
+    client: TestClient, card: dict[str, Any]
+) -> None:
+    from tests.test_study import answer_payload
+
+    client.patch("/api/settings", json={"eval_mode": "ai_assess"})
+    client.post("/api/study/answer", json=answer_payload(card["id"]))
+    page = client.get("/history?result=incorrect")
+    assert page.status_code == 200
+    assert "No incorrect answers" in page.text
+    assert "1 answer recorded" in client.get("/history").text
