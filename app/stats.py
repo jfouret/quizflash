@@ -181,6 +181,20 @@ def get_breakdown(
     return StatsBreakdownResponse(group=group, items=_merge(rows))
 
 
+def default_deck_id(session: Session, user: User) -> int | None:
+    """The deck answered most recently, else the first deck: stats never mix decks."""
+    decks = crud.list_decks(session, user)
+    ids = [deck.id for deck in decks]
+    recent = session.exec(
+        select(Card.deck_id)
+        .join(AnswerLog, col(AnswerLog.card_id) == col(Card.id))
+        .where(col(AnswerLog.user_id) == crud.uid(user), col(Card.deck_id).in_(ids))
+        .order_by(col(AnswerLog.reviewed_at).desc())
+        .limit(1)
+    ).first()
+    return recent if recent is not None else (ids[0] if ids else None)
+
+
 def get_overview(session: Session, user: User, deck_id: int | None = None) -> dict[str, Any]:
     """Headline numbers for the stats page: totals, cards never answered, answers per day."""
     if deck_id is not None:

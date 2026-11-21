@@ -75,3 +75,20 @@ def test_stats_page_renders_with_data(client: TestClient) -> None:
     assert "Chart me" in response.text
     assert 'id="chart-activity"' in response.text
     assert "Weakest cards" in response.text
+
+
+def test_stats_page_shows_one_deck_on_its_own_scale(client: TestClient) -> None:
+    wide = make_scaled_deck(client)  # 0..10
+    narrow = response_dict(client.post("/api/decks", json={"name": "Narrow"}))  # default scale
+    wide_card = make_card(client, wide["id"], "Wide")
+    narrow_card = make_card(client, narrow["id"], "Narrow card")
+    record(client, wide_card["id"], 8)
+    record(client, narrow_card["id"], 4)  # answered last
+
+    page = client.get("/stats").text
+
+    assert "All decks" not in page
+    assert "Mean / 5" in page  # the most recently answered deck, on its own scale
+    assert f'<option value="{narrow["id"]}" selected>' in page
+    other = client.get(f"/stats?deck_id={wide['id']}").text
+    assert "Mean / 10" in other

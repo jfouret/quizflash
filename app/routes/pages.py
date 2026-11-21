@@ -27,7 +27,7 @@ from app.schemas import (
     Registration,
     SettingsUpdate,
 )
-from app.stats import get_breakdown, get_overview
+from app.stats import default_deck_id, get_breakdown, get_overview
 from app.templating import templates
 
 router = APIRouter(include_in_schema=False)
@@ -332,12 +332,19 @@ def stats_view(
     user: CurrentUser,
     deck_id: int | None = None,
 ) -> Response:
+    # Decks have their own grading scales, so the page always shows exactly one.
+    if deck_id is None:
+        deck_id = default_deck_id(session, user)
+    scale = (
+        grading.normalize(crud.get_deck(session, user, deck_id).grading_scale) if deck_id else None
+    )
     return templates.TemplateResponse(
         request=request,
         name="stats.html",
         context={
             "decks": crud.list_decks(session, user),
             "deck_id": deck_id,
+            "scale_max": scale["max"] if scale else grading.DEFAULT_MAX,
             "by_card": get_breakdown(session, user, "card", deck_id).model_dump(),
             "by_tag": get_breakdown(session, user, "tag", deck_id).model_dump(),
             "overview": get_overview(session, user, deck_id),

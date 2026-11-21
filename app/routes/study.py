@@ -386,6 +386,7 @@ def answer(
             language=settings.judge_language,
             max_level=scale["max"],
             labels=scale["labels"],
+            input_method=payload.input_method,
         )
     except JudgeError as exc:
         logger.warning("Judge failed; requiring self-assessment fallback: %s", exc)

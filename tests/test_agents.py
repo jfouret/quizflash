@@ -190,3 +190,26 @@ def test_agent_requires_api_key_from_the_environment(
             response_time_ms=1000,
             language="auto",
         )
+
+
+def test_judge_template_flags_spoken_answers() -> None:
+    from app.agents import DEFAULT_JUDGE_TEMPLATE, render_prompt
+
+    card = {"question": "q", "answer": "a"}
+    voice = render_prompt(
+        DEFAULT_JUDGE_TEMPLATE, {"card": card, "user_answer": "x", "input_method": "voice"}
+    )
+    text = render_prompt(
+        DEFAULT_JUDGE_TEMPLATE, {"card": card, "user_answer": "x", "input_method": "text"}
+    )
+    assert "transcribed by speech-to-text" in voice
+    assert "speech-to-text" not in text
+
+
+def test_migration_0008_matches_the_default_template() -> None:
+    import importlib
+
+    from app.agents import DEFAULT_JUDGE_TEMPLATE
+
+    migration = importlib.import_module("app.migrations.versions.0008_judge_voice_hint")
+    assert migration.NEW == DEFAULT_JUDGE_TEMPLATE

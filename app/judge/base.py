@@ -27,6 +27,7 @@ class Judge(Protocol):
         language: str,
         max_level: int = DEFAULT_MAX,
         labels: dict[int, str] | None = None,
+        input_method: str = "text",
     ) -> JudgeResult: ...
 
 

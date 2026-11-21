@@ -64,11 +64,19 @@
   var ttsEnabled = config.ttsEnabled === 'true';
   var voiceAllowed = config.voiceAllowed === 'true';
   var teacherVocal = config.teacherVocal === 'true';
+  var questionVocal = config.questionVocal === 'true';
   var autoSpeak = config.autoSpeak === 'true';
   var batchEnabled = config.batchEnabled === 'true';
   var batchSize = Number(config.batchSize) || 5;
   var batchProgressEl = document.getElementById('batch-progress');
   var autoSpeakBtn = document.getElementById('auto-speak');
+  var readyPanel = document.getElementById('ready-panel');
+  var readyBeginBtn = document.getElementById('ready-begin');
+  var readyBackBtn = document.getElementById('ready-back');
+  var typeOnlyEl = document.getElementById('type-only');
+  var speakerTestBtn = document.getElementById('speaker-test');
+  var speechSeek = document.getElementById('speech-seek');
+  var speechTime = document.getElementById('speech-time');
   var reviewQuestionEl = document.getElementById('review-question');
 
   // Autofocus is for whoever types on a physical keyboard. On a touch device the
@@ -111,7 +119,6 @@
   var eqSilence = null;
   var eqFrame = null;
   var speechEqFrame = null;
-  var speechReader = null;
   var recordingPaused = false;
   var recordingElapsed = 0;
   var dueCount = Number(dueCountEl.textContent) || 0;
@@ -229,6 +236,12 @@
     return labels[level] || labels[String(level)] || '';
   }
 
+  // The headline of the result card: verdict first, then the rating.
+  function setVerdict(prefix, rating, correct) {
+    finalRatingEl.dataset.state = correct ? 'ok' : 'wrong';
+    finalRatingEl.textContent = (correct ? '✓ Correct' : '✗ Incorrect') + ' · ' + prefix + ratingText(rating);
+  }
+
   function ratingText(level) {
     var label = levelLabel(level);
     return label ? level + ' (' + label + ')' : String(level);
@@ -263,7 +276,28 @@
     renderTags(reviewTagsEl, tags);
   }
 
+  // Voice and spoken output get a short "get ready" step; typing-only goes straight in.
+  function showReady() {
+    if (!voiceAllowed && !ttsEnabled) {
+      startSession();
+      return;
+    }
+    startPanel.hidden = true;
+    readyPanel.hidden = false;
+    refreshMicState();
+    if (microphoneAuthorized) void startReadyMeter();
+    readyBeginBtn.focus({preventScroll: true});
+  }
+
+  function hideReady() {
+    readyPanel.hidden = true;
+    stopReadyMeter();
+    stopSpoken();
+  }
+
   function startSession() {
+    hideReady();
+    if (typeOnlyEl.checked) preferText = true;
     inFlightIds = [];
     setStarted(true);
     startPanel.hidden = true;
@@ -647,10 +681,13 @@
     for (var ahead = 1; ahead <= 2; ahead++) prefetchQuestion(batch.records[batch.pos + ahead]);
   }
 
-  async function playSpoken(url, onEnded, button) {
+  async function playSpoken(url, onEnded, button, textEl) {
     stopSpoken();
     var audio = new Audio(url);
     spokenAudio = audio;
+    audio.addEventListener('timeupdate', syncSeek);
+    audio.addEventListener('loadedmetadata', syncSeek);
+    if (textEl) startReadAlong(audio, textEl, textEl === teacherExplanationEl ? teacherVocal : questionVocal);
     speakingButton = button || null;
     setControlState(speakingButton, true);
     void keepAwake();
@@ -693,7 +730,7 @@
       // The user may have moved on while the clip was prepared: it is not this card's.
       if (current !== asked || studyEl.hidden) return undefined;
       if (!url) return maybeAutoRecord();
-      return playSpoken(url, maybeAutoRecord);
+      return playSpoken(url, maybeAutoRecord, null, questionEl);
     });
   }
 
@@ -723,7 +760,7 @@
       return;
     }
     setStatus('Playing.');
-    await playSpoken(url, null, button);
+    await playSpoken(url, null, button, button === speakQuestionBtn ? questionEl : reviewQuestionEl);
   }
 
   function playExplanation(button) {
@@ -736,7 +773,7 @@
           return Promise.resolve();
         }
         setStatus('Playing.');
-        return playSpoken(record.audioUrl, null, button);
+        return playSpoken(record.audioUrl, null, button, teacherExplanationEl);
       }
       return speakShownText(record.explanation, button);
     }
@@ -768,8 +805,9 @@
         var data = await response.json();
         throw new Error(typeof data.detail === 'string' ? data.detail : 'Speech synthesis failed');
       }
-      await playResponse(response, button);
+      var clip = URL.createObjectURL(await response.blob());
       setStatus('Playing.');
+      await playSpoken(clip, function () { URL.revokeObjectURL(clip); }, button, teacherExplanationEl);
     } catch (error) {
       setStatus(error.message, true);
     } finally {
@@ -804,6 +842,8 @@
   var micMeterFrame = null;
   var micTestRecorder = null;
   var micTestTimer = null;
+  var micLevelCb = null;
+  var readyStream = null;
 
   function setMicState(message, isError) {
     micStateEl.textContent = message;
@@ -814,6 +854,60 @@
     micAuthorizeBtn.hidden = microphoneAuthorized;
     micTestBtn.hidden = !microphoneAuthorized;
     if (microphoneAuthorized) setMicState('Microphone ready.');
+  }
+
+  // Live level meter while the panel is open, so the user sees the mic works
+  // without pressing anything. It owns one stream, released on Begin or Back.
+  function stopReadyMeter() {
+    micLevelCb = null;
+    if (readyStream) readyStream.getTracks().forEach(function (track) { track.stop(); });
+    readyStream = null;
+    stopMicMeter();
+  }
+
+  async function startReadyMeter() {
+    if (readyStream || !microphoneAuthorized || !navigator.mediaDevices) return;
+    try {
+      var stream = await navigator.mediaDevices.getUserMedia({audio: true});
+      if (readyPanel.hidden || readyStream) {
+        stream.getTracks().forEach(function (track) { track.stop(); });
+        return;
+      }
+      readyStream = stream;
+      var heard = false;
+      micLevelCb = function (peak) {
+        if (!heard && peak > 90) {
+          heard = true;
+          setMicState('We hear you ✓');
+        }
+      };
+      setMicState('Say something: the bars should move.');
+      startMicMeter(stream);
+    } catch (error) {
+      setMicState('Microphone unavailable: ' + error.message + '. You can still type.', true);
+    }
+  }
+
+  async function testSpeaker() {
+    speakerTestBtn.disabled = true;
+    try {
+      var response = await fetch('/api/study/speak', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
+        credentials: 'same-origin',
+        body: JSON.stringify({text: 'Speaker test. If you can hear this sentence, you are ready to begin.', vocal: false})
+      });
+      if (!response.ok) {
+        var data = await response.json().catch(function () { return null; });
+        throw new Error(data && typeof data.detail === 'string' ? data.detail : 'Speech synthesis failed');
+      }
+      var url = URL.createObjectURL(await response.blob());
+      await playSpoken(url, function () { URL.revokeObjectURL(url); });
+    } catch (error) {
+      setStatus(error.message, true);
+    } finally {
+      speakerTestBtn.disabled = false;
+    }
   }
 
   async function authorizeMicrophone() {
@@ -827,6 +921,7 @@
       stream.getTracks().forEach(function (track) { track.stop(); });
       microphoneAuthorized = true;
       refreshMicState();
+      void startReadyMeter();
     } catch (error) {
       setMicState('Microphone unavailable: ' + error.message + '. You can still type.', true);
     } finally {
@@ -857,6 +952,7 @@
       micMeterFrame = requestAnimationFrame(draw);
       analyser.getByteFrequencyData(data);
       drawEqualizer(micEqCanvas, data);
+      if (micLevelCb) micLevelCb(Math.max.apply(null, data));
     }
     draw();
   }
@@ -866,6 +962,7 @@
   async function testMicrophone() {
     if (micTestRecorder || !navigator.mediaDevices || !window.MediaRecorder) return;
     micTestBtn.disabled = true;
+    stopReadyMeter();
     try {
       var stream = await navigator.mediaDevices.getUserMedia({audio: true});
       microphoneAuthorized = true;
@@ -881,6 +978,7 @@
         stopMicMeter();
         micTestRecorder = null;
         micTestBtn.disabled = false;
+        if (!readyPanel.hidden) void startReadyMeter();
         setMicState('Playing the test back…');
         var url = URL.createObjectURL(new Blob(chunks, {type: recorder.mimeType || 'audio/webm'}));
         var audio = new Audio(url);
@@ -1040,6 +1138,87 @@
     return data;
   }
 
+  function clock(seconds) {
+    var whole = Math.max(0, Math.floor(seconds || 0));
+    return Math.floor(whole / 60) + ':' + String(whole % 60).padStart(2, '0');
+  }
+
+  function syncSeek() {
+    if (!spokenAudio) return;
+    var duration = spokenAudio.duration;
+    var known = isFinite(duration) && duration > 0;
+    speechSeek.disabled = !known;
+    if (known) speechSeek.value = String(Math.round(spokenAudio.currentTime / duration * 1000));
+    speechTime.textContent = clock(spokenAudio.currentTime) + (known ? ' / ' + clock(duration) : '');
+  }
+
+  // --- Read-along: highlight the sentence being spoken -------------------------
+  // The speech endpoint returns no timings, so the position is estimated from the
+  // elapsed share of the clip. The Highlight API paints a range without touching
+  // the DOM, which keeps the rendered Markdown intact.
+  // shortcut: proportional timing, upgrade to STT word timestamps if it drifts.
+  var readAlongOff = null;
+
+  function stopReadAlong() {
+    if (readAlongOff) readAlongOff();
+    readAlongOff = null;
+    if (window.CSS && CSS.highlights) CSS.highlights.delete('reading');
+  }
+
+  function textRange(el, start, end) {
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    var range = document.createRange();
+    var offset = 0;
+    var started = false;
+    var node;
+    while ((node = walker.nextNode())) {
+      var next = offset + node.length;
+      if (!started && start < next) {
+        range.setStart(node, start - offset);
+        started = true;
+      }
+      if (started && end <= next) {
+        range.setEnd(node, end - offset);
+        break;
+      }
+      offset = next;
+    }
+    return started ? range : null;
+  }
+
+  // `whole`: the spoken text was rewritten (vocal-ready), so sentences no longer
+  // line up with what is shown; the whole block is highlighted instead.
+  function startReadAlong(audio, el, whole) {
+    stopReadAlong();
+    if (!window.CSS || !CSS.highlights || typeof Highlight === 'undefined') return;
+    var text = el.textContent;
+    var spans = [];
+    if (!whole) {
+      var pattern = /[^.!?…\n]+[.!?…]*\s*/g;
+      var match;
+      while ((match = pattern.exec(text))) spans.push([match.index, match.index + match[0].length]);
+    }
+    if (!spans.length) spans.push([0, text.length]);
+    var shown = -1;
+    function update() {
+      var duration = audio.duration;
+      if (!isFinite(duration) || !duration) return;
+      var position = audio.currentTime / duration * text.length;
+      var index = spans.findIndex(function (span) { return position < span[1]; });
+      if (index < 0) index = spans.length - 1;
+      if (index === shown) return;
+      shown = index;
+      var range = textRange(el, spans[index][0], spans[index][1]);
+      if (range) CSS.highlights.set('reading', new Highlight(range));
+    }
+    audio.addEventListener('timeupdate', update);
+    audio.addEventListener('seeked', update);
+    readAlongOff = function () {
+      audio.removeEventListener('timeupdate', update);
+      audio.removeEventListener('seeked', update);
+    };
+  }
+
   function startSpeechEqualizer() {
     stopSpeechEqualizer();
     speechBar.hidden = false;
@@ -1071,78 +1250,14 @@
       spokenAudio.pause();
       spokenAudio = null;
     }
-    if (speechReader) {
-      void speechReader.cancel().catch(function () {});
-      speechReader = null;
-    }
     // Never revoke here: the URL belongs to the record that holds it. Revoking a
     // prefetched question clip would make a later replay silent, and a browser may
     // hand the freed URL to another clip, so the question could play the answer.
     setControlState(speakingButton, false);
     speakingButton = null;
+    stopReadAlong();
     stopSpeechEqualizer();
     allowSleep();
-  }
-
-  function appendBuffer(buffer, data) {
-    return new Promise(function (resolve, reject) {
-      function onEnd() { buffer.removeEventListener('error', onError); resolve(); }
-      function onError() { buffer.removeEventListener('updateend', onEnd); reject(new Error('audio buffer error')); }
-      buffer.addEventListener('updateend', onEnd, {once: true});
-      buffer.addEventListener('error', onError, {once: true});
-      try { buffer.appendBuffer(data); } catch (error) { onError(); }
-    });
-  }
-
-  async function playBlob(response, button) {
-    var blob = await response.blob();
-    if (spokenAudio) spokenAudio.pause();
-    if (playedBlobUrl) URL.revokeObjectURL(playedBlobUrl);
-    playedBlobUrl = URL.createObjectURL(blob);
-    spokenAudio = new Audio(playedBlobUrl);
-    speakingButton = button || null;
-    setControlState(speakingButton, true);
-    await spokenAudio.play();
-  }
-
-  // Start playback before the whole clip is generated, when the browser can stream it.
-  async function playResponse(response, button) {
-    var type = (response.headers.get('Content-Type') || 'audio/mpeg').split(';')[0].trim();
-    stopSpoken();
-    if (!window.MediaSource || !window.MediaSource.isTypeSupported(type) || !response.body) {
-      await playBlob(response, button);
-      return;
-    }
-    var source = new MediaSource();
-    var audio = new Audio(URL.createObjectURL(source));
-    spokenAudio = audio;
-    speakingButton = button || null;
-    setControlState(speakingButton, true);
-    startSpeechEqualizer();
-    audio.addEventListener('ended', function () {
-      if (spokenAudio === audio) stopSpoken();
-    }, {once: true});
-    await new Promise(function (resolve) { source.addEventListener('sourceopen', resolve, {once: true}); });
-    var buffer;
-    try {
-      buffer = source.addSourceBuffer(type);
-    } catch (error) {
-      stopSpoken();
-      await playBlob(response, button);
-      return;
-    }
-    // Held on the script so Stop can cancel the download as well as the sound.
-    speechReader = response.body.getReader();
-    var started = false;
-    while (true) {
-      var chunk = await speechReader.read();
-      if (chunk.done) break;
-      await appendBuffer(buffer, chunk.value);
-      if (!started) { started = true; void audio.play().catch(function () {}); }
-    }
-    try { source.endOfStream(); } catch (error) { /* source already closed */ }
-    speechReader = null;
-    if (!started) await audio.play();
   }
 
   function invalidateAssessment() {
@@ -1179,9 +1294,8 @@
     nextButton.textContent = 'Save & next card';
     confirmButton.textContent = isFallback ? 'Save manual review' : 'Confirm review';
     confirmButton.onclick = function () { confirmAssessment(isFallback); };
-    finalRatingEl.textContent = automatic
-      ? 'AI rating ' + ratingText(result.rating) + ' · ' + (result.is_correct ? 'correct' : 'incorrect')
-      : '';
+    if (automatic) setVerdict('AI rating ', result.rating, result.is_correct);
+    else finalRatingEl.textContent = '';
     setStatus(
       isFallback
         ? 'Judge failed. Rate this answer manually.'
@@ -1205,7 +1319,8 @@
     showFeedback(result);
     showTeacher();
     judgeInfoEl.textContent = result.mode === 'self_fallback' ? 'Self fallback (judge failed)' : 'Judge: ' + result.judge_model;
-    finalRatingEl.textContent = 'Saved rating ' + ratingText(result.rating) + ' · ' + (result.is_correct ? 'correct' : 'incorrect') + ' · next due ' + formatDate(result.due);
+    setVerdict('rating ', result.rating, result.is_correct);
+    finalRatingEl.textContent += ' · next due ' + formatDate(result.due);
     ratingControls.hidden = true;
     confirmButton.hidden = true;
     nextButton.hidden = false;
@@ -1663,20 +1778,16 @@
     nextButton.focus({preventScroll: true});
     ratingControls.hidden = true;
     confirmButton.hidden = true;
-    finalRatingEl.textContent = record.saved
-      ? 'Rating ' + ratingText(record.saved.rating) + ' · ' + (record.saved.is_correct ? 'correct' : 'incorrect')
-      : '';
-    if (record.audioUrl) playReviewAudio(record.audioUrl);
-    else if (record.audioUnavailable && teacherEnabled) {
+    if (record.saved) setVerdict('rating ', record.saved.rating, record.saved.is_correct);
+    else finalRatingEl.textContent = '';
+    // No autoplay: the learner reads the verdict and the answer first, then presses play.
+    if (!record.audioUrl && record.audioUnavailable && teacherEnabled) {
       teacherInfoEl.textContent =
         (record.teacherModel ? 'Teacher: ' + record.teacherModel + ' · ' : '') +
         'explanation audio unavailable';
     }
   }
 
-  function playReviewAudio(url) {
-    void playSpoken(url);
-  }
 
   function advanceReview() {
     stopSpoken();
@@ -1729,7 +1840,7 @@
       currentLogId = saved.log_id || null;
       ratingControls.hidden = true;
       confirmButton.hidden = true;
-      finalRatingEl.textContent = 'Saved rating ' + ratingText(saved.rating) + ' · ' + (saved.is_correct ? 'correct' : 'incorrect');
+      setVerdict('rating ', saved.rating, saved.is_correct);
       nextButton.hidden = false;
       nextButton.focus();
       setStatus('Review saved.');
@@ -1988,6 +2099,11 @@
   pauseRecordBtn.addEventListener('click', toggleRecordPause);
   pauseSpeechBtn.addEventListener('click', toggleSpeechPause);
   stopSpeechBtn.addEventListener('click', stopSpoken);
+  speechSeek.addEventListener('input', function () {
+    if (spokenAudio && isFinite(spokenAudio.duration)) {
+      spokenAudio.currentTime = Number(speechSeek.value) / 1000 * spokenAudio.duration;
+    }
+  });
   // Tapping the text button is a request for the keyboard, and the only place where
   // focus is raised on purpose. The automatic fallback (a failed transcription, an
   // unsupported browser) goes through setTextMode alone and leaves the keyboard down.
@@ -2002,7 +2118,13 @@
   });
   answerInput.addEventListener('input', invalidateAssessment);
   document.addEventListener('keydown', onKeydown);
-  startButton.addEventListener('click', startSession);
+  startButton.addEventListener('click', showReady);
+  readyBeginBtn.addEventListener('click', startSession);
+  readyBackBtn.addEventListener('click', function () {
+    hideReady();
+    startPanel.hidden = false;
+  });
+  speakerTestBtn.addEventListener('click', function () { void testSpeaker(); });
   micAuthorizeBtn.addEventListener('click', function () { void authorizeMicrophone(); });
   micTestBtn.addEventListener('click', function () { void testMicrophone(); });
   refreshMicState();

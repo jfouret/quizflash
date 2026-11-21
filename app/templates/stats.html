@@ -4,18 +4,17 @@
 {% set cards = by_card['items'] %}
 {% set total = cards | sum(attribute='total') %}
 {% set correct = cards | sum(attribute='correct') %}
-{% set scored = cards | selectattr('avg_normalized', 'ne', none) | list %}
+{% set scored = cards | selectattr('avg_rating', 'ne', none) | list %}
 {% set weighted = namespace(sum=0.0, n=0) %}
-{% for item in scored %}{% set weighted.sum = weighted.sum + item.avg_normalized * item.total %}{% set weighted.n = weighted.n + item.total %}{% endfor %}
+{% for item in scored %}{% set weighted.sum = weighted.sum + item.avg_rating * item.total %}{% set weighted.n = weighted.n + item.total %}{% endfor %}
 <div class="page-head">
   <div>
     <h1>Stats</h1>
-    <p class="muted">How well you know your cards, and where to work next.</p>
+    <p class="muted">One deck at a time: each deck has its own grading scale.</p>
   </div>
   <form method="get" action="/stats" class="study-toolbar m-0">
     <label for="stats-deck" class="muted m-0">Deck</label>
     <select id="stats-deck" name="deck_id" data-autosubmit>
-      <option value="">All decks</option>
       {% for deck in decks %}<option value="{{ deck.id }}" {% if deck_id == deck.id %}selected{% endif %}>{{ deck.name }}</option>{% endfor %}
     </select>
     <noscript><button type="submit" class="secondary outlined sm">Apply</button></noscript>
@@ -26,24 +25,25 @@
 <div class="stat-tiles">
   <div class="card"><strong>{{ total }}</strong><span>Answers</span></div>
   <div class="card"><strong>{{ ((correct / total) * 100) | round(0) | int if total else 0 }}%</strong><span>Correct</span></div>
-  <div class="card"><strong>{{ (weighted.sum / weighted.n) | round(1) if weighted.n else '—' }}</strong><span>Mean / 10</span></div>
+  <div class="card"><strong>{{ (weighted.sum / weighted.n) | round(1) if weighted.n else '—' }} <small>/ {{ scale_max }}</small></strong><span>Mean score</span></div>
   <div class="card {% if overview.never_answered %}warn{% endif %}"><strong>{{ overview.never_answered }}</strong><span>Never answered</span></div>
 </div>
 
 <div id="stats-config" hidden
+     data-scale-max="{{ scale_max }}"
      data-tag="{{ by_tag | tojson | forceescape }}"
      data-activity="{{ overview.activity | tojson | forceescape }}"></div>
 
-{% set weakest = scored | sort(attribute='avg_normalized') %}
+{% set weakest = scored | sort(attribute='avg_rating') %}
 {% if weakest %}
 <section class="card">
   <h2>Weakest cards</h2>
   <p class="muted">Lowest mean score first. The study queue already puts these forward.</p>
   <table class="stats-table">
-    <thead><tr><th scope="col">Card</th><th scope="col">Answers</th><th scope="col">Mean / 10</th></tr></thead>
+    <thead><tr><th scope="col">Card</th><th scope="col">Answers</th><th scope="col">Mean / {{ scale_max }}</th></tr></thead>
     <tbody>
     {% for item in weakest[:10] %}
-      <tr><td class="pre">{{ item.label }}</td><td>{{ item.total }}</td><td>{{ item.avg_normalized | round(1) }}</td></tr>
+      <tr><td class="pre">{{ item.label }}</td><td>{{ item.total }}</td><td>{{ item.avg_rating | round(1) }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -53,7 +53,7 @@
 {% if by_tag['items'] %}
 <section class="card">
   <h2>By tag</h2>
-  <div class="chart-wrap" id="tag-wrap"><canvas id="chart-tag" role="img" aria-label="Mean score per tag, out of 10"></canvas></div>
+  <div class="chart-wrap" id="tag-wrap"><canvas id="chart-tag" role="img" aria-label="Mean score per tag, out of {{ scale_max }}"></canvas></div>
 </section>
 {% endif %}
 
@@ -66,13 +66,13 @@
 <details class="card all-cards">
   <summary><h2>All cards ({{ cards | length }})</h2></summary>
   <table class="stats-table">
-    <thead><tr><th scope="col">Card</th><th scope="col">Answers</th><th scope="col">Mean / 10</th><th scope="col">Correct</th></tr></thead>
+    <thead><tr><th scope="col">Card</th><th scope="col">Answers</th><th scope="col">Mean / {{ scale_max }}</th><th scope="col">Correct</th></tr></thead>
     <tbody>
     {% for item in cards | sort(attribute='label') %}
       <tr>
         <td class="pre">{{ item.label }}</td>
         <td>{{ item.total }}</td>
-        <td>{% if item.avg_normalized is not none %}{{ item.avg_normalized | round(1) }}{% else %}—{% endif %}</td>
+        <td>{% if item.avg_rating is not none %}{{ item.avg_rating | round(1) }}{% else %}—{% endif %}</td>
         <td>{{ (item.correct_rate * 100) | round(0) | int }}%</td>
       </tr>
     {% endfor %}
