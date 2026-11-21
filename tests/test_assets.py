@@ -109,9 +109,12 @@ def test_every_icon_reference_resolves_in_the_sprite(client: TestClient) -> None
 
 
 def test_study_offers_microphone_setup_before_the_session(client: TestClient) -> None:
-    """The microphone is authorized and tested on the start panel, before any card."""
+    """The microphone and speaker are checked on the get-ready panel, before any card."""
     page = client.get("/study").text
 
+    assert 'id="ready-panel"' in page
+    assert 'id="speaker-test"' in page
+    assert 'id="speech-seek"' in page
     assert 'id="mic-setup"' in page
     assert 'id="mic-authorize"' in page
     assert 'id="mic-test"' in page

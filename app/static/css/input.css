@@ -501,6 +501,18 @@
     box-shadow: var(--shadow-pop);
   }
   #speech-bar[hidden] { display: none; }
+  #speech-seek { width: 7rem; margin: 0; }
+  #speech-time { font-size: 0.8rem; min-width: 5.5ch; font-variant-numeric: tabular-nums; }
+
+  /* Read-along: the sentence being spoken (CSS Custom Highlight API). */
+  ::highlight(reading) { background-color: var(--color-accent-soft, rgb(79 70 229 / 0.2)); color: inherit; }
+
+  /* Verdict banner at the top of the result card. */
+  .verdict { font-weight: 700; margin: 0.25rem 0 0.75rem; }
+  .verdict:empty { display: none; }
+  .verdict[data-state="ok"] { color: var(--color-ok); }
+  .verdict[data-state="wrong"] { color: var(--color-danger); }
+  label.inline { display: inline-flex; align-items: center; gap: 0.5rem; margin: 0; }
   /* The stop square in the icon takes over from the old bullet prefix. */
   .recording #record { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
 

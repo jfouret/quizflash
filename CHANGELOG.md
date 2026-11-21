@@ -4,6 +4,30 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.15.0] - 2026-11-21
+
+### Added
+
+- **Get ready step.** Start now opens a short screen before the first card: a live microphone
+  level meter ("We hear you"), an optional record-and-hear-yourself test, a speaker test, the
+  read-questions-aloud switch and "answer by typing only". It is skipped when voice and
+  spoken output are both off.
+- **Read-along.** The sentence being spoken is highlighted in the question and in the teacher
+  explanation (CSS Custom Highlight API). OpenRouter's speech endpoint returns no timings, so
+  the position is estimated from the elapsed share of the clip, weighted by sentence length.
+  With a vocal-ready rewrite the whole block is highlighted instead.
+- A seek bar and elapsed/total time on the audio player.
+
+### Changed
+
+- **Review no longer autoplays the explanation.** The result card opens with a verdict line
+  (correct or not, and the rating), then the answers and the teacher text; audio plays when you
+  press play. Single-card explanations are now fetched whole before playing so they can be sought.
+- **Stats show one deck at a time**, on that deck's own grading scale (mean `x / max`), defaulting
+  to the deck answered last. "All decks" is gone because scales differ between decks.
+- **The judge knows when an answer was spoken** and ignores spelling, punctuation and code syntax.
+  Migration 0008 updates the stored default judge prompt; a customised prompt is left untouched.
+
 ## [0.14.0] - 2026-11-21
 
 ### Added

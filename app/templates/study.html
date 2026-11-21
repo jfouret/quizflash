@@ -31,19 +31,35 @@
       {% endfor %}
     </div>
   </fieldset>
+  <div class="actions">
+    <button id="start-study" type="button">Start</button>
+  </div>
+</section>
+<section id="ready-panel" class="card" hidden>
+  <h2>Get ready</h2>
+  <p class="muted">Check your audio, then begin. Nothing is recorded or saved here.</p>
   <fieldset class="panel" id="mic-setup"{% if not voice_allowed %} hidden{% endif %}>
     <legend>Microphone</legend>
-    <p class="muted">Answers can be recorded automatically. Allow the microphone here and test it if you want: the session starts either way, and the review phase does not use the microphone.</p>
     <div class="actions">
       <button id="mic-authorize" type="button" class="secondary outlined">Allow the microphone</button>
-      <button id="mic-test" type="button" class="secondary outlined" hidden>Test the microphone</button>
       <span id="mic-eq-frame" class="eq-frame" hidden aria-hidden="true"><canvas id="mic-eq" width="120" height="36"></canvas></span>
       <span id="mic-state" class="muted" role="status" aria-live="polite">Not allowed yet</span>
     </div>
+    <div class="actions">
+      <button id="mic-test" type="button" class="secondary outlined sm" hidden>Record 3 s and hear yourself</button>
+      <label class="inline"><input id="type-only" type="checkbox"> Answer by typing only</label>
+    </div>
+  </fieldset>
+  <fieldset class="panel" id="speaker-setup"{% if not settings.tts_enabled %} hidden{% endif %}>
+    <legend>Speaker</legend>
+    <div class="actions">
+      <button id="speaker-test" type="button" class="secondary outlined">Play a test sentence</button>
+      <button id="auto-speak" type="button" class="secondary outlined" aria-pressed="false">Read questions aloud: off</button>
+    </div>
   </fieldset>
   <div class="actions">
-    <button id="start-study" type="button">Start</button>
-    <button id="auto-speak" type="button" class="secondary outlined" aria-pressed="false" {% if not settings.tts_enabled %}hidden{% endif %}>Read questions aloud: off</button>
+    <button id="ready-begin" type="button">Begin</button>
+    <button id="ready-back" type="button" class="secondary outlined">Back</button>
   </div>
 </section>
 <div class="actions"><div id="batch-progress" class="batch-progress" hidden></div><button id="end-session" type="button" class="secondary outlined sm" hidden>End session</button></div>
@@ -87,6 +103,7 @@
     </div>
     <button id="speak-review-question" type="button" class="sm secondary outlined icon-btn" data-icon="play" data-active-icon="pause" data-label="Play the question" data-active-label="Pause the question" aria-label="Play the question" title="Play the question" {% if not settings.tts_enabled %}hidden{% endif %}><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#play"></use></svg></button>
   </div>
+  <p id="final-rating" class="verdict" role="status"></p>
   <div id="feedback" class="md"></div>
   <p id="judge-info" class="muted"></p>
   <div id="review-tags" class="card-tags" hidden></div>
@@ -113,7 +130,6 @@
       <select id="correct"><option value="true">Correct</option><option value="false">Incorrect</option></select>
     </div>
   </div>
-  <p id="final-rating"></p>
   <div class="actions">
     <button id="retry-record" type="button" class="secondary outlined" hidden>Retry transcription</button>
     <button id="confirm" type="button" hidden>Confirm review</button>
@@ -124,6 +140,8 @@
 <div id="speech-bar" role="group" aria-label="Spoken audio" hidden>
   <span class="eq-frame" aria-hidden="true"><canvas id="speech-eq" width="120" height="36"></canvas></span>
   <button id="pause-speech" type="button" class="sm secondary outlined icon-btn" data-icon="pause" data-active-icon="play" data-label="Pause audio" data-active-label="Resume audio" aria-label="Pause audio" title="Pause audio"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#pause"></use></svg></button>
+  <input id="speech-seek" type="range" min="0" max="1000" value="0" aria-label="Seek in the audio" disabled>
+  <span id="speech-time" class="muted" aria-hidden="true">0:00</span>
   <button id="stop-speech" type="button" class="sm secondary outlined icon-btn" aria-label="Stop the audio" title="Stop the audio"><svg class="icon" aria-hidden="true"><use href="/static/icons.svg#stop"></use></svg></button>
 </div>
 <p class="shortcuts muted"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> submit · <kbd>Enter</kbd> next / stop recording · <kbd>0</kbd>–<kbd>9</kbd> rating · <kbd>Space</kbd> pause audio</p>
@@ -138,6 +156,7 @@
      data-batch-enabled="{{ settings.batch_enabled | tojson }}"
      data-batch-size="{{ settings.batch_size | tojson }}"
      data-voice-allowed="{{ voice_allowed | tojson }}"
+     data-question-vocal="{{ settings.question_vocal | tojson }}"
      data-auto-speak="{{ settings.auto_speak_questions | tojson }}"></div>
 <script src="/static/js/study.js?v={{ asset_version }}" defer></script>
 {% endblock %}
