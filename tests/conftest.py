@@ -38,6 +38,7 @@ class FakeJudge:
         language: str,
         max_level: int = 5,
         labels: dict[int, str] | None = None,
+        input_method: str = "text",
     ) -> JudgeResult:
         self.calls.append(
             {
@@ -48,6 +49,7 @@ class FakeJudge:
                 "response_time_ms": response_time_ms,
                 "language": language,
                 "max_level": max_level,
+                "input_method": input_method,
                 "labels": labels,
             }
         )

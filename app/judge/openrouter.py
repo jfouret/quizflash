@@ -96,6 +96,7 @@ class OpenRouterJudge:
         language: str,
         max_level: int = DEFAULT_MAX,
         labels: dict[int, str] | None = None,
+        input_method: str = "text",
     ) -> JudgeResult:
         if not self.base_url or not self.model:
             raise JudgeError("JUDGE_BASE_URL and JUDGE_MODEL must be configured")
@@ -112,6 +113,7 @@ class OpenRouterJudge:
             "expected_time_s": expected_time_s,
             "response_time_ms": response_time_ms,
             "language": language,
+            "input_method": input_method,
         }
         try:
             guidelines = render_prompt(self.system_prompt, context)

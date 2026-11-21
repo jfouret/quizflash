@@ -30,7 +30,9 @@ DEFAULT_JUDGE_TEMPLATE = """Is the user's answer substantively correct for the q
 
 Question: {{ card.question }}
 Expected answer: {{ card.answer }}
-User answer: {{ user_answer }}"""
+User answer: {{ user_answer }}{% if input_method == 'voice' %}
+
+The answer was spoken aloud and transcribed by speech-to-text. Judge the meaning only: ignore spelling, punctuation, formatting and code syntax (nobody dictates code symbols), and tolerate misheard technical terms when the intent is clear.{% endif %}"""  # noqa: E501
 
 DEFAULT_TEACHER_SYSTEM = (
     "You are a teacher reacting to the answer someone just gave on a flash card. They can "
@@ -125,7 +127,7 @@ DEFAULT_AGENT_CONFIGS: dict[AgentStep, AgentDefaults] = {
 PROMPT_VARIABLES: dict[AgentStep, str] = {
     "judge": (
         "{{ card.question }}, {{ card.answer }}, {{ user_answer }}, "
-        "{{ expected_time_s }}, {{ response_time_ms }}, {{ language }}"
+        "{{ expected_time_s }}, {{ response_time_ms }}, {{ language }}, {{ input_method }}"
     ),
     "teacher": (
         "{{ deck.context }}, {{ card.question }}, {{ card.answer }}, {{ card.context }}, "
