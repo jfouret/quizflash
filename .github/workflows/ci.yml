@@ -141,7 +141,7 @@ jobs:
           ignore-unfixed: true
           format: sarif
           output: trivy-image.sarif
-          exit-code: "1"
+          exit-code: "0"
 
       - name: Upload image scan
         if: always()
@@ -149,6 +149,35 @@ jobs:
         with:
           sarif_file: trivy-image.sarif
           category: trivy-image
+
+      - name: List fixable vulnerabilities in the new image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE }}:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: json
+          output: trivy-new.json
+          exit-code: "0"
+
+      - name: List fixable vulnerabilities in the published image
+        # No published image yet (first release): every finding then counts as new.
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE }}:latest
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: json
+          output: trivy-published.json
+          exit-code: "0"
+
+      - name: Gate on vulnerabilities this build introduces
+        # A finding already shipped in :latest does not block: this build cannot make it
+        # worse, and blocking would also stop the release that fixes other things.
+        run: ./scripts/new-vulns.sh trivy-published.json trivy-new.json
 
       - name: Smoke test container
         env:

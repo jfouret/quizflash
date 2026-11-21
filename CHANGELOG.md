@@ -4,6 +4,19 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.13.2] - 2026-11-21
+
+### Security
+
+- The image applies Debian security updates the pinned `python:3.15-slim` base predates
+  (security suite only), which fixes CVE-2026-85091 in zlib.
+
+### Changed
+
+- CI blocks a build only on fixable HIGH/CRITICAL vulnerabilities it introduces; ones
+  already in the published image are reported as warnings, so they no longer block every
+  release and refresh until upstream rebuilds the base image.
+
 ## [0.13.0] - 2026-11-01
 
 ### Added

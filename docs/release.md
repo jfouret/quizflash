@@ -26,7 +26,10 @@ Use patch for a fix, minor for a feature, major for a breaking change.
 2. `docker build --target test`: ruff, `ruff format --check`, mypy and pytest inside
    the production image (same Python, same dependencies, same ffmpeg).
 3. Runtime image build.
-4. Image scan; a fixable HIGH or CRITICAL vulnerability fails the job.
+4. Image scan, uploaded to code scanning. The job fails only on a fixable HIGH or
+   CRITICAL vulnerability that the published `:latest` does not already have
+   (`scripts/new-vulns.sh`): a known one cannot get worse, and blocking on it would
+   also hold back the release that fixes it. It is reported as a warning instead.
 5. `scripts/smoke-test.sh`: the image must start read-only and non-root, and refuse
    anonymous access on the REST API and on `/mcp`, in local and OIDC mode.
 6. Push the image tags, attach a build provenance attestation, push the `vX.Y.Z` tag
@@ -58,7 +61,9 @@ Renovate at the plain `X.Y.Z` tag, not the dated one.
 ## Refresh: same version, newer dependencies
 
 `uv.lock` is not committed, so dependencies resolve at build time. A version can
-therefore be rebuilt later with newer (for example patched) dependencies:
+therefore be rebuilt later with newer (for example patched) dependencies. The
+Dockerfile also applies the Debian security updates (the `trixie-security` suite
+only) that the pinned base image predates, so a rebuild picks up OS fixes too:
 
 ```bash
 gh workflow run ci.yml --ref main -f refresh=true

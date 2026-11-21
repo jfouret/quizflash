@@ -15,7 +15,15 @@ ENV PYTHONUNBUFFERED=1 \
 ARG BUILD_TAG=""
 ENV BUILD_TAG=$BUILD_TAG
 
-RUN apt-get update \
+# Apply Debian security fixes the pinned base image predates: upgrade against the
+# trixie-security stanza only, so no point-release or other update slips in.
+RUN mkdir /tmp/security \
+    && awk -v RS= -v ORS='\n\n' '/debian-security/' /etc/apt/sources.list.d/debian.sources \
+        > /tmp/security/security.sources \
+    && apt-get update -o Dir::Etc::SourceList=/dev/null -o Dir::Etc::SourceParts=/tmp/security \
+    && apt-get upgrade -y -o Dir::Etc::SourceList=/dev/null -o Dir::Etc::SourceParts=/tmp/security \
+    && rm -rf /tmp/security \
+    && apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
