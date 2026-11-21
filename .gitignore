@@ -27,3 +27,6 @@ dist/
 .idea/
 .vscode/
 .DS_Store
+.coverage
+coverage.json
+coverage-out/
