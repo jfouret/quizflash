@@ -142,6 +142,7 @@ class Settings(SQLModel, table=True):
     auto_speak_questions: bool = False
     daily_new_limit: int = 0
     daily_review_limit: int = 0
+    queue_mode: str = "priority"
 
 
 class AppSettings(SQLModel, table=True):

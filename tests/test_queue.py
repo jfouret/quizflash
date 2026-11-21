@@ -30,12 +30,15 @@ def test_due_order_and_daily_new_limit(
     db_session.add(second_state)
     db_session.commit()
 
-    assert [card.id for card, _ in get_due(db_session, alice, now=now + timedelta(seconds=2))] == [
+    assert [
+        card.id
+        for card, _ in get_due(db_session, alice, now=now + timedelta(seconds=2), mode="due")
+    ] == [
         card_ids[1],
         card_ids[0],
     ]
     client.patch("/api/settings", json={"daily_new_limit": 1})
-    limited = get_due(db_session, alice, now=now + timedelta(seconds=2))
+    limited = get_due(db_session, alice, now=now + timedelta(seconds=2), mode="due")
     assert len(limited) == 1
     assert limited[0][0].id == card_ids[1]
 
@@ -48,10 +51,10 @@ def test_due_order_and_daily_new_limit(
     reviewed_state.due = now + timedelta(days=2)
     db_session.add(reviewed_state)
     db_session.commit()
-    assert get_due(db_session, alice, now=now + timedelta(seconds=2)) == []
+    assert get_due(db_session, alice, now=now + timedelta(seconds=2), mode="due") == []
 
     client.patch("/api/settings", json={"daily_new_limit": 0})
-    remaining = get_due(db_session, alice, now=now + timedelta(seconds=2))
+    remaining = get_due(db_session, alice, now=now + timedelta(seconds=2), mode="due")
     assert [card.id for card, _ in remaining] == [card_ids[0]]
 
 
@@ -81,3 +84,32 @@ def test_daily_review_limit_counts_non_new_reviews(
     due = response_dict(client.get("/api/study/next"))
     assert due["card"]["id"] == card["id"]
     assert due["is_new"] is False
+
+
+def test_priority_mode_offers_every_card_never_answered_first(
+    client: TestClient, db_session: Session, deck: dict[str, Any], alice: User
+) -> None:
+    ids = [
+        response_dict(
+            client.post(
+                "/api/cards", json={"deck_id": deck["id"], "question": f"Q{i}", "answer": "A"}
+            )
+        )["id"]
+        for i in range(3)
+    ]
+    enable_ai_assess(client)
+    client.post("/api/study/answer", json=answer_payload(ids[0]))
+    db_session.expire_all()
+    state = db_session.get(CardState, (alice.id, ids[0]))
+    assert state is not None
+    state.due = utc_now() + timedelta(days=30)
+    db_session.add(state)
+    db_session.commit()
+
+    order = [card.id for card, _ in get_due(db_session, alice)]
+    assert order == [ids[1], ids[2], ids[0]]  # answered card is not due yet, still offered, last
+    assert [card.id for card, _ in get_due(db_session, alice, mode="due")] == [ids[1], ids[2]]
+    assert [card.id for card, _ in get_due(db_session, alice, exclude=[ids[1]])] == [ids[2], ids[0]]
+
+    client.patch("/api/settings", json={"queue_mode": "due"})
+    assert [card.id for card, _ in get_due(db_session, alice)] == [ids[1], ids[2]]

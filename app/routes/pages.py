@@ -276,7 +276,8 @@ def study_page(
             "settings": crud.effective_settings(session, user),
             "voice_allowed": crud.get_app_settings(session).voice_allowed,
             "study_tags": crud.list_study_tags(session, user, deck_id),
-            "due_count": len(crud.get_due(session, user, deck_id)),
+            "due_count": len(crud.get_due(session, user, deck_id, mode="due")),
+            "study_count": len(crud.get_due(session, user, deck_id)),
         },
     )
 
@@ -362,6 +363,7 @@ def update_settings_form(
     stt_language: Annotated[str, Form()],
     daily_new_limit: Annotated[int, Form()],
     daily_review_limit: Annotated[int, Form()],
+    queue_mode: Annotated[Literal["priority", "due"], Form()] = "priority",
     voice_auto_judge: Annotated[bool, Form()] = False,
     auto_confirm: Annotated[bool, Form()] = False,
     teacher_enabled: Annotated[bool, Form()] = False,
@@ -390,6 +392,7 @@ def update_settings_form(
             auto_speak_questions=auto_speak_questions,
             daily_new_limit=daily_new_limit,
             daily_review_limit=daily_review_limit,
+            queue_mode=queue_mode,
         ),
     )
     return RedirectResponse("/settings?notice=settings-saved", status_code=303)

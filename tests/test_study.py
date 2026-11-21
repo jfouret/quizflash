@@ -27,6 +27,7 @@ def enable_ai_assess(client: TestClient) -> None:
 
 
 def test_ai_preselect_requires_confirmation(client: TestClient, card: dict[str, Any]) -> None:
+    client.patch("/api/settings", json={"queue_mode": "due"})
     proposed = response_dict(client.post("/api/study/answer", json=answer_payload(card["id"])))
     assert proposed["status"] == "pending"
     assert proposed["rating"] == 3

@@ -170,7 +170,7 @@ def create_mcp(
                     due=state.due,
                     is_new=state.last_review is None,
                 ).model_dump(mode="json")
-                for card, state in crud.get_due(session, current_user(session), deck_id)
+                for card, state in crud.get_due(session, current_user(session), deck_id, mode="due")
             ]
 
     @mcp.tool

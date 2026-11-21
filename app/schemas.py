@@ -155,6 +155,7 @@ class SettingsRead(BaseModel):
     auto_speak_questions: bool
     daily_new_limit: int
     daily_review_limit: int
+    queue_mode: Literal["priority", "due"]
 
 
 class SettingsUpdate(BaseModel):
@@ -172,6 +173,7 @@ class SettingsUpdate(BaseModel):
     auto_speak_questions: bool | None = None
     daily_new_limit: int | None = Field(default=None, ge=0)
     daily_review_limit: int | None = Field(default=None, ge=0)
+    queue_mode: Literal["priority", "due"] | None = None
 
 
 class TranscribeResponse(BaseModel):

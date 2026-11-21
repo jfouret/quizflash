@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 
@@ -12,6 +12,16 @@ class SM2Scheduler:
             "ease": 2.5,
             "initialized_at": now.isoformat(),
         }
+
+    def retrievability(
+        self, state: dict[str, Any], last_review: datetime | None, now: datetime
+    ) -> float:
+        if last_review is None:
+            return 0.0
+        elapsed = (now.astimezone(UTC) - last_review.replace(tzinfo=last_review.tzinfo or UTC)).days
+        interval = max(float(state.get("interval_days", 0)), 1.0)
+        # Same convention as FSRS: 90% recall when the card falls due.
+        return float(0.9 ** (max(elapsed, 0) / interval))
 
     def review(
         self,

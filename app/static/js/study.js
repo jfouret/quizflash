@@ -176,7 +176,7 @@
       return;
     }
     dueCount = data.count;
-    dueCountEl.textContent = dueCount + ' card' + (dueCount === 1 ? '' : 's') + ' due';
+    dueCountEl.textContent = dueCount + ' card' + (dueCount === 1 ? '' : 's') + ' ' + dueCountEl.dataset.label;
   }
 
   async function onFilterChange() {
@@ -1176,7 +1176,7 @@
     nextButton.disabled = false;
     nextButton.textContent = 'Next card';
     dueCount = Math.max(0, dueCount - 1);
-    dueCountEl.textContent = dueCount + ' card' + (dueCount === 1 ? '' : 's') + ' due';
+    dueCountEl.textContent = dueCount + ' card' + (dueCount === 1 ? '' : 's') + ' ' + dueCountEl.dataset.label;
     setStatus('Review saved.', false);
     setFlipped(true);
   }
@@ -1431,7 +1431,7 @@
       record.saved = saved;
       record.status = 'saved';
       dueCount = Math.max(0, dueCount - 1);
-      dueCountEl.textContent = dueCount + ' card' + (dueCount === 1 ? '' : 's') + ' due';
+      dueCountEl.textContent = dueCount + ' card' + (dueCount === 1 ? '' : 's') + ' ' + dueCountEl.dataset.label;
     } catch (error) {
       record.error = error.message;
       record.status = 'error';

@@ -68,3 +68,12 @@ def test_invalid_rating_is_rejected(rating: int) -> None:
 
     with pytest.raises(ValueError, match="rating must be between 1 and 4"):
         scheduler.review(state, rating, NOW, {})
+
+
+def test_retrievability_decays_from_the_last_review() -> None:
+    scheduler = SM2Scheduler()
+    now = datetime(2026, 1, 11, tzinfo=UTC)
+    state = {"interval_days": 10.0}
+    assert scheduler.retrievability(state, None, now) == 0.0
+    assert scheduler.retrievability(state, now, now) == 1.0
+    assert abs(scheduler.retrievability(state, now - timedelta(days=10), now) - 0.9) < 1e-9

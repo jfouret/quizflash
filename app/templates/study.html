@@ -4,7 +4,9 @@
 <div class="page-head">
   <h1>Study</h1>
   <div class="study-toolbar m-0">
-    <span id="due-count" class="due-pill">{{ due_count }} card{{ 's' if due_count != 1 }} due</span>
+    {% set queue_label = 'to study' if settings.queue_mode == 'priority' else 'due' %}
+    {% set shown = study_count if settings.queue_mode == 'priority' else due_count %}
+    <span id="due-count" class="due-pill" data-label="{{ queue_label }}">{{ shown }} card{{ 's' if shown != 1 }} {{ queue_label }}</span>
   </div>
 </div>
 <p id="status" role="status" aria-live="polite"></p>

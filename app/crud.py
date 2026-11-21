@@ -108,7 +108,7 @@ def deck_overview(session: Session, user: User) -> dict[int, tuple[int, int]]:
         .group_by(col(Card.deck_id))
     ).all()
     due: dict[int, int] = {}
-    for card, _ in get_due(session, user):
+    for card, _ in get_due(session, user, mode="due"):
         due[card.deck_id] = due.get(card.deck_id, 0) + 1
     return {deck_id: (int(total), due.get(deck_id, 0)) for deck_id, total in counts}
 
@@ -518,6 +518,7 @@ def update_settings(session: Session, user: User, data: SettingsUpdate) -> Setti
         "auto_speak_questions",
         "daily_new_limit",
         "daily_review_limit",
+        "queue_mode",
     )
     for field in fields:
         if field in values and values[field] is None:
@@ -584,18 +585,28 @@ def get_due(
     deck_id: int | list[int] | None = None,
     tags: list[str] | None = None,
     now: datetime | None = None,
+    mode: str | None = None,
+    exclude: list[int] | None = None,
 ) -> list[tuple[Card, CardState]]:
+    """Cards to study. `mode` "due" keeps only due cards, ordered by due date; "priority"
+    offers every card, never-answered first, then the lowest predicted recall. None follows
+    the user's `queue_mode` setting."""
     user_id = uid(user)
     _ensure_states(session, user_id)
     current = now or utc_now()
+    settings = get_settings(session, user)
+    priority = (mode or settings.queue_mode) == "priority"
     statement = (
         select(Card, CardState)
         .join(CardState, col(Card.id) == col(CardState.card_id))
         .where(CardState.user_id == user_id)
         .where(col(Card.deck_id).in_(trainable_deck_ids(user_id)))
-        .where(col(CardState.due) <= current)
         .order_by(col(CardState.due), col(Card.id))
     )
+    if not priority:
+        statement = statement.where(col(CardState.due) <= current)
+    if exclude:
+        statement = statement.where(col(Card.id).not_in(exclude))
     deck_ids = _deck_filter(deck_id)
     if deck_ids is not None:
         for one in deck_ids:
@@ -609,7 +620,15 @@ def get_due(
         )
         statement = statement.where(col(Card.id).in_(tagged))
     rows = list(session.exec(statement).all())
-    settings = get_settings(session, user)
+    if priority:
+        # shortcut: scores every card in Python, fine up to tens of thousands of cards.
+        def recall(row: tuple[Card, CardState]) -> float:
+            state = row[1]
+            return get_scheduler(state.scheduler).retrievability(
+                state.state, state.last_review, current
+            )
+
+        rows.sort(key=recall)  # stable: ties keep the due, id order
     new_used, review_used = _daily_usage(session, user_id, current)
     new_remaining = (
         None if settings.daily_new_limit == 0 else max(0, settings.daily_new_limit - new_used)

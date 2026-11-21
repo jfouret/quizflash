@@ -89,6 +89,16 @@
   </fieldset>
 
   <fieldset class="panel">
+    <legend>Study queue</legend>
+    <label for="queue-mode">Which cards can I study?</label>
+    <select id="queue-mode" name="queue_mode">
+      <option value="priority" {% if settings.queue_mode == 'priority' %}selected{% endif %}>Any time — never-answered first, then the most forgotten</option>
+      <option value="due" {% if settings.queue_mode == 'due' %}selected{% endif %}>Only cards that are due</option>
+    </select>
+    <small class="hint">Either way the scheduler tracks your memory; this only decides which cards are offered.</small>
+  </fieldset>
+
+  <fieldset class="panel">
     <legend>Daily limits</legend>
     <div class="grid-2">
       <div>

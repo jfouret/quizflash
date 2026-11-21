@@ -17,6 +17,14 @@ class FSRSScheduler:
     def init_state(self, now: datetime) -> dict[str, Any]:
         return dict(Card(due=_aware_utc(now)).to_dict())
 
+    def retrievability(
+        self, state: dict[str, Any], last_review: datetime | None, now: datetime
+    ) -> float:
+        if last_review is None:
+            return 0.0
+        card = Card.from_json(json.dumps(state))
+        return float(Scheduler().get_card_retrievability(card, _aware_utc(now)))
+
     def review(
         self,
         state: dict[str, Any],

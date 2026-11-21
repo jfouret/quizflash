@@ -86,10 +86,12 @@ def batch_cards(
     size: int = 5,
     deck_id: Annotated[list[int] | None, Query()] = None,
     tag: Annotated[list[str] | None, Query()] = None,
+    exclude: Annotated[list[int] | None, Query()] = None,
 ) -> list[DueCard]:
-    """Up to `size` due cards, for the batch study flow."""
+    """Up to `size` cards to study, for the batch flow; `exclude` skips cards whose answer
+    is still being saved."""
     size = max(1, min(size, 50))
-    due = crud.get_due(session, user, deck_id, tags=tag)[:size]
+    due = crud.get_due(session, user, deck_id, tags=tag, exclude=exclude)[:size]
     cache: dict[int, dict[str, Any]] = {}
     return [
         DueCard(
