@@ -156,6 +156,7 @@ ADMIN_ONLY = {
 PUBLIC = {
     ("GET", "/healthz"),
     ("GET", "/favicon.ico"),
+    ("GET", "/sw.js"),
     ("GET", "/login"),
     ("POST", "/login"),
     ("GET", "/signup"),

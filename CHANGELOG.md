@@ -4,6 +4,37 @@ All notable changes to QuizDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.14.0] - 2026-11-21
+
+### Added
+
+- **Priority queue, now the default.** Any card can be studied at any time: never-answered cards
+  first, then the ones with the lowest predicted recall (FSRS retrievability; an equivalent
+  estimate for SM-2). The scheduler still updates on every answer. The old behaviour is the
+  `Only cards that are due` option in Settings. Deck counts and the MCP due list stay strict-due.
+- Coverage: tests run with `pytest-cov`, and CI publishes a coverage badge (shields endpoint on
+  the `badges` branch, main pushes only).
+- Installable app (PWA): 192/512 px and maskable icons, a root-scoped service worker with an
+  offline page, iOS home-screen meta tags, safe-area padding and 44 px touch targets.
+- Stats: totals tiles, weakest cards, a tag chart sized to its rows, a 30-day activity chart, and
+  the per-card table collapsed.
+- History: answers grouped by day with local times, a one-line row per answer, an
+  incorrect-only filter, and the delete controls moved to the bottom.
+- Study: an **End session** button, a saved/not saved summary at the end of a batch, and
+  `exclude` on `/api/study/batch`.
+
+### Fixed
+
+- Enter on a focused button no longer triggers the global shortcut (it re-judged on Confirm).
+- The "Batch complete" panel no longer appears over the start menu on Enter.
+- A paused recording can be stopped; Submit while recording uses the recording.
+- A card the judge could not grade can no longer be skipped without saving.
+- Continue no longer serves cards whose answer is still being saved.
+- A question clip that arrives late no longer plays (or starts recording) on the next card.
+- Regenerate in the batch review updates the stored explanation and drops the stale clip.
+- "Type instead" holds for the session; Safari recordings upload as `audio/mp4`; non-JSON error
+  responses show their status instead of a parse error; a failed batch load returns to the menu.
+
 ## [0.13.2] - 2026-11-21
 
 ### Security

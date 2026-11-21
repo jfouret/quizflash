@@ -8,8 +8,45 @@
   "background_color": "#f6f7fb",
   "theme_color": "#4f46e5",
   "icons": [
-    { "src": "/static/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/static/favicon-32.png", "sizes": "32x32", "type": "image/png" },
-    { "src": "/static/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "id": "/",
+  "shortcuts": [
+    {
+      "name": "Study",
+      "url": "/study"
+    },
+    {
+      "name": "Stats",
+      "url": "/stats"
+    }
   ]
 }

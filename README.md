@@ -19,7 +19,7 @@ Self-hosted, multi-user spaced-repetition quiz application. Each user owns their
 - Admin console (`/admin`): user list, manual approval of new accounts, suspension, deletion, registration policy, defaults for new users, global teacher/voice switches, public-space switch, and unpublishing of public decks.
 - Per-user settings; per-user permanent MCP tokens managed from `/settings`.
 - Decks, cards, and first-class tags with full CRUD.
-- Continuous review queue (`due <= now`), ordered by due date, with optional daily new/review limits.
+- Study queue: by default every card is available any time, never-answered first, then lowest predicted recall (so poorly scored cards come back first); a setting restores the strict `due <= now` queue. Optional daily new/review limits.
 - Batch study mode (on by default, batch size 5): answer a batch of cards back to back, then review their explanations. Judging, speech-to-text, the teacher and speech are prefetched in the background, so the next card appears as soon as the answer is submitted. The batch loops back to the first card for review and waits for **Next** (or Enter). Sessions start on a **Start** button, so one or more decks and tags can be chosen first (the tag list and due count follow the selected decks); each card shows its tags. A finished batch offers **Continue** (a new batch, same decks and tags) or **Back to menu**.
 - Evaluation modes:
   - `ai_preselect`: the AI proposes a rating and feedback; the user confirms or overrides.
@@ -33,6 +33,7 @@ Self-hosted, multi-user spaced-repetition quiz application. Each user owns their
 - Edit cards from the deck page, including question, answer, details, teacher context, expected time and tags.
 - History (`/history`): every past answer with its rating, judge feedback, expected answer and the stored teacher explanation, filterable and clearable per deck or entirely. No audio is kept.
 - Statistics (`/stats`): mean rating (normalized out of 10) and correct rate per card and per tag, charted with a bundled Chart.js.
+- Installable as an app on a phone or desktop (PWA): add it to the home screen over HTTPS.
 - FastMCP server mounted at `/mcp` for external AI agents.
 - SQLite by default, swappable through `DATABASE_URL`.
 

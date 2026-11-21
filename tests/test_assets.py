@@ -173,3 +173,16 @@ def test_stats_config_is_valid_json(client: TestClient) -> None:
     activity = re.search(r'data-activity="([^"]*)"', page)
     assert activity and sum(json.loads(html.unescape(activity.group(1)))["values"]) == 1
     assert "&lt;tagged&gt;" in page  # the question in the table is escaped
+
+
+def test_app_is_installable(client: TestClient) -> None:
+    """Icons for install prompts, and a root-scoped service worker anyone can fetch."""
+    manifest = json.loads(client.get("/static/site.webmanifest").text)
+    sizes = {(icon["sizes"], icon.get("purpose", "any")) for icon in manifest["icons"]}
+    assert {("192x192", "any"), ("512x512", "any"), ("512x512", "maskable")} <= sizes
+    for icon in manifest["icons"]:
+        assert client.get(icon["src"]).status_code == 200
+    worker = client.get("/sw.js")
+    assert worker.status_code == 200
+    assert "javascript" in worker.headers["content-type"]
+    assert client.get("/static/offline.html").status_code == 200

@@ -70,6 +70,12 @@
     }
   });
 
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function () {
+      // Not installable over plain HTTP; the app works the same without it.
+    });
+  }
+
   // Filter selects (data-autosubmit) apply as soon as they change; delegated so it survives hx-boost.
   document.addEventListener('change', function (event) {
     var select = event.target.closest('select[data-autosubmit]');

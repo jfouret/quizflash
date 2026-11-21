@@ -2,12 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}QuizDeck{% endblock %}</title>
   <link rel="icon" href="/static/favicon.svg?v={{ asset_version }}" type="image/svg+xml">
   <link rel="icon" href="/static/favicon.ico?v={{ asset_version }}" sizes="any">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v={{ asset_version }}">
   <link rel="manifest" href="/static/site.webmanifest?v={{ asset_version }}">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="QuizDeck">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0c0e12" media="(prefers-color-scheme: dark)">
   <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>

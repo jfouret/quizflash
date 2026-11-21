@@ -54,6 +54,12 @@ def healthz() -> dict[str, str]:
     return {"status": "ok", "version": __version__}
 
 
+@router.get("/sw.js", include_in_schema=False)
+def service_worker() -> FileResponse:
+    """The service worker must live at the root path to control the whole app."""
+    return FileResponse(STATIC_DIR / "sw.js", media_type="text/javascript")
+
+
 @router.get("/favicon.ico", include_in_schema=False)
 def favicon() -> FileResponse:
     """Serve the icon at the root path browsers request by convention."""

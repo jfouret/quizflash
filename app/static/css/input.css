@@ -326,6 +326,10 @@
   .danger-zone > summary { cursor: pointer; color: var(--color-ink-muted); font-size: 0.9rem; }
   .all-cards > summary { cursor: pointer; }
   .all-cards > summary h2 { display: inline; font-size: 1.1rem; }
+  @media (pointer: coarse) {
+    button, [role="button"], select, input:not([type="checkbox"], [type="radio"]) { min-height: 2.75rem; }
+  }
+  .app-shell { padding-bottom: env(safe-area-inset-bottom); }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .qa dl { margin: 0.9rem 1rem; display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; }
   .qa dt { color: var(--color-ink-muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; padding-top: 0.1rem; }

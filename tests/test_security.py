@@ -38,6 +38,7 @@ PASSWORD = "correct horse battery staple"
 PUBLIC_ROUTES = {
     ("GET", "/healthz"),
     ("GET", "/favicon.ico"),
+    ("GET", "/sw.js"),
     ("GET", "/login"),
     ("POST", "/login"),
     ("GET", "/signup"),
