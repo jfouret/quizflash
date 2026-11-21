@@ -126,6 +126,28 @@ jobs:
       - name: Run tests, lint and type checks
         run: docker build --target test .
 
+      - name: Export the coverage report
+        run: docker build --target coverage --output type=local,dest=coverage-out .
+
+      - name: Publish the coverage badge
+        # Main pushes only. The badge is a shields.io endpoint file on an orphan `badges` branch.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pct="$(python3 -c "import json;print(round(json.load(open('coverage-out/coverage.json'))['totals']['percent_covered']))")"
+          if [ "$pct" -ge 90 ]; then color=brightgreen; elif [ "$pct" -ge 75 ]; then color=yellow; else color=red; fi
+          badge="{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${pct}%\",\"color\":\"${color}\"}"
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          work="$(mktemp -d)"
+          git -C "$work" init -q -b badges
+          printf '%s\n' "$badge" > "$work/coverage.json"
+          git -C "$work" add coverage.json
+          git -C "$work" -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "coverage: ${pct}%"
+          git -C "$work" push -f "$remote" badges
+
       - name: Build runtime image
         env:
           VERSION: ${{ steps.release.outputs.version }}

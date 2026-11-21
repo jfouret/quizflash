@@ -5,6 +5,7 @@
 [![CodeQL](https://github.com/jfouret/quizflash/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)](https://github.com/jfouret/quizflash/security)
 [![CodeFactor](https://www.codefactor.io/repository/github/jfouret/quizflash/badge)](https://www.codefactor.io/repository/github/jfouret/quizflash)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/jfouret/quizflash/badge)](https://scorecard.dev/viewer/?uri=github.com/jfouret/quizflash)
+[![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjfouret%2Fquizflash%2Fbadges%2Fcoverage.json)](https://github.com/jfouret/quizflash/actions/workflows/ci.yml?query=branch%3Amain)
 [![release](https://img.shields.io/github/v/release/jfouret/quizflash)](https://github.com/jfouret/quizflash/releases/latest)
 [![ghcr](https://img.shields.io/badge/ghcr.io-jfouret%2Fquizflash-blue?logo=docker&logoColor=white)](https://github.com/jfouret/quizflash/pkgs/container/quizflash)
 

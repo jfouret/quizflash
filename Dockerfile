@@ -40,7 +40,11 @@ RUN uv sync \
     && uv run ruff check . \
     && uv run ruff format --check . \
     && uv run mypy \
-    && uv run pytest -q
+    && uv run pytest -q --cov --cov-report=term --cov-report=json:/app/coverage.json
+
+# Only the coverage report, so CI can export it: docker build --target coverage --output ...
+FROM scratch AS coverage
+COPY --from=test /app/coverage.json /coverage.json
 
 FROM base AS runtime
 RUN uv sync --no-dev \
